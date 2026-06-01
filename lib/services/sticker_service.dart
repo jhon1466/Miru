@@ -149,39 +149,6 @@ class StickerService {
     return ref.getDownloadURL();
   }
 
-  static List<StickerPack> getBuiltInPacks() {
-    return [
-      StickerPack(
-        id: 'builtin_reactions',
-        name: 'Reacciones',
-        stickers: [
-          StickerItem(id: 'r1', filePath: 'https://media.tenor.com/t54QA2bVp0kAAAAC/anime-spy-x-family.gif', label: 'Anya Smug'),
-          StickerItem(id: 'r2', filePath: 'https://media.tenor.com/u9S4PdgqcCgAAAAd/chika-fujiwara-chika-dance.gif', label: 'Chika Dance'),
-          StickerItem(id: 'r3', filePath: 'https://media.tenor.com/5u5C6g5m38gAAAAC/one-punch-man-saitama.gif', label: 'Saitama OK'),
-          StickerItem(id: 'r4', filePath: 'https://media.tenor.com/eD93cr-4s70AAAAC/pokemon-pikachu.gif', label: 'Pikachu Shocked'),
-          StickerItem(id: 'r5', filePath: 'https://media.tenor.com/P3a579kF-10AAAAC/goku-shrug.gif', label: 'Goku Shrug'),
-          StickerItem(id: 'r6', filePath: 'https://media.tenor.com/kP1t37D4YV8AAAAC/kaguya-sama-love-is-war-shinomiya-kaguya.gif', label: 'Kaguya Love'),
-          StickerItem(id: 'r7', filePath: 'https://media.tenor.com/yG1T6z_8mKwAAAAC/naruto-run.gif', label: 'Naruto Run'),
-          StickerItem(id: 'r8', filePath: 'https://media.tenor.com/bC8w5Q8m2dAAAAAC/megumin-explosion.gif', label: 'Megumin Explosion'),
-        ],
-      ),
-      StickerPack(
-        id: 'builtin_memes',
-        name: 'Memes',
-        stickers: [
-          StickerItem(id: 'm1', filePath: 'https://media.tenor.com/aC-2sKzJjF0AAAAC/kono-dio-da-dio-brando.gif', label: 'Kono Dio Da'),
-          StickerItem(id: 'm2', filePath: 'https://media.tenor.com/h52mN0zS274AAAAC/luffy-one-piece.gif', label: 'Luffy Laugh'),
-          StickerItem(id: 'm3', filePath: 'https://media.tenor.com/r_z79Z3GZ0sAAAAC/anime-blush.gif', label: 'Blush'),
-          StickerItem(id: 'm4', filePath: 'https://media.tenor.com/y8e22i3G1d4AAAAC/umaru-umaru-chan.gif', label: 'Umaru Cry'),
-          StickerItem(id: 'm5', filePath: 'https://media.tenor.com/W2-jD96oMHYAAAAC/levi-ackerman-clean.gif', label: 'Levi Clean'),
-          StickerItem(id: 'm6', filePath: 'https://media.tenor.com/dI9g1J7gN5oAAAAC/zoro-lost.gif', label: 'Zoro Lost'),
-          StickerItem(id: 'm7', filePath: 'https://media.tenor.com/f2L4Bv4N5t0AAAAC/nezuko-demon-slayer.gif', label: 'Nezuko Run'),
-          StickerItem(id: 'm8', filePath: 'https://media.tenor.com/B942yq4hG8sAAAAC/deku-crying.gif', label: 'Deku Cry'),
-        ],
-      ),
-    ];
-  }
-
   static String userPackId(String uid) => 'user_$uid';
 }
 
