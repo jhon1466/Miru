@@ -249,37 +249,16 @@ class AnimeProvider extends ChangeNotifier {
     return raw.map((e) => e.toString()).where((s) => s.isNotEmpty).toList();
   }
 
+  /// Filtro local solo para búsqueda por título mientras el usuario escribe.
+  /// Año, género, tipo y estado los aplica el backend.
   List<AnimeSearchResult> _filterCatalogPage(List<AnimeSearchResult> items) {
-    return items.where((anime) {
-      if (_catalogQuery.isNotEmpty) {
-        final q = _catalogQuery.toLowerCase();
-        if (!anime.title.toLowerCase().contains(q) &&
-            !(anime.slug ?? '').toLowerCase().contains(q)) {
-          return false;
-        }
-      }
-      if (_catalogGenre.isNotEmpty) {
-        final g = _catalogGenre.toLowerCase();
-        final inGenres = anime.genres.any((x) => x.toLowerCase().contains(g));
-        final inTitle = anime.title.toLowerCase().contains(g);
-        if (!inGenres && !inTitle) return false;
-      }
-      if (_catalogYear.isNotEmpty && anime.year != null && anime.year != _catalogYear) {
-        return false;
-      }
-      if (_catalogYear.isNotEmpty && anime.year == null) {
-        return false;
-      }
-      if (_catalogType.isNotEmpty &&
-          !(anime.type ?? '').toLowerCase().contains(_catalogType.toLowerCase())) {
-        return false;
-      }
-      if (_catalogStatus.isNotEmpty &&
-          !(anime.status ?? '').toLowerCase().contains(_catalogStatus.toLowerCase())) {
-        return false;
-      }
-      return true;
-    }).toList();
+    if (_catalogQuery.isEmpty) return items;
+    final q = _catalogQuery.toLowerCase();
+    return items
+        .where((anime) =>
+            anime.title.toLowerCase().contains(q) ||
+            (anime.slug ?? '').toLowerCase().contains(q))
+        .toList();
   }
 
   Future<void> loadCatalog({bool refresh = true}) async {

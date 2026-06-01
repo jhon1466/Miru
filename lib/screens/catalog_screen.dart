@@ -269,8 +269,27 @@ class _CatalogScreenState extends State<CatalogScreen> {
 
   Widget _buildBody(AnimeProvider provider) {
     if (provider.isLoadingCatalog && provider.catalogResults.isEmpty) {
-      return const Center(
-        child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation(AppTheme.primaryColor)),
+      final slowFilter = provider.catalogYear.isNotEmpty ||
+          provider.catalogStatus.isNotEmpty ||
+          provider.catalogType.isNotEmpty;
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const CircularProgressIndicator(valueColor: AlwaysStoppedAnimation(AppTheme.primaryColor)),
+            if (slowFilter) ...[
+              const SizedBox(height: 16),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 32),
+                child: Text(
+                  'Aplicando filtros al catálogo…\nPuede tardar un momento la primera vez.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+                ),
+              ),
+            ],
+          ],
+        ),
       );
     }
 

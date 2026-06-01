@@ -16,6 +16,7 @@ class PlayerScreen extends StatefulWidget {
   final String animeTitle;
   final String animeUrl;
   final String animeImage;
+  final String? focusCommentId;
 
   const PlayerScreen({
     super.key,
@@ -23,7 +24,8 @@ class PlayerScreen extends StatefulWidget {
     required this.episodeNumber,
     required this.animeTitle,
     required this.animeUrl,
-    required this.animeImage,
+    this.animeImage = '',
+    this.focusCommentId,
   });
 
   @override
@@ -326,7 +328,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
                               orElse: () => widget.animeUrl.hashCode.toString(),
                             ),
                         animeTitle: widget.animeTitle,
+                        animeUrl: widget.animeUrl,
                         episodeNumber: widget.episodeNumber,
+                        focusCommentId: widget.focusCommentId,
                       ),
                     ],
                   ),
