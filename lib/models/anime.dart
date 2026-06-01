@@ -33,7 +33,8 @@ class AnimeSearchResult {
       url: json['url'] ?? '',
       image: pickAnimeImageUrl(json),
       backdrop: normalizeAnimeImageUrl(json['backdrop']?.toString()) ??
-          normalizeAnimeImageUrl(json['banner']?.toString()),
+          normalizeAnimeImageUrl(json['banner']?.toString()) ??
+          pickAnimeImageUrl(json),
       type: json['type']?.toString(),
       score: json['score'] != null ? double.tryParse(json['score'].toString()) : null,
       status: json['status']?.toString(),
@@ -163,7 +164,8 @@ class AnimeDetails {
       description: json['description'] ?? json['synopsis'],
       image: pickAnimeImageUrl(json),
       backdrop: normalizeAnimeImageUrl(json['backdrop']?.toString()) ??
-          normalizeAnimeImageUrl(json['banner']?.toString()),
+          normalizeAnimeImageUrl(json['banner']?.toString()) ??
+          pickAnimeImageUrl(json),
       status: json['status']?.toString(),
       type: json['type']?.toString(),
       year: json['year']?.toString(),

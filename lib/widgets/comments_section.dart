@@ -6,6 +6,7 @@ import '../models/comment.dart';
 import '../providers/auth_provider.dart' as app_auth;
 import '../services/comment_service.dart';
 import '../screens/user_profile_screen.dart';
+import '../utils/auth_ui.dart';
 import 'dart:math' as math;
 
 /// Widget reutilizable de comentarios. Funciona tanto para el anime general
@@ -455,16 +456,7 @@ class _CommentsSectionState extends State<CommentsSection> {
     return ElevatedButton(
       onPressed: () async {
         Navigator.pop(ctx);
-        final success = await authProvider.signInWithGoogle();
-        if (!mounted) return;
-        if (!success) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('No se pudo iniciar sesión con Google'),
-              backgroundColor: AppTheme.dangerColor,
-            ),
-          );
-        }
+        await signInWithGoogleAndWelcome(context, authProvider);
       },
       style: ElevatedButton.styleFrom(
         backgroundColor: Colors.white,
