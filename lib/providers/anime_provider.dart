@@ -56,7 +56,10 @@ class AnimeProvider extends ChangeNotifier {
   void selectProvider(String domain) {
     _selectedProviderDomain = domain;
     notifyListeners();
-    loadPopularAnime(); // Recargar populares al cambiar de proveedor
+    loadPopularAnime();
+    if (_catalogAll.isNotEmpty) {
+      loadCatalog();
+    }
   }
 
   // Buscar Anime
@@ -130,6 +133,150 @@ class AnimeProvider extends ChangeNotifier {
       _popularAnime = [];
     } finally {
       _isLoadingPopular = false;
+      notifyListeners();
+    }
+  }
+
+  // Catálogo
+  List<AnimeSearchResult> _catalogResults = [];
+  List<AnimeSearchResult> _catalogAll = [];
+  bool _isLoadingCatalog = false;
+  String? _catalogError;
+  String _catalogGenre = '';
+  String _catalogYear = '';
+  String _catalogType = '';
+  String _catalogStatus = '';
+  String _catalogQuery = '';
+  List<String> _facetGenres = [];
+  List<String> _facetYears = [];
+  List<String> _facetTypes = [];
+  List<String> _facetStatuses = [];
+
+  List<AnimeSearchResult> get catalogResults => _catalogResults;
+  bool get isLoadingCatalog => _isLoadingCatalog;
+  String? get catalogError => _catalogError;
+  String get catalogGenre => _catalogGenre;
+  String get catalogYear => _catalogYear;
+  String get catalogType => _catalogType;
+  String get catalogStatus => _catalogStatus;
+  String get catalogQuery => _catalogQuery;
+  List<String> get facetGenres => _facetGenres;
+  List<String> get facetYears => _facetYears;
+  List<String> get facetTypes => _facetTypes;
+  List<String> get facetStatuses => _facetStatuses;
+
+  void setCatalogGenre(String v) {
+    _catalogGenre = v;
+    _applyCatalogFiltersLocal();
+    notifyListeners();
+  }
+
+  void setCatalogYear(String v) {
+    _catalogYear = v;
+    _applyCatalogFiltersLocal();
+    notifyListeners();
+  }
+
+  void setCatalogType(String v) {
+    _catalogType = v;
+    _applyCatalogFiltersLocal();
+    notifyListeners();
+  }
+
+  void setCatalogStatus(String v) {
+    _catalogStatus = v;
+    _applyCatalogFiltersLocal();
+    notifyListeners();
+  }
+
+  void setCatalogQuery(String v) {
+    _catalogQuery = v;
+    _applyCatalogFiltersLocal();
+    notifyListeners();
+  }
+
+  void clearCatalogFilters() {
+    _catalogGenre = '';
+    _catalogYear = '';
+    _catalogType = '';
+    _catalogStatus = '';
+    _catalogQuery = '';
+    _applyCatalogFiltersLocal();
+    notifyListeners();
+  }
+
+  void _applyCatalogFiltersLocal() {
+    _catalogResults = _catalogAll.where((anime) {
+      if (_catalogQuery.isNotEmpty) {
+        final q = _catalogQuery.toLowerCase();
+        if (!anime.title.toLowerCase().contains(q) &&
+            !(anime.slug ?? '').toLowerCase().contains(q)) {
+          return false;
+        }
+      }
+      if (_catalogGenre.isNotEmpty) {
+        final g = _catalogGenre.toLowerCase();
+        final hasGenre = anime.genres.any((x) => x.toLowerCase().contains(g)) ||
+            anime.title.toLowerCase().contains(g);
+        if (!hasGenre) return false;
+      }
+      if (_catalogYear.isNotEmpty && anime.year != _catalogYear) return false;
+      if (_catalogType.isNotEmpty &&
+          !(anime.type ?? '').toLowerCase().contains(_catalogType.toLowerCase())) {
+        return false;
+      }
+      if (_catalogStatus.isNotEmpty &&
+          !(anime.status ?? '').toLowerCase().contains(_catalogStatus.toLowerCase())) {
+        return false;
+      }
+      return true;
+    }).toList();
+  }
+
+  void _parseFacets(Map<String, dynamic>? facets) {
+    if (facets == null) return;
+    _facetGenres = _stringListFrom(facets['genres']);
+    _facetYears = _stringListFrom(facets['years']);
+    _facetTypes = _stringListFrom(facets['types']);
+    _facetStatuses = _stringListFrom(facets['statuses']);
+  }
+
+  List<String> _stringListFrom(dynamic raw) {
+    if (raw is! List) return [];
+    return raw.map((e) => e.toString()).where((s) => s.isNotEmpty).toList();
+  }
+
+  Future<void> loadCatalog({bool refreshFromApi = true}) async {
+    if (refreshFromApi) {
+      _isLoadingCatalog = true;
+      _catalogError = null;
+      notifyListeners();
+
+      try {
+        final data = await ApiClient.browseCatalog(
+          domain: _selectedProviderDomain.isEmpty ? null : _selectedProviderDomain,
+          genre: _catalogGenre.isEmpty ? null : _catalogGenre,
+          year: _catalogYear.isEmpty ? null : _catalogYear,
+          type: _catalogType.isEmpty ? null : _catalogType,
+          status: _catalogStatus.isEmpty ? null : _catalogStatus,
+          query: _catalogQuery.isEmpty ? null : _catalogQuery,
+        );
+        final resultsList = data['results'] as List?;
+        _catalogAll = resultsList != null
+            ? resultsList.map((item) => AnimeSearchResult.fromJson(item)).toList()
+            : [];
+        _parseFacets(data['facets'] as Map<String, dynamic>?);
+        _applyCatalogFiltersLocal();
+      } catch (e) {
+        _catalogError = e.toString().replaceAll('Exception: ', '');
+        _catalogAll = [];
+        _catalogResults = [];
+      } finally {
+        _isLoadingCatalog = false;
+        notifyListeners();
+      }
+    } else {
+      _applyCatalogFiltersLocal();
       notifyListeners();
     }
   }

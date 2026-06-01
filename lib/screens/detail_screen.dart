@@ -8,6 +8,7 @@ import '../services/favorite_service.dart';
 import '../utils/image_utils.dart';
 import '../widgets/anime_poster_image.dart';
 import '../widgets/comments_section.dart';
+import '../models/anime.dart';
 import 'player_screen.dart';
 
 class DetailScreen extends StatefulWidget {
@@ -407,6 +408,7 @@ class _DetailScreenState extends State<DetailScreen> {
                           ),
                         ),
                         child: ListTile(
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                           onTap: () {
                             Navigator.push(
                               context,
@@ -421,20 +423,12 @@ class _DetailScreenState extends State<DetailScreen> {
                               ),
                             );
                           },
-                          leading: Container(
-                            width: 36,
-                            height: 36,
-                            decoration: BoxDecoration(
-                              color: isWatched 
-                                  ? AppTheme.primaryColor.withOpacity(0.1) 
-                                  : AppTheme.darkBackground,
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(
-                              isWatched ? Icons.check : Icons.play_arrow_rounded,
-                              color: isWatched ? AppTheme.primaryColor : Colors.white,
-                              size: 18,
-                            ),
+                          leading: _EpisodeThumbnail(
+                            episode: episode,
+                            animeId: details.id,
+                            animeUrl: widget.animeUrl,
+                            fallbackPosterUrl: posterImage.isNotEmpty ? posterImage : null,
+                            isWatched: isWatched,
                           ),
                           title: Text(
                             episode.title,
@@ -473,6 +467,73 @@ class _DetailScreenState extends State<DetailScreen> {
           child: SizedBox(height: 50),
         ),
       ],
+    );
+  }
+}
+
+class _EpisodeThumbnail extends StatelessWidget {
+  final Episode episode;
+  final String? animeId;
+  final String animeUrl;
+  final String? fallbackPosterUrl;
+  final bool isWatched;
+
+  const _EpisodeThumbnail({
+    required this.episode,
+    required this.animeId,
+    required this.animeUrl,
+    this.fallbackPosterUrl,
+    required this.isWatched,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final thumbUrls = collectEpisodeThumbnailCandidates(
+      apiImage: episode.image,
+      animeId: animeId,
+      episodeNumber: episode.number,
+      animeUrl: animeUrl,
+      fallbackPosterUrl: fallbackPosterUrl,
+    );
+
+    return SizedBox(
+      width: 112,
+      height: 63,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: thumbUrls.isEmpty
+                ? ColoredBox(
+                    color: AppTheme.darkBackground,
+                    child: Center(
+                      child: Icon(
+                        Icons.movie_outlined,
+                        color: AppTheme.textSecondary.withValues(alpha: 0.6),
+                      ),
+                    ),
+                  )
+                : AnimePosterImage(
+                    urlCandidates: thumbUrls,
+                    fit: BoxFit.cover,
+                  ),
+          ),
+          DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              color: Colors.black.withValues(alpha: 0.35),
+            ),
+          ),
+          Center(
+            child: Icon(
+              isWatched ? Icons.check_circle : Icons.play_circle_fill,
+              color: isWatched ? AppTheme.primaryColor : Colors.white,
+              size: 28,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
