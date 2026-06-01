@@ -95,15 +95,15 @@ class _NetworkImageWithFallbackState extends State<_NetworkImageWithFallback> {
     final loadingBox = Container(
       width: widget.width,
       height: widget.height,
-      color: AppTheme.cardColor,
+      color: context.cardColor,
     );
 
     final errorBox = Container(
       width: widget.width,
       height: widget.height,
-      color: AppTheme.cardColor,
-      child: const Center(
-        child: Icon(Icons.movie, color: AppTheme.textSecondary, size: 40),
+      color: context.cardColor,
+      child: Center(
+        child: Icon(Icons.movie, color: context.textSecondary, size: 40),
       ),
     );
 

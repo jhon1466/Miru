@@ -189,7 +189,7 @@ class _CommentsSectionState extends State<CommentsSection> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialog) => AlertDialog(
-          backgroundColor: AppTheme.cardColor,
+          backgroundColor: context.cardColor,
           title: const Text('Editar comentario', style: TextStyle(color: Colors.white)),
           content: SingleChildScrollView(
             child: Column(
@@ -198,10 +198,10 @@ class _CommentsSectionState extends State<CommentsSection> {
                 TextField(
                   controller: textCtrl,
                   maxLines: 4,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: const InputDecoration(
+                  style: TextStyle(color: context.textPrimary),
+                  decoration: InputDecoration(
                     hintText: 'Mensaje',
-                    hintStyle: TextStyle(color: AppTheme.textSecondary),
+                    hintStyle: TextStyle(color: context.textSecondary),
                   ),
                 ),
                 if (comment.imageUrl != null && !removeImage) ...[
@@ -212,7 +212,7 @@ class _CommentsSectionState extends State<CommentsSection> {
                   ),
                   TextButton(
                     onPressed: () => setDialog(() => removeImage = true),
-                    child: const Text('Quitar imagen', style: TextStyle(color: AppTheme.dangerColor)),
+                    child: Text('Quitar imagen', style: TextStyle(color: AppTheme.dangerColor)),
                   ),
                 ],
                 TextButton.icon(
@@ -220,8 +220,8 @@ class _CommentsSectionState extends State<CommentsSection> {
                     final picked = await CommentImageService.pickImage();
                     if (picked != null) setDialog(() => newImage = picked);
                   },
-                  icon: const Icon(Icons.image_outlined, color: AppTheme.primaryColor),
-                  label: const Text('Cambiar imagen', style: TextStyle(color: AppTheme.primaryColor)),
+                  icon: Icon(Icons.image_outlined, color: AppTheme.primaryColor),
+                  label: Text('Cambiar imagen', style: TextStyle(color: AppTheme.primaryColor)),
                 ),
               ],
             ),
@@ -263,14 +263,14 @@ class _CommentsSectionState extends State<CommentsSection> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppTheme.cardColor,
+        backgroundColor: context.cardColor,
         title: const Text('Eliminar', style: TextStyle(color: Colors.white)),
-        content: const Text('¿Eliminar este comentario?', style: TextStyle(color: AppTheme.textSecondary)),
+        content: Text('¿Eliminar este comentario?', style: TextStyle(color: context.textSecondary)),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('No')),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Sí', style: TextStyle(color: AppTheme.dangerColor)),
+            child: Text('Sí', style: TextStyle(color: AppTheme.dangerColor)),
           ),
         ],
       ),
@@ -305,13 +305,13 @@ class _CommentsSectionState extends State<CommentsSection> {
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
             child: Row(
               children: [
-                const Icon(Icons.chat_bubble_outline, color: AppTheme.primaryColor, size: 20),
+                Icon(Icons.chat_bubble_outline, color: AppTheme.primaryColor, size: 20),
                 const SizedBox(width: 8),
                 Text(label, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
               ],
             ),
           ),
-          const Divider(color: AppTheme.cardColor, height: 1),
+          Divider(color: context.cardColor, height: 1),
           const SizedBox(height: 12),
           StreamBuilder<List<Comment>>(
             stream: CommentService.getComments(widget.animeSlug, episodeNumber: widget.episodeNumber),
@@ -325,7 +325,7 @@ class _CommentsSectionState extends State<CommentsSection> {
               if (snapshot.hasError) {
                 return Padding(
                   padding: const EdgeInsets.all(20),
-                  child: Text('Error: ${snapshot.error}', style: const TextStyle(color: AppTheme.dangerColor)),
+                  child: Text('Error: ${snapshot.error}', style: TextStyle(color: AppTheme.dangerColor)),
                 );
               }
 
@@ -334,9 +334,9 @@ class _CommentsSectionState extends State<CommentsSection> {
               final roots = _roots(all);
 
               if (roots.isEmpty) {
-                return const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 32),
-                  child: Center(child: Text('Sé el primero en comentar', style: TextStyle(color: AppTheme.textSecondary))),
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 32),
+                  child: Center(child: Text('Sé el primero en comentar', style: TextStyle(color: context.textSecondary))),
                 );
               }
 
@@ -375,7 +375,7 @@ class _CommentsSectionState extends State<CommentsSection> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppTheme.cardColor,
+        color: context.cardColor,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.2)),
       ),
@@ -392,11 +392,11 @@ class _CommentsSectionState extends State<CommentsSection> {
                       Expanded(
                         child: Text(
                           'Respondiendo a ${_replyTarget!.userDisplayName}',
-                          style: const TextStyle(color: AppTheme.primaryColor, fontSize: 12),
+                          style: TextStyle(color: AppTheme.primaryColor, fontSize: 12),
                         ),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.close, size: 18, color: AppTheme.textSecondary),
+                        icon: Icon(Icons.close, size: 18, color: context.textSecondary),
                         onPressed: _cancelReply,
                       ),
                     ],
@@ -411,7 +411,7 @@ class _CommentsSectionState extends State<CommentsSection> {
             Align(
               alignment: Alignment.centerRight,
               child: IconButton(
-                icon: const Icon(Icons.close, color: AppTheme.dangerColor, size: 20),
+                icon: Icon(Icons.close, color: AppTheme.dangerColor, size: 20),
                 onPressed: () => setState(() => _pendingImage = null),
               ),
             ),
@@ -438,7 +438,7 @@ class _CommentsSectionState extends State<CommentsSection> {
             Align(
               alignment: Alignment.centerRight,
               child: IconButton(
-                icon: const Icon(Icons.close, color: AppTheme.dangerColor, size: 20),
+                icon: Icon(Icons.close, color: AppTheme.dangerColor, size: 20),
                 onPressed: () => setState(() => _pendingSticker = null),
               ),
             ),
@@ -446,7 +446,7 @@ class _CommentsSectionState extends State<CommentsSection> {
           TextField(
             controller: _commentController,
             focusNode: _inputFocus,
-            style: const TextStyle(color: Colors.white, fontSize: 14),
+            style: TextStyle(color: context.textPrimary, fontSize: 14),
             maxLines: 3,
             minLines: 1,
             maxLength: 500,
@@ -455,23 +455,23 @@ class _CommentsSectionState extends State<CommentsSection> {
             onSubmitted: (_) {
               if (!_isSending) _sendComment(auth);
             },
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               hintText: 'Escribe tu comentario...',
-              hintStyle: TextStyle(color: AppTheme.textSecondary),
+              hintStyle: TextStyle(color: context.textSecondary),
               border: InputBorder.none,
-              counterStyle: TextStyle(color: AppTheme.textSecondary, fontSize: 10),
+              counterStyle: TextStyle(color: context.textSecondary, fontSize: 10),
             ),
           ),
           Row(
             children: [
               IconButton(
                 onPressed: _isSending ? null : _pickSticker,
-                icon: const Icon(Icons.emoji_emotions_outlined, color: AppTheme.accentColor),
+                icon: Icon(Icons.emoji_emotions_outlined, color: AppTheme.accentColor),
                 tooltip: 'Sticker',
               ),
               IconButton(
                 onPressed: _isSending ? null : _pickImage,
-                icon: const Icon(Icons.image_outlined, color: AppTheme.primaryColor),
+                icon: Icon(Icons.image_outlined, color: AppTheme.primaryColor),
                 tooltip: 'Adjuntar imagen',
               ),
               const Spacer(),
@@ -527,7 +527,7 @@ class _CommentsSectionState extends State<CommentsSection> {
                 child: Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: AppTheme.cardColor,
+                    color: context.cardColor,
                     borderRadius: BorderRadius.circular(16),
                     border: isFocused ? Border.all(color: AppTheme.accentColor, width: 2) : null,
                   ),
@@ -539,7 +539,7 @@ class _CommentsSectionState extends State<CommentsSection> {
                           Expanded(
                             child: Text(
                               displayName,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 13,
                                 color: AppTheme.primaryColor,
@@ -548,10 +548,10 @@ class _CommentsSectionState extends State<CommentsSection> {
                           ),
                           Text(
                             _timeAgo(liveComment.createdAt),
-                            style: const TextStyle(fontSize: 10, color: AppTheme.textSecondary),
+                            style: TextStyle(fontSize: 10, color: context.textSecondary),
                           ),
                           if (liveComment.wasEdited)
-                            const Text(' · editado', style: TextStyle(fontSize: 10, color: AppTheme.textSecondary)),
+                            Text(' · editado', style: TextStyle(fontSize: 10, color: context.textSecondary)),
                         ],
                       ),
                       if (isReply && liveComment.replyToUserId != null)
@@ -564,7 +564,7 @@ class _CommentsSectionState extends State<CommentsSection> {
                               padding: const EdgeInsets.only(top: 2),
                               child: Text(
                                 '→ $replyName',
-                                style: const TextStyle(fontSize: 11, color: AppTheme.accentColor),
+                                style: TextStyle(fontSize: 11, color: AppTheme.accentColor),
                               ),
                             );
                           },
@@ -574,14 +574,14 @@ class _CommentsSectionState extends State<CommentsSection> {
                           padding: const EdgeInsets.only(top: 2),
                           child: Text(
                             '→ ${liveComment.replyToUserName}',
-                            style: const TextStyle(fontSize: 11, color: AppTheme.accentColor),
+                            style: TextStyle(fontSize: 11, color: AppTheme.accentColor),
                           ),
                         ),
                       if (liveComment.text.isNotEmpty) ...[
                         const SizedBox(height: 6),
                         Text(
                           liveComment.text,
-                          style: const TextStyle(fontSize: 14, color: AppTheme.textPrimary, height: 1.4),
+                          style: TextStyle(fontSize: 14, color: context.textPrimary, height: 1.4),
                         ),
                       ],
                       if (liveComment.hasSticker) ...[
@@ -638,7 +638,7 @@ class _CommentsSectionState extends State<CommentsSection> {
                             ),
                             TextButton(
                               onPressed: () => _deleteComment(liveComment, auth),
-                              child: const Text('Eliminar', style: TextStyle(fontSize: 12, color: AppTheme.dangerColor)),
+                              child: Text('Eliminar', style: TextStyle(fontSize: 12, color: AppTheme.dangerColor)),
                             ),
                           ],
                         ],
@@ -669,10 +669,10 @@ class _CommentsSectionState extends State<CommentsSection> {
   Widget _buildLoginPrompt(app_auth.AuthProvider auth) {
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: AppTheme.cardColor, borderRadius: BorderRadius.circular(16)),
+      decoration: BoxDecoration(color: context.cardColor, borderRadius: BorderRadius.circular(16)),
       child: Row(
         children: [
-          const Expanded(child: Text('Inicia sesión para comentar', style: TextStyle(color: AppTheme.textSecondary))),
+          Expanded(child: Text('Inicia sesión para comentar', style: TextStyle(color: context.textSecondary))),
           ElevatedButton(
             onPressed: () => signInWithGoogleAndWelcome(context, auth),
             child: const Text('Entrar'),

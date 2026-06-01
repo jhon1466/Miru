@@ -123,26 +123,26 @@ class _LoggedInBodyState extends State<_LoggedInBody> {
                         ),
                       ),
                       const SizedBox(width: 6),
-                      const Icon(Icons.edit_outlined, size: 16, color: AppTheme.textSecondary),
+                      Icon(Icons.edit_outlined, size: 16, color: context.textSecondary),
                     ],
                   ),
                 ),
               ),
               Text(
                 widget.authProvider.email ?? '',
-                style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+                style: TextStyle(fontSize: 13, color: context.textSecondary),
               ),
               const SizedBox(height: 8),
               Text(
                 'Toca tu nombre para editarlo · cámara para cambiar la foto',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 12, color: AppTheme.textSecondary.withValues(alpha: 0.8)),
+                style: TextStyle(fontSize: 12, color: context.textSecondary.withValues(alpha: 0.8)),
               ),
               const SizedBox(height: 28),
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: AppTheme.cardColor,
+                  color: context.cardColor,
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: SwitchListTile(
@@ -152,7 +152,7 @@ class _LoggedInBodyState extends State<_LoggedInBody> {
                     isPublic
                         ? 'Otros pueden ver tus favoritos desde comentarios'
                         : 'Tu perfil y favoritos están ocultos',
-                    style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                    style: TextStyle(fontSize: 12, color: context.textSecondary),
                   ),
                   value: isPublic,
                   activeThumbColor: AppTheme.primaryColor,
@@ -190,8 +190,8 @@ class _LoggedInBodyState extends State<_LoggedInBody> {
                       MaterialPageRoute(builder: (_) => const DownloadsScreen()),
                     );
                   },
-                  icon: const Icon(Icons.download_for_offline_outlined, color: AppTheme.accentColor),
-                  label: const Text('Mis descargas', style: TextStyle(color: AppTheme.accentColor)),
+                  icon: Icon(Icons.download_for_offline_outlined, color: AppTheme.accentColor),
+                  label: Text('Mis descargas', style: TextStyle(color: AppTheme.accentColor)),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     side: BorderSide(color: AppTheme.accentColor.withValues(alpha: 0.5)),
@@ -215,8 +215,8 @@ class _LoggedInBodyState extends State<_LoggedInBody> {
                       ),
                     );
                   },
-                  icon: const Icon(Icons.collections_bookmark_outlined, color: AppTheme.primaryColor),
-                  label: const Text('Ver mis favoritos', style: TextStyle(color: AppTheme.primaryColor)),
+                  icon: Icon(Icons.collections_bookmark_outlined, color: AppTheme.primaryColor),
+                  label: Text('Ver mis favoritos', style: TextStyle(color: AppTheme.primaryColor)),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     side: BorderSide(color: AppTheme.primaryColor.withValues(alpha: 0.5)),
@@ -235,11 +235,11 @@ class _LoggedInBodyState extends State<_LoggedInBody> {
                       const SnackBar(content: Text('Sesión cerrada'), backgroundColor: AppTheme.successColor),
                     );
                   },
-                  icon: const Icon(Icons.logout, color: AppTheme.dangerColor),
-                  label: const Text('Cerrar sesión', style: TextStyle(color: AppTheme.dangerColor)),
+                  icon: Icon(Icons.logout, color: AppTheme.dangerColor),
+                  label: Text('Cerrar sesión', style: TextStyle(color: AppTheme.dangerColor)),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    side: const BorderSide(color: AppTheme.dangerColor),
+                    side: BorderSide(color: AppTheme.dangerColor),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                 ),
@@ -256,16 +256,16 @@ class _LoggedInBodyState extends State<_LoggedInBody> {
     final saved = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppTheme.cardColor,
+        backgroundColor: context.cardColor,
         title: const Text('Editar nombre', style: TextStyle(color: Colors.white)),
         content: TextField(
           controller: controller,
           autofocus: true,
           maxLength: 40,
-          style: const TextStyle(color: Colors.white),
-          decoration: const InputDecoration(
+          style: TextStyle(color: context.textPrimary),
+          decoration: InputDecoration(
             hintText: 'Tu nombre en comentarios',
-            hintStyle: TextStyle(color: AppTheme.textSecondary),
+            hintStyle: TextStyle(color: context.textSecondary),
           ),
         ),
         actions: [
@@ -326,17 +326,17 @@ class _LoggedOutBody extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.person_outline, size: 72, color: AppTheme.textSecondary),
+            Icon(Icons.person_outline, size: 72, color: context.textSecondary),
             const SizedBox(height: 20),
             const Text(
               'Inicia sesión',
               style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'Sincroniza favoritos, comenta y personaliza tu perfil.',
               textAlign: TextAlign.center,
-              style: TextStyle(color: AppTheme.textSecondary),
+              style: TextStyle(color: context.textSecondary),
             ),
             const SizedBox(height: 28),
             SizedBox(
@@ -348,8 +348,8 @@ class _LoggedOutBody extends StatelessWidget {
                     MaterialPageRoute(builder: (_) => const DownloadsScreen()),
                   );
                 },
-                icon: const Icon(Icons.download_for_offline_outlined, color: AppTheme.accentColor),
-                label: const Text('Mis descargas', style: TextStyle(color: AppTheme.accentColor)),
+                icon: Icon(Icons.download_for_offline_outlined, color: AppTheme.accentColor),
+                label: Text('Mis descargas', style: TextStyle(color: AppTheme.accentColor)),
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   side: BorderSide(color: AppTheme.accentColor.withValues(alpha: 0.5)),

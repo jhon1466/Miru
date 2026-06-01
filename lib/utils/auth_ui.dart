@@ -8,7 +8,7 @@ Future<void> showWelcomeDialog(BuildContext context, String name) async {
     context: context,
     barrierDismissible: true,
     builder: (ctx) => AlertDialog(
-      backgroundColor: AppTheme.cardColor,
+      backgroundColor: context.cardColor,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       title: Row(
         children: [
@@ -31,12 +31,12 @@ Future<void> showWelcomeDialog(BuildContext context, String name) async {
       ),
       content: Text(
         'Hola, $name.\n\nTu historial y favoritos se sincronizan con tu cuenta.',
-        style: const TextStyle(color: AppTheme.textSecondary, height: 1.4),
+        style: TextStyle(color: context.textSecondary, height: 1.4),
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(ctx).pop(),
-          child: const Text('Empezar', style: TextStyle(color: AppTheme.primaryColor)),
+          child: Text('Empezar', style: TextStyle(color: AppTheme.primaryColor)),
         ),
       ],
     ),
