@@ -97,10 +97,14 @@ class _CommentsSectionState extends State<CommentsSection> {
         );
       }
       if (_pendingSticker != null) {
-        stickerUrl = await StickerService.uploadForComment(
-          animeSlug: widget.animeSlug,
-          file: File(_pendingSticker!.filePath),
-        );
+        if (_pendingSticker!.filePath.startsWith('http')) {
+          stickerUrl = _pendingSticker!.filePath;
+        } else {
+          stickerUrl = await StickerService.uploadForComment(
+            animeSlug: widget.animeSlug,
+            file: File(_pendingSticker!.filePath),
+          );
+        }
       }
 
       final parent = _replyRoot;
@@ -416,7 +420,20 @@ class _CommentsSectionState extends State<CommentsSection> {
             SizedBox(
               height: 96,
               width: 96,
-              child: Image.file(File(_pendingSticker!.filePath), fit: BoxFit.contain),
+              child: _pendingSticker!.filePath.startsWith('http')
+                  ? CachedNetworkImage(
+                      imageUrl: _pendingSticker!.filePath,
+                      fit: BoxFit.contain,
+                      placeholder: (_, __) => const SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                      ),
+                    )
+                  : Image.file(
+                      File(_pendingSticker!.filePath),
+                      fit: BoxFit.contain,
+                    ),
             ),
             Align(
               alignment: Alignment.centerRight,
