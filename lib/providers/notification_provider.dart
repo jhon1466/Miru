@@ -2,9 +2,9 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../services/notification_service.dart';
 
-/// Contador y estado de notificaciones en toda la app (sin reiniciar).
+/// Contador de notificaciones sin escuchar Firestore en tiempo real (menos lecturas).
 class NotificationProvider extends ChangeNotifier {
-  StreamSubscription<int>? _unreadSub;
+  Timer? _pollTimer;
   String? _userId;
   int _unreadCount = 0;
 
@@ -12,8 +12,8 @@ class NotificationProvider extends ChangeNotifier {
 
   void bindUser(String? userId) {
     if (_userId == userId) return;
-    _unreadSub?.cancel();
-    _unreadSub = null;
+    _pollTimer?.cancel();
+    _pollTimer = null;
     _userId = userId;
     _unreadCount = 0;
 
@@ -22,29 +22,33 @@ class NotificationProvider extends ChangeNotifier {
       return;
     }
 
-    _unreadSub = NotificationService.watchUnreadCount(userId).listen(
-      (count) {
-        _unreadCount = count;
-        notifyListeners();
-      },
-      onError: (e) => debugPrint('NotificationProvider stream: $e'),
-    );
+    refreshUnread();
+    _pollTimer = Timer.periodic(const Duration(seconds: 25), (_) => refreshUnread());
   }
 
-  /// Llamar al recibir push en primer plano (Firestore puede tardar un instante).
+  /// Tras recibir FCM o abrir la bandeja.
   void refreshUnread() {
-    if (_userId == null) return;
-    NotificationService.countUnread(_userId!).then((count) {
+    final uid = _userId;
+    if (uid == null || uid.isEmpty) return;
+    NotificationService.countUnread(uid).then((count) {
       if (_unreadCount != count) {
         _unreadCount = count;
         notifyListeners();
       }
+    }).catchError((e) {
+      debugPrint('NotificationProvider refresh: $e');
     });
+  }
+
+  void bumpUnread() {
+    _unreadCount += 1;
+    notifyListeners();
+    refreshUnread();
   }
 
   @override
   void dispose() {
-    _unreadSub?.cancel();
+    _pollTimer?.cancel();
     super.dispose();
   }
 }

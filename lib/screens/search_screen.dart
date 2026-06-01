@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../core/theme.dart';
 import '../providers/anime_provider.dart';
 import '../widgets/anime_poster_image.dart';
+import '../widgets/provider_chips_row.dart';
 import 'detail_screen.dart';
 
 class SearchScreen extends StatefulWidget {
@@ -114,6 +115,10 @@ class _SearchScreenState extends State<SearchScreen> {
         child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          ProviderChipsRow(
+            provider: animeProvider,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+          ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
             color: AppTheme.cardColor.withOpacity(0.5),

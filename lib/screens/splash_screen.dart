@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import '../core/api_client.dart';
 import '../core/theme.dart';
 import '../providers/history_provider.dart';
+import '../providers/settings_provider.dart';
+import '../providers/anime_provider.dart';
 import 'main_shell_screen.dart';
 import 'settings_screen.dart';
 
@@ -40,8 +42,11 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   }
 
   Future<void> _checkBackendConnection() async {
-    // Inicializar historial primero
     await Provider.of<HistoryProvider>(context, listen: false).init();
+    final settings = Provider.of<SettingsProvider>(context, listen: false);
+    await settings.load();
+    if (!mounted) return;
+    context.read<AnimeProvider>().setAdultContentEnabled(settings.adultContentEnabled);
     
     if (!mounted) return;
     setState(() {

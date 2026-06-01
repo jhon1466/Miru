@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../models/anime.dart';
 import '../core/api_client.dart';
+import '../services/api_cache_service.dart';
+import '../utils/adult_content.dart';
 
 class AnimeProvider extends ChangeNotifier {
   // Búsqueda
@@ -50,44 +52,92 @@ class AnimeProvider extends ChangeNotifier {
 
   // Proveedores
   String _selectedProviderDomain = ''; // '' = Todos
-  final List<Map<String, String>> _providers = [
+  bool _adultContentEnabled = false;
+  final List<Map<String, String>> _allProviders = [
     {'name': 'Todos', 'domain': ''},
     {'name': 'AnimeAV1', 'domain': 'animeav1.com'},
     {'name': 'AnimeFLV', 'domain': 'animeflv.net'},
     {'name': 'TioAnime', 'domain': 'tioanime.com'},
     {'name': 'MonosChinos', 'domain': 'monoschinos2.com'},
-    {'name': 'HentaiLA', 'domain': 'hentaila.com'},
+    {'name': 'HentaiLA', 'domain': AdultContent.hentaiDomain},
   ];
 
+  bool get adultContentEnabled => _adultContentEnabled;
   String get selectedProviderDomain => _selectedProviderDomain;
-  List<Map<String, String>> get providers => _providers;
+  List<Map<String, String>> get providers =>
+      AdultContent.filterProviders(_allProviders, adultEnabled: _adultContentEnabled);
+
+  String? get _effectiveApiDomain {
+    final d = _selectedProviderDomain;
+    if (d.isEmpty) return null;
+    if (!_adultContentEnabled && AdultContent.isAdultDomain(d)) return null;
+    return d;
+  }
+
+  String _domainCacheKey() => _effectiveApiDomain ?? '';
+
+  List<AnimeSearchResult> _filterAdultList(List<AnimeSearchResult> items) =>
+      AdultContent.filterAnimeList(items, adultEnabled: _adultContentEnabled);
+
+  void setAdultContentEnabled(bool enabled) {
+    if (_adultContentEnabled == enabled) return;
+    _adultContentEnabled = enabled;
+    if (!_adultContentEnabled && AdultContent.isAdultDomain(_selectedProviderDomain)) {
+      _selectedProviderDomain = '';
+    }
+    notifyListeners();
+    loadPopularAnime(forceNetwork: true);
+    loadLatestPublishedEpisodes(forceNetwork: true);
+    loadCatalog(forceNetwork: true);
+  }
 
   void selectProvider(String domain) {
+    if (!_adultContentEnabled && AdultContent.isAdultDomain(domain)) return;
     _selectedProviderDomain = domain;
     notifyListeners();
     loadPopularAnime();
     loadLatestPublishedEpisodes();
-    if (_catalogAll.isNotEmpty) {
+    if (_catalogAll.isNotEmpty || _isLoadingCatalog) {
       loadCatalog();
     }
   }
 
   // Buscar Anime
-  Future<void> search(String query) async {
+  Future<void> search(String query, {bool forceNetwork = false}) async {
     if (query.trim().isEmpty) return;
 
-    _isSearching = true;
+    final trimmed = query.trim();
+    final cacheKey = 'search|${_domainCacheKey()}|${trimmed.toLowerCase()}';
+
+    if (!forceNetwork) {
+      final cached = await ApiCacheService.getJsonList(
+        cacheKey,
+        AnimeSearchResult.fromJson,
+      );
+      if (cached != null) {
+        _searchResults = _filterAdultList(cached);
+        _searchError = null;
+        _isSearching = false;
+        notifyListeners();
+        if (!await ApiCacheService.isStale(cacheKey)) return;
+      }
+    }
+
+    _isSearching = _searchResults.isEmpty;
     _searchError = null;
     notifyListeners();
 
     try {
-      _searchResults = await ApiClient.searchAnime(
-        query,
-        domain: _selectedProviderDomain.isEmpty ? null : _selectedProviderDomain,
+      final fresh = await ApiClient.searchAnime(trimmed, domain: _effectiveApiDomain);
+      _searchResults = _filterAdultList(fresh);
+      await ApiCacheService.setJsonList(
+        cacheKey,
+        fresh.map((e) => e.toJson()).toList(),
+        ApiCacheService.searchTtl,
       );
     } catch (e) {
       _searchError = e.toString().replaceAll('Exception: ', '');
-      _searchResults = [];
+      if (_searchResults.isEmpty) _searchResults = [];
     } finally {
       _isSearching = false;
       notifyListeners();
@@ -129,36 +179,77 @@ class AnimeProvider extends ChangeNotifier {
   }
 
   // Cargar Animes Populares
-  Future<void> loadPopularAnime() async {
-    _isLoadingPopular = true;
-    _popularError = null;
-    notifyListeners();
+  Future<void> loadPopularAnime({bool forceNetwork = false}) async {
+    final cacheKey = 'popular|${_domainCacheKey()}';
+
+    if (!forceNetwork) {
+      final cached = await ApiCacheService.getJsonList(cacheKey, AnimeSearchResult.fromJson);
+      if (cached != null && cached.isNotEmpty) {
+        _popularAnime = _filterAdultList(cached);
+        _popularError = null;
+        _isLoadingPopular = false;
+        notifyListeners();
+        if (!await ApiCacheService.isStale(cacheKey)) return;
+      }
+    }
+
+    if (_popularAnime.isEmpty || forceNetwork) {
+      _isLoadingPopular = true;
+      _popularError = null;
+      notifyListeners();
+    }
 
     try {
-      _popularAnime = await ApiClient.getPopularAnime(
-        domain: _selectedProviderDomain.isEmpty ? null : _selectedProviderDomain,
+      final fresh = await ApiClient.getPopularAnime(domain: _effectiveApiDomain);
+      _popularAnime = _filterAdultList(fresh);
+      await ApiCacheService.setJsonList(
+        cacheKey,
+        fresh.map((e) => e.toJson()).toList(),
+        ApiCacheService.popularTtl,
       );
     } catch (e) {
       _popularError = e.toString().replaceAll('Exception: ', '');
-      _popularAnime = [];
+      if (_popularAnime.isEmpty) _popularAnime = [];
     } finally {
       _isLoadingPopular = false;
       notifyListeners();
     }
   }
 
-  Future<void> loadLatestPublishedEpisodes() async {
-    _isLoadingLatestEpisodes = true;
-    _latestEpisodesError = null;
-    notifyListeners();
+  Future<void> loadLatestPublishedEpisodes({bool forceNetwork = false}) async {
+    final cacheKey = 'latest|${_domainCacheKey()}';
+
+    if (!forceNetwork) {
+      final cached = await ApiCacheService.getJsonList(
+        cacheKey,
+        LatestPublishedEpisode.fromJson,
+      );
+      if (cached != null && cached.isNotEmpty) {
+        _latestPublishedEpisodes = cached;
+        _latestEpisodesError = null;
+        _isLoadingLatestEpisodes = false;
+        notifyListeners();
+        if (!await ApiCacheService.isStale(cacheKey)) return;
+      }
+    }
+
+    if (_latestPublishedEpisodes.isEmpty || forceNetwork) {
+      _isLoadingLatestEpisodes = true;
+      _latestEpisodesError = null;
+      notifyListeners();
+    }
 
     try {
-      _latestPublishedEpisodes = await ApiClient.getLatestPublishedEpisodes(
-        domain: _selectedProviderDomain.isEmpty ? null : _selectedProviderDomain,
+      final fresh = await ApiClient.getLatestPublishedEpisodes(domain: _effectiveApiDomain);
+      _latestPublishedEpisodes = fresh;
+      await ApiCacheService.setJsonList(
+        cacheKey,
+        fresh.map((e) => e.toJson()).toList(),
+        ApiCacheService.latestTtl,
       );
     } catch (e) {
       _latestEpisodesError = e.toString().replaceAll('Exception: ', '');
-      _latestPublishedEpisodes = [];
+      if (_latestPublishedEpisodes.isEmpty) _latestPublishedEpisodes = [];
     } finally {
       _isLoadingLatestEpisodes = false;
       notifyListeners();
@@ -261,7 +352,45 @@ class AnimeProvider extends ChangeNotifier {
         .toList();
   }
 
-  Future<void> loadCatalog({bool refresh = true}) async {
+  String _catalogCacheKey(int page) {
+    return 'catalog|${_domainCacheKey()}|$page|$_catalogGenre|$_catalogYear|'
+        '$_catalogType|$_catalogStatus|$_catalogQuery';
+  }
+
+  void _applyCatalogResponse(Map<String, dynamic> data, {required bool isRefresh}) {
+    final resultsList = data['results'] as List?;
+    var pageItems = resultsList != null
+        ? resultsList
+            .map((item) => AnimeSearchResult.fromJson(item as Map<String, dynamic>))
+            .toList()
+        : <AnimeSearchResult>[];
+    pageItems = _filterAdultList(_filterCatalogPage(pageItems));
+
+    if (isRefresh) {
+      _catalogAll = pageItems;
+    } else {
+      final seen = _catalogAll.map((e) => e.url).toSet();
+      _catalogAll.addAll(pageItems.where((e) => !seen.contains(e.url)));
+    }
+
+    _catalogResults = List.from(_catalogAll);
+    _parseFacets(data['facets'] as Map<String, dynamic>?);
+    _catalogTotalRecords = data['totalRecords'] is int
+        ? data['totalRecords'] as int
+        : int.tryParse(data['totalRecords']?.toString() ?? '');
+    _catalogTotalPages = data['totalPages'] is int
+        ? data['totalPages'] as int
+        : int.tryParse(data['totalPages']?.toString() ?? '');
+    _catalogHasMore = data['hasMore'] == true;
+
+    if (pageItems.isNotEmpty) {
+      _catalogPage += 1;
+    } else {
+      _catalogHasMore = false;
+    }
+  }
+
+  Future<void> loadCatalog({bool refresh = true, bool forceNetwork = false}) async {
     if (refresh) {
       if (_isLoadingCatalog) return;
       _catalogPage = 1;
@@ -277,46 +406,39 @@ class AnimeProvider extends ChangeNotifier {
       notifyListeners();
     }
 
+    final pageForRequest = _catalogPage;
+    final cacheKey = _catalogCacheKey(pageForRequest);
+    Map<String, dynamic>? data;
+
+    if (!forceNetwork && refresh) {
+      final cached = await ApiCacheService.getJson(cacheKey, (m) => m);
+      if (cached != null) {
+        _applyCatalogResponse(cached, isRefresh: true);
+        _isLoadingCatalog = false;
+        notifyListeners();
+        if (!await ApiCacheService.isStale(cacheKey)) return;
+        _catalogPage = 1;
+        _isLoadingCatalog = true;
+        notifyListeners();
+      }
+    }
+
     try {
-      final data = await ApiClient.browseCatalog(
-        domain: _selectedProviderDomain.isEmpty ? null : _selectedProviderDomain,
+      data = await ApiClient.browseCatalog(
+        domain: _effectiveApiDomain,
         genre: _catalogQuery.isEmpty && _catalogGenre.isNotEmpty ? _catalogGenre : null,
         year: _catalogYear.isEmpty ? null : _catalogYear,
         type: _catalogType.isEmpty ? null : _catalogType,
         status: _catalogStatus.isEmpty ? null : _catalogStatus,
         query: _catalogQuery.isNotEmpty ? _catalogQuery : null,
-        page: _catalogPage,
+        page: pageForRequest,
       );
 
-      final resultsList = data['results'] as List?;
-      var pageItems = resultsList != null
-          ? resultsList.map((item) => AnimeSearchResult.fromJson(item)).toList()
-          : <AnimeSearchResult>[];
-      pageItems = _filterCatalogPage(pageItems);
-
       if (refresh) {
-        _catalogAll = pageItems;
-      } else {
-        final seen = _catalogAll.map((e) => e.url).toSet();
-        _catalogAll.addAll(pageItems.where((e) => !seen.contains(e.url)));
+        await ApiCacheService.setJson(cacheKey, Map<String, dynamic>.from(data), ApiCacheService.catalogTtl);
       }
 
-      _catalogResults = List.from(_catalogAll);
-      _parseFacets(data['facets'] as Map<String, dynamic>?);
-
-      _catalogTotalRecords = data['totalRecords'] is int
-          ? data['totalRecords'] as int
-          : int.tryParse(data['totalRecords']?.toString() ?? '');
-      _catalogTotalPages = data['totalPages'] is int
-          ? data['totalPages'] as int
-          : int.tryParse(data['totalPages']?.toString() ?? '');
-      _catalogHasMore = data['hasMore'] == true;
-
-      if (pageItems.isNotEmpty) {
-        _catalogPage += 1;
-      } else {
-        _catalogHasMore = false;
-      }
+      _applyCatalogResponse(data, isRefresh: refresh);
     } catch (e) {
       if (refresh) {
         _catalogError = e.toString().replaceAll('Exception: ', '');

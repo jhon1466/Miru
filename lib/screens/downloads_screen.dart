@@ -63,7 +63,7 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
                   Padding(
                     padding: EdgeInsets.symmetric(horizontal: 32),
                     child: Text(
-                      'Descarga episodios desde el reproductor o la lista de capítulos para verlos sin internet, como en Netflix.',
+                      'Descarga episodios desde el reproductor o la lista de capítulos para verlos sin internet.',
                       textAlign: TextAlign.center,
                       style: TextStyle(color: AppTheme.textSecondary, height: 1.4),
                     ),

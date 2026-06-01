@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../core/theme.dart';
 import '../providers/anime_provider.dart';
 import '../widgets/anime_poster_image.dart';
+import '../widgets/provider_chips_row.dart';
 import 'detail_screen.dart';
 
 class CatalogScreen extends StatefulWidget {
@@ -79,7 +80,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: 'Recargar catálogo',
-            onPressed: () => provider.loadCatalog(),
+            onPressed: () => provider.loadCatalog(forceNetwork: true),
           ),
         ],
       ),
@@ -103,6 +104,11 @@ class _CatalogScreenState extends State<CatalogScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          ProviderChipsRow(
+            provider: provider,
+            padding: EdgeInsets.zero,
+          ),
+          const SizedBox(height: 8),
           TextField(
             controller: _searchController,
             onChanged: (v) {

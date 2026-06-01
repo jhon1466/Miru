@@ -3,7 +3,11 @@ import 'package:provider/provider.dart';
 import '../core/theme.dart';
 import '../providers/auth_provider.dart' as app_auth;
 import '../providers/history_provider.dart';
+import '../providers/settings_provider.dart';
+import '../providers/anime_provider.dart';
+import '../services/api_cache_service.dart';
 import '../services/user_service.dart';
+import 'package:flutter/painting.dart';
 import '../utils/auth_ui.dart';
 import 'user_profile_screen.dart';
 
@@ -18,6 +22,14 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _notificationsEnabled = true;
   bool _autoplayNextEpisode = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<SettingsProvider>().load();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -72,6 +84,42 @@ class _SettingsScreenState extends State<SettingsScreen> {
               activeColor: AppTheme.primaryColor,
               onChanged: (v) => setState(() => _autoplayNextEpisode = v),
             ),
+            Consumer<SettingsProvider>(
+              builder: (context, settings, _) {
+                return SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Contenido +18'),
+                  subtitle: Text(
+                    settings.adultContentEnabled
+                        ? 'HentaiLA visible en catálogo y buscador'
+                        : 'Catálogo familiar sin contenido para adultos',
+                    style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                  ),
+                  value: settings.adultContentEnabled,
+                  activeThumbColor: AppTheme.primaryColor,
+                  onChanged: (value) async {
+                    if (value) {
+                      final ok = await _confirmAdultContent(context);
+                      if (!ok || !context.mounted) return;
+                    }
+                    await settings.setAdultContentEnabled(value);
+                    if (!context.mounted) return;
+                    context.read<AnimeProvider>().setAdultContentEnabled(value);
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          value
+                              ? 'Contenido +18 activado'
+                              : 'Contenido +18 desactivado',
+                        ),
+                        backgroundColor: AppTheme.successColor,
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
             const SizedBox(height: 32),
             const Text(
               'Datos de Aplicación',
@@ -107,14 +155,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             ListTile(
               contentPadding: EdgeInsets.zero,
-              title: const Text('Limpiar Caché de la App'),
-              subtitle: const Text('Libera espacio borrando posters guardados en memoria'),
+              title: const Text('Limpiar caché de la app'),
+              subtitle: const Text('Borra datos de catálogo guardados y miniaturas en disco'),
               leading: const Icon(Icons.cleaning_services, color: AppTheme.accentColor),
               trailing: IconButton(
                 icon: const Icon(Icons.cached, color: AppTheme.accentColor),
-                onPressed: () {
+                onPressed: () async {
+                  await ApiCacheService.clearAll();
+                  imageCache.clear();
+                  imageCache.clearLiveImages();
+                  if (!mounted) return;
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Caché de imágenes vaciada'), backgroundColor: AppTheme.successColor),
+                    const SnackBar(
+                      content: Text('Caché de API e imágenes vaciada'),
+                      backgroundColor: AppTheme.successColor,
+                    ),
                   );
                 },
               ),
@@ -133,7 +188,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               contentPadding: EdgeInsets.zero,
               leading: Icon(Icons.info_outline, color: AppTheme.primaryColor),
               title: Text('Versión de la app'),
-              subtitle: Text('1.3.1'),
+              subtitle: Text('1.4.0'),
             ),
             const ListTile(
               contentPadding: EdgeInsets.zero,
@@ -153,6 +208,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
       displayName: authProvider.displayName ?? 'Usuario',
       photoUrl: authProvider.photoUrl,
     );
+  }
+
+  Future<bool> _confirmAdultContent(BuildContext context) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.cardColor,
+        title: const Text('Contenido para adultos', style: TextStyle(color: Colors.white)),
+        content: const Text(
+          'Confirmas que tienes 18 años o más. Se mostrará el proveedor HentaiLA en catálogo y buscador.',
+          style: TextStyle(color: AppTheme.textSecondary, height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar', style: TextStyle(color: AppTheme.textSecondary)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Soy mayor de 18', style: TextStyle(color: AppTheme.primaryColor)),
+          ),
+        ],
+      ),
+    );
+    return result == true;
   }
 
   void _showConfirmDeleteDialog(BuildContext context, String title, String content, VoidCallback onConfirm) {
