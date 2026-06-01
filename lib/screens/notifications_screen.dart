@@ -5,8 +5,7 @@ import '../models/comment.dart';
 import '../providers/auth_provider.dart' as app_auth;
 import '../providers/notification_provider.dart';
 import '../services/notification_service.dart';
-import 'detail_screen.dart';
-import 'player_screen.dart';
+import '../utils/notification_routing.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -124,35 +123,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     }
     if (!context.mounted) return;
 
-    final animeUrl = n.animeUrl?.isNotEmpty == true
-        ? n.animeUrl!
-        : 'https://animeav1.com/media/${n.animeSlug}';
-
-    if (n.episodeNumber != null) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => PlayerScreen(
-            episodeUrl: '$animeUrl/${n.episodeNumber!.toString().replaceAll('.0', '')}',
-            episodeNumber: n.episodeNumber!,
-            animeTitle: n.animeTitle,
-            animeUrl: animeUrl,
-            focusCommentId: n.commentId ?? n.parentCommentId,
-          ),
-        ),
-      );
-      return;
-    }
-
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => DetailScreen(
-          animeUrl: animeUrl,
-          animeTitle: n.animeTitle,
-          focusCommentId: n.commentId ?? n.parentCommentId,
-        ),
-      ),
-    );
+    NotificationRouting.openFromNotification(n);
   }
 }

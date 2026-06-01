@@ -10,6 +10,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../providers/notification_provider.dart';
 import 'user_service.dart';
+import '../utils/notification_routing.dart';
 import 'notification_navigation.dart';
 
 const AndroidNotificationChannel _miruReplyChannel = AndroidNotificationChannel(
@@ -18,6 +19,19 @@ const AndroidNotificationChannel _miruReplyChannel = AndroidNotificationChannel(
   description: 'Avisos cuando alguien responde tus comentarios',
   importance: Importance.high,
 );
+
+String _payloadFromData(Map<String, dynamic> d) {
+  return NotificationRouting.encodePayload(
+    animeSlug: d['animeSlug']?.toString() ?? '',
+    animeTitle: d['animeTitle']?.toString() ?? 'Miru',
+    animeUrl: d['animeUrl']?.toString(),
+    episodeUrl: d['episodeUrl']?.toString(),
+    episodeNumber: double.tryParse(d['episodeNumber']?.toString() ?? ''),
+    commentId: d['commentId']?.toString(),
+    parentCommentId: d['parentCommentId']?.toString(),
+    notificationId: d['notificationId']?.toString(),
+  );
+}
 
 Future<void> _ensureLocalNotificationsReady(FlutterLocalNotificationsPlugin plugin) async {
   const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
@@ -44,14 +58,7 @@ Future<void> _showMiruLocalNotification(
   final body = message.notification?.body ?? data['body'] ?? '';
   if (title.isEmpty && body.isEmpty) return;
 
-  final payload = [
-    data['animeSlug'] ?? '',
-    data['animeTitle'] ?? '',
-    data['animeUrl'] ?? '',
-    data['episodeNumber'] ?? '',
-    data['commentId'] ?? '',
-    data['notificationId'] ?? '',
-  ].join('|');
+  final payload = _payloadFromData(data);
 
   await plugin.show(
     DateTime.now().millisecondsSinceEpoch.remainder(100000),
@@ -200,15 +207,5 @@ class PushNotificationService {
     });
   }
 
-  static String _payloadFromMessage(RemoteMessage message) {
-    final d = message.data;
-    return [
-      d['animeSlug'] ?? '',
-      d['animeTitle'] ?? '',
-      d['animeUrl'] ?? '',
-      d['episodeNumber'] ?? '',
-      d['commentId'] ?? '',
-      d['notificationId'] ?? '',
-    ].join('|');
-  }
+  static String _payloadFromMessage(RemoteMessage message) => _payloadFromData(message.data);
 }

@@ -342,6 +342,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                           ),
                       animeTitle: widget.animeTitle,
                       animeUrl: widget.animeUrl,
+                      episodeUrl: widget.episodeUrl,
                       episodeNumber: widget.episodeNumber,
                       focusCommentId: widget.focusCommentId,
                     ),

@@ -17,6 +17,7 @@ class DetailScreen extends StatefulWidget {
   final String animeTitle;
   final String? animeImage;
   final String? focusCommentId;
+  final double? initialEpisodeNumber;
 
   const DetailScreen({
     super.key,
@@ -24,6 +25,7 @@ class DetailScreen extends StatefulWidget {
     required this.animeTitle,
     this.animeImage,
     this.focusCommentId,
+    this.initialEpisodeNumber,
   });
 
   @override
@@ -32,6 +34,7 @@ class DetailScreen extends StatefulWidget {
 
 class _DetailScreenState extends State<DetailScreen> {
   bool _reverseEpisodeOrder = false;
+  bool _openedInitialEpisode = false;
   final ScrollController _scrollController = ScrollController();
   final GlobalKey _commentsKey = GlobalKey();
 
@@ -49,6 +52,38 @@ class _DetailScreenState extends State<DetailScreen> {
           }
         });
       }
+    });
+  }
+
+  void _openInitialEpisodeIfNeeded(AnimeDetails details) {
+    final target = widget.initialEpisodeNumber;
+    if (_openedInitialEpisode || target == null) return;
+
+    Episode? match;
+    for (final ep in details.episodes) {
+      if ((ep.number - target).abs() < 0.01) {
+        match = ep;
+        break;
+      }
+    }
+    if (match == null) return;
+
+    _openedInitialEpisode = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => PlayerScreen(
+            episodeUrl: match!.url,
+            episodeNumber: match.number,
+            animeTitle: widget.animeTitle,
+            animeUrl: widget.animeUrl,
+            animeImage: widget.animeImage ?? '',
+            focusCommentId: widget.focusCommentId,
+          ),
+        ),
+      );
     });
   }
 
@@ -116,6 +151,8 @@ class _DetailScreenState extends State<DetailScreen> {
     if (details == null) {
       return const SizedBox.shrink();
     }
+
+    _openInitialEpisodeIfNeeded(details);
 
     final displayedEpisodes = _reverseEpisodeOrder 
         ? details.episodes.reversed.toList() 
