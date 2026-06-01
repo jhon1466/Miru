@@ -13,13 +13,26 @@ Plantillas: `lib/core/firebase_options.example.dart` y `android/app/google-servi
 
 ## Primera vez / otro PC
 
-```bash
+```powershell
 cd anime_app
 dart pub global activate flutterfire_cli
-flutterfire configure --project=serie-938f4 --platforms=android
 ```
 
-Copia o verifica que `firebase_options` quede en `lib/core/firebase_options.dart` (ver `firebase.json`).
+En Windows, si `flutterfire` no se reconoce, usa la ruta de Pub o añádela al PATH:
+
+```powershell
+$env:Path += ";$env:LOCALAPPDATA\Pub\Cache\bin"
+flutterfire configure --project=serie-938f4 --platforms=android --yes
+```
+
+Alternativa sin PATH:
+
+```powershell
+dart pub global run flutterfire_cli:flutterfire configure --project=serie-938f4 --platforms=android --yes
+```
+
+Verifica que existan `lib/core/firebase_options.dart` y `android/app/google-services.json`.  
+Si FlutterFire crea `lib/firebase_options.dart`, copia su contenido a `lib/core/` (la app importa desde `core/`).
 
 ## Si revocaste la clave en Google Cloud
 
