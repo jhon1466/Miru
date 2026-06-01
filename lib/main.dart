@@ -30,7 +30,7 @@ class MyApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AnimeProvider()),
-        ChangeNotifierProvider(create: (_) => SettingsProvider()),
+        ChangeNotifierProvider(create: (_) => SettingsProvider()..load()),
         ChangeNotifierProvider(create: (_) => HistoryProvider()),
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => NotificationProvider()),
@@ -39,11 +39,14 @@ class MyApp extends StatelessWidget {
       child: Builder(
         builder: (context) {
           PushNotificationService.attachProvider(context.read<NotificationProvider>());
+          final settings = context.watch<SettingsProvider>();
           return MaterialApp(
             navigatorKey: AppNavigator.key,
             title: 'Miru Client',
             debugShowCheckedModeBanner: false,
-            theme: AppTheme.darkTheme,
+            theme: AppTheme.lightTheme,
+            darkTheme: AppTheme.darkTheme,
+            themeMode: settings.themeMode,
             home: const SplashScreen(),
           );
         },

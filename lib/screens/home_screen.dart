@@ -116,11 +116,11 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           Text(
             greeting,
-            style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.white),
+            style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: context.textPrimary),
           ),
-          const Text(
+          Text(
             'Encuentra tus animes favoritos hoy.',
-            style: TextStyle(fontSize: 14, color: AppTheme.textSecondary),
+            style: TextStyle(fontSize: 14, color: context.textSecondary),
           ),
         ],
       ),
@@ -129,17 +129,17 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildPopularSection(BuildContext context, AnimeProvider provider) {
     if (provider.isLoadingPopular) {
-      return const Column(
+      return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: EdgeInsets.only(left: 20.0, right: 20.0, top: 24.0, bottom: 12.0),
+            padding: const EdgeInsets.only(left: 20.0, right: 20.0, top: 24.0, bottom: 12.0),
             child: Text(
               'Destacados de la Semana',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: context.textPrimary),
             ),
           ),
-          SizedBox(
+          const SizedBox(
             height: 180,
             child: Center(
               child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation(AppTheme.primaryColor)),
@@ -156,11 +156,11 @@ class _HomeScreenState extends State<HomeScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
-          padding: EdgeInsets.only(left: 20.0, right: 20.0, top: 24.0, bottom: 12.0),
+        Padding(
+          padding: const EdgeInsets.only(left: 20.0, right: 20.0, top: 24.0, bottom: 12.0),
           child: Text(
             'Destacados de la Semana',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: context.textPrimary),
           ),
         ),
         SizedBox(
@@ -201,10 +201,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                 fit: BoxFit.contain,
                                 width: double.infinity,
                                 height: double.infinity,
-                                placeholder: (context, url) => Container(color: AppTheme.cardColor),
+                                placeholder: (context, url) => Container(color: context.cardColor),
                                 errorWidget: (context, url, error) => Container(
-                                  color: AppTheme.cardColor,
-                                  child: const Icon(Icons.movie, color: AppTheme.textSecondary),
+                                  color: context.cardColor,
+                                  child: Icon(Icons.movie, color: context.textSecondary),
                                 ),
                               ),
                               if (anime.score != null)
@@ -239,7 +239,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         anime.title,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: context.textPrimary),
                       ),
                     ],
                   ),
@@ -267,7 +267,7 @@ class _HomeScreenState extends State<HomeScreen> {
         padding: const EdgeInsets.all(20),
         child: Text(
           provider.latestEpisodesError!,
-          style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12),
+          style: TextStyle(color: context.textSecondary, fontSize: 12),
         ),
       );
     }
@@ -282,25 +282,25 @@ class _HomeScreenState extends State<HomeScreen> {
           padding: const EdgeInsets.only(left: 20.0, right: 20.0, top: 24.0, bottom: 4.0),
           child: Row(
             children: [
-              const Expanded(
+              Expanded(
                 child: Text(
                   'Capítulos más recientes',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: context.textPrimary),
                 ),
               ),
               IconButton(
-                icon: const Icon(Icons.refresh, size: 20, color: AppTheme.textSecondary),
+                icon: Icon(Icons.refresh, size: 20, color: context.textSecondary),
                 onPressed: () => provider.loadLatestPublishedEpisodes(),
                 tooltip: 'Actualizar',
               ),
             ],
           ),
         ),
-        const Padding(
-          padding: EdgeInsets.only(left: 20.0, right: 20.0, bottom: 12.0),
+        Padding(
+          padding: const EdgeInsets.only(left: 20.0, right: 20.0, bottom: 12.0),
           child: Text(
             'Recién publicados en el sitio',
-            style: TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+            style: TextStyle(fontSize: 11, color: context.textSecondary),
           ),
         ),
         SizedBox(
@@ -373,10 +373,10 @@ class _HomeScreenState extends State<HomeScreen> {
                         item.animeTitle,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 11,
-                          color: Colors.white,
+                          color: context.textPrimary,
                         ),
                       ),
                     ],
@@ -395,112 +395,120 @@ class _HomeScreenState extends State<HomeScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
-          padding: EdgeInsets.only(left: 20.0, right: 20.0, top: 24.0, bottom: 4.0),
+        Padding(
+          padding: const EdgeInsets.only(left: 20.0, right: 20.0, top: 24.0, bottom: 12.0),
           child: Text(
-            'Continuar Viendo',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
-          ),
-        ),
-        const Padding(
-          padding: EdgeInsets.only(left: 20.0, right: 20.0, bottom: 12.0),
-          child: Text(
-            'Mantén pulsado un anime para quitarlo de la lista',
-            style: TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+            'Continuar viendo',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: context.textPrimary),
           ),
         ),
         SizedBox(
-          height: 160,
+          height: 110,
           child: ListView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 20.0),
             scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
             itemCount: history.length,
             itemBuilder: (context, index) {
               final item = history[index];
-              return Container(
-                width: 280,
-                margin: const EdgeInsets.symmetric(horizontal: 6.0),
-                child: InkWell(
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => PlayerScreen(
-                          episodeUrl: item.episodeUrl,
-                          episodeNumber: item.episodeNumber,
-                          animeTitle: item.animeTitle,
-                          animeUrl: item.animeUrl,
-                          animeImage: item.animeImage,
-                        ),
+              return GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => PlayerScreen(
+                        episodeUrl: item.episodeUrl,
+                        episodeNumber: item.episodeNumber,
+                        animeTitle: item.animeTitle,
+                        animeUrl: item.animeUrl,
+                        animeImage: item.animeImage,
                       ),
-                    );
-                  },
-                  onLongPress: () => _confirmRemoveHistory(context, historyProvider, item),
-                  borderRadius: BorderRadius.circular(16),
-                  child: Card(
-                    margin: EdgeInsets.zero,
-                    clipBehavior: Clip.antiAlias,
-                    child: Stack(
-                      children: [
-                        // Imagen de Fondo (Poster difuminado u opaco)
-                        Positioned.fill(
-                          child: item.animeImage.isNotEmpty
-                              ? CachedNetworkImage(
-                                  imageUrl: item.animeImage,
-                                  fit: BoxFit.cover,
-                                  color: Colors.black.withOpacity(0.6),
-                                  colorBlendMode: BlendMode.srcOver,
-                                  placeholder: (context, url) => Container(color: AppTheme.cardColor),
-                                  errorWidget: (context, url, error) => Container(
-                                    color: AppTheme.cardColor,
-                                    child: const Center(
-                                      child: Icon(Icons.movie, color: AppTheme.textSecondary, size: 40),
-                                    ),
-                                  ),
-                                )
-                              : Container(
-                                  color: AppTheme.cardColor,
-                                  child: const Center(
-                                    child: Icon(Icons.movie, color: AppTheme.textSecondary, size: 40),
-                                  ),
-                                ),
-                        ),
-                        // Detalles del episodio
-                        Positioned(
-                          left: 16,
-                          right: 16,
-                          bottom: 16,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                    ),
+                  );
+                },
+                child: Container(
+                  width: 260,
+                  margin: const EdgeInsets.only(right: 12),
+                  decoration: BoxDecoration(
+                    color: context.cardColor,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 80,
+                        child: ClipRRect(
+                          borderRadius: const BorderRadius.only(
+                            topLeft: Radius.circular(12),
+                            bottomLeft: Radius.circular(12),
+                          ),
+                          child: Stack(
                             children: [
-                              Text(
-                                item.animeTitle,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.white),
+                              CachedNetworkImage(
+                                imageUrl: item.animeImage,
+                                fit: BoxFit.cover,
+                                width: double.infinity,
+                                height: double.infinity,
+                                placeholder: (context, url) => Container(color: context.cardColor),
+                                errorWidget: (context, url, error) => Container(
+                                  color: context.cardColor,
+                                  child: Icon(Icons.movie, color: context.textSecondary, size: 40),
+                                ),
                               ),
-                              const SizedBox(height: 4),
-                              Text(
-                                'Episodio ${item.episodeNumber.toString().replaceAll('.0', '')} - ${item.episodeTitle}',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                              Positioned.fill(
+                                child: Container(
+                                  color: context.cardColor.withOpacity(0.4),
+                                ),
+                              ),
+                              Positioned(
+                                right: 8,
+                                top: 8,
+                                child: Container(
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withOpacity(0.6),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 20),
+                                ),
                               ),
                             ],
                           ),
                         ),
-                        // Botón flotante Play en el centro-derecha
-                        const Positioned(
-                          right: 16,
-                          top: 16,
-                          child: CircleAvatar(
-                            backgroundColor: AppTheme.primaryColor,
-                            radius: 18,
-                            child: Icon(Icons.play_arrow_rounded, color: Colors.white, size: 20),
-                          ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              item.animeTitle,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                                color: context.textPrimary,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              item.episodeTitle,
+                              style: TextStyle(fontSize: 12, color: context.textSecondary),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Hace ${_timeAgo(item.timestamp)}',
+                              style: TextStyle(fontSize: 11, color: context.textSecondary),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.more_vert, color: context.textSecondary),
+                        onPressed: () => _showHistoryOptions(context, item),
+                      ),
+                    ],
                   ),
                 ),
               );
@@ -511,36 +519,22 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void _confirmRemoveHistory(BuildContext context, HistoryProvider provider, HistoryItem item) {
-    showDialog(
+  void _showHistoryOptions(BuildContext context, HistoryItem item) {
+    showModalBottomSheet(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppTheme.cardColor,
-        title: const Text('Quitar del historial', style: TextStyle(color: Colors.white)),
-        content: Text(
-          '¿Eliminar "${item.animeTitle}" de Continuar viendo?',
-          style: const TextStyle(color: AppTheme.textSecondary),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancelar', style: TextStyle(color: AppTheme.textSecondary)),
-          ),
-          TextButton(
-            onPressed: () async {
+      backgroundColor: context.cardColor,
+      builder: (ctx) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            leading: const Icon(Icons.delete, color: AppTheme.dangerColor),
+            title: const Text('Eliminar del historial', style: TextStyle(color: Colors.white)),
+            onTap: () {
               Navigator.pop(ctx);
+              final provider = Provider.of<HistoryProvider>(context, listen: false);
               final uid = Provider.of<app_auth.AuthProvider>(context, listen: false).userId;
-              await provider.removeFromHistory(item.animeUrl, userId: uid);
-              if (!context.mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('"${item.animeTitle}" eliminado del historial'),
-                  backgroundColor: AppTheme.successColor,
-                  duration: const Duration(seconds: 2),
-                ),
-              );
+              provider.removeFromHistory(item.animeUrl, userId: uid);
             },
-            child: const Text('Eliminar', style: TextStyle(color: AppTheme.dangerColor)),
           ),
         ],
       ),
@@ -607,7 +601,7 @@ class _HomeScreenState extends State<HomeScreen> {
               width: double.infinity,
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: AppTheme.cardColor,
+                color: context.cardColor,
                 borderRadius: BorderRadius.circular(16),
               ),
               child: const Column(
@@ -713,6 +707,15 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
     );
+  }
+
+  String _timeAgo(DateTime date) {
+    final diff = DateTime.now().difference(date);
+    if (diff.inMinutes < 1) return 'ahora';
+    if (diff.inHours < 1) return '${diff.inMinutes}m';
+    if (diff.inDays < 1) return '${diff.inHours}h';
+    if (diff.inDays < 7) return '${diff.inDays}d';
+    return '${date.day}/${date.month}/${date.year}';
   }
 }
 

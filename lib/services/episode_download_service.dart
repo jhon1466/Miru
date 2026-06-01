@@ -121,8 +121,9 @@ class EpisodeDownloadService {
     required String episodeUrl,
     required String episodeTitle,
     required bool isSub,
-    void Function(double progress, int receivedBytes, int? totalBytes)? onProgress,
+    void Function(double progress, int receivedBytes, int? totalBytes, double speed)? onProgress,
     bool Function()? isCancelled,
+    bool Function()? isPaused,
   }) async {
     final id = episodeId(episodeUrl, isSub);
     final root = await _downloadsRoot();
@@ -130,8 +131,9 @@ class EpisodeDownloadService {
     final filePath = '${root.path}/$id$ext';
     final file = File(filePath);
 
+    int startBytes = 0;
     if (await file.exists()) {
-      await file.delete();
+      startBytes = await file.length();
     }
 
     final client = http.Client();
@@ -141,14 +143,34 @@ class EpisodeDownloadService {
       request.headers['Accept'] = '*/*';
       request.headers['Referer'] = animeUrl;
 
+      if (startBytes > 0) {
+        request.headers['Range'] = 'bytes=$startBytes-';
+      }
+
       final response = await client.send(request).timeout(const Duration(minutes: 30));
-      if (response.statusCode < 200 || response.statusCode >= 300) {
+      
+      IOSink sink;
+      int received;
+      int? total;
+
+      if (response.statusCode == 206) {
+        sink = file.openWrite(mode: FileMode.append);
+        received = startBytes;
+        total = response.contentLength != null ? response.contentLength! + startBytes : null;
+      } else if (response.statusCode == 200) {
+        sink = file.openWrite(mode: FileMode.write);
+        received = 0;
+        total = response.contentLength;
+      } else if (response.statusCode == 416) {
+        throw Exception('El servidor no admite reanudación en este punto (416).');
+      } else {
         throw Exception('El servidor respondió ${response.statusCode}');
       }
 
-      final total = response.contentLength;
-      var received = 0;
-      final sink = file.openWrite();
+      final stopwatch = Stopwatch()..start();
+      int lastCheckedBytes = received;
+      int lastCheckedTimeMs = 0;
+      double speed = 0.0;
 
       await for (final chunk in response.stream) {
         if (isCancelled?.call() == true) {
@@ -156,12 +178,27 @@ class EpisodeDownloadService {
           if (await file.exists()) await file.delete();
           throw DownloadCancelledException();
         }
+        if (isPaused?.call() == true) {
+          await sink.close();
+          throw DownloadPausedException();
+        }
         sink.add(chunk);
         received += chunk.length;
+
+        final nowMs = stopwatch.elapsedMilliseconds;
+        final elapsedSinceLastCheck = nowMs - lastCheckedTimeMs;
+        if (elapsedSinceLastCheck >= 1000) {
+          final bytesSinceLastCheck = received - lastCheckedBytes;
+          speed = (bytesSinceLastCheck / (1024.0 * 1024.0)) / (elapsedSinceLastCheck / 1000.0);
+          lastCheckedBytes = received;
+          lastCheckedTimeMs = nowMs;
+        }
+
         onProgress?.call(
           total != null && total > 0 ? received / total : -1,
           received,
           total,
+          speed,
         );
       }
 
@@ -223,4 +260,9 @@ class EpisodeDownloadService {
 class DownloadCancelledException implements Exception {
   @override
   String toString() => 'Descarga cancelada';
+}
+
+class DownloadPausedException implements Exception {
+  @override
+  String toString() => 'Descarga pausada';
 }

@@ -88,13 +88,13 @@ class _SearchScreenState extends State<SearchScreen> {
               setState(() {});
               _onSearchChanged(val);
             },
-            style: const TextStyle(color: Colors.white),
+            style: TextStyle(color: context.textPrimary),
             decoration: InputDecoration(
               hintText: 'Buscar anime...',
-              prefixIcon: const Icon(Icons.search, color: AppTheme.textSecondary),
+              prefixIcon: Icon(Icons.search, color: context.textSecondary),
               suffixIcon: _searchController.text.isNotEmpty
                   ? IconButton(
-                      icon: const Icon(Icons.clear, color: AppTheme.textSecondary),
+                      icon: Icon(Icons.clear, color: context.textSecondary),
                       onPressed: () {
                         _debounce?.cancel();
                         setState(() {
@@ -118,17 +118,17 @@ class _SearchScreenState extends State<SearchScreen> {
             Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-              color: AppTheme.cardColor.withValues(alpha: 0.5),
-              child: const Row(
+              color: context.cardColor.withValues(alpha: 0.5),
+              child: Row(
                 children: [
-                  Icon(Icons.search, size: 16, color: AppTheme.primaryColor),
-                  SizedBox(width: 8),
+                  const Icon(Icons.search, size: 16, color: AppTheme.primaryColor),
+                  const SizedBox(width: 8),
                   Text(
                     'Buscando en todos los proveedores',
-                    style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                    style: TextStyle(fontSize: 12, color: context.textSecondary),
                   ),
-                  Spacer(),
-                  Text(
+                  const Spacer(),
+                  const Text(
                     'En vivo',
                     style: TextStyle(fontSize: 10, color: AppTheme.accentColor, fontWeight: FontWeight.bold),
                   ),
@@ -146,13 +146,13 @@ class _SearchScreenState extends State<SearchScreen> {
 
   Widget _buildSearchBody(AnimeProvider provider) {
     if (provider.isSearching) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            CircularProgressIndicator(valueColor: AlwaysStoppedAnimation(AppTheme.primaryColor)),
-            SizedBox(height: 16),
-            Text('Buscando animes...', style: TextStyle(color: AppTheme.textSecondary)),
+            const CircularProgressIndicator(valueColor: AlwaysStoppedAnimation(AppTheme.primaryColor)),
+            const SizedBox(height: 16),
+            Text('Buscando animes...', style: TextStyle(color: context.textSecondary)),
           ],
         ),
       );
@@ -165,12 +165,12 @@ class _SearchScreenState extends State<SearchScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.error_outline, size: 48, color: AppTheme.dangerColor),
+              Icon(Icons.error_outline, size: 48, color: AppTheme.dangerColor),
               const SizedBox(height: 16),
               Text(
                 provider.searchError!,
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: AppTheme.textSecondary),
+                style: TextStyle(color: context.textSecondary),
               ),
               const SizedBox(height: 16),
               ElevatedButton(
@@ -185,18 +185,18 @@ class _SearchScreenState extends State<SearchScreen> {
 
     if (provider.searchResults.isEmpty) {
       if (_searchController.text.trim().isNotEmpty) {
-        return const Center(
+        return Center(
           child: Padding(
-            padding: EdgeInsets.all(24.0),
+            padding: const EdgeInsets.all(24.0),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.search_off, size: 48, color: AppTheme.textSecondary),
-                SizedBox(height: 16),
+                Icon(Icons.search_off, size: 48, color: context.textSecondary),
+                const SizedBox(height: 16),
                 Text(
                   'No se encontraron resultados para tu búsqueda.\nIntenta con otro término o cambia de proveedor.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: AppTheme.textSecondary),
+                  style: TextStyle(color: context.textSecondary),
                 ),
               ],
             ),
@@ -214,9 +214,9 @@ class _SearchScreenState extends State<SearchScreen> {
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'Escribe para ver resultados al instante, sin pulsar Enter.',
-              style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+              style: TextStyle(fontSize: 12, color: context.textSecondary),
             ),
             const SizedBox(height: 16),
             Wrap(
@@ -234,13 +234,13 @@ class _SearchScreenState extends State<SearchScreen> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     decoration: BoxDecoration(
-                      color: AppTheme.cardColor,
+                      color: context.cardColor,
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(color: AppTheme.primaryColor.withOpacity(0.15)),
                     ),
                     child: Text(
                       suggestion,
-                      style: const TextStyle(color: AppTheme.textPrimary, fontSize: 13),
+                      style: TextStyle(color: context.textPrimary, fontSize: 13),
                     ),
                   ),
                 );
@@ -345,7 +345,7 @@ class _SearchScreenState extends State<SearchScreen> {
                   '${anime.year ?? ''} • ${anime.status ?? ''}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 10, color: AppTheme.textSecondary),
+                  style: TextStyle(fontSize: 10, color: context.textSecondary),
                 ),
             ],
           ),

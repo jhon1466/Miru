@@ -72,7 +72,7 @@ class DownloadedEpisode {
   }
 }
 
-enum DownloadTaskStatus { queued, downloading, completed, failed, cancelled }
+enum DownloadTaskStatus { queued, downloading, completed, failed, cancelled, paused }
 
 class ActiveDownloadTask {
   final String id;
@@ -89,6 +89,8 @@ class ActiveDownloadTask {
   String statusMessage;
   int receivedBytes;
   int? totalBytes;
+  double speed; // MB/s
+  String eta;
 
   ActiveDownloadTask({
     required this.id,
@@ -105,5 +107,7 @@ class ActiveDownloadTask {
     this.statusMessage = '',
     this.receivedBytes = 0,
     this.totalBytes,
+    this.speed = 0.0,
+    this.eta = '',
   });
 }

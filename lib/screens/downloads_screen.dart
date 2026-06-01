@@ -123,8 +123,44 @@ class _ActiveDownloadCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final downloads = context.read<DownloadProvider>();
-    final isActive = !isFailed && task.status != DownloadTaskStatus.failed;
+    final downloads = context.watch<DownloadProvider>();
+    final isPaused = task.status == DownloadTaskStatus.paused;
+    final isQueued = task.status == DownloadTaskStatus.queued;
+    final isDownloading = task.status == DownloadTaskStatus.downloading;
+
+    IconData getStatusIcon() {
+      if (isFailed) return Icons.error_outline;
+      if (isPaused) return Icons.pause_circle_outline;
+      if (isQueued) return Icons.hourglass_empty;
+      return Icons.downloading;
+    }
+
+    Color getStatusColor() {
+      if (isFailed) return AppTheme.dangerColor;
+      if (isPaused) return AppTheme.accentColor;
+      return AppTheme.primaryColor;
+    }
+
+    String getStatusText() {
+      if (isFailed) return 'Descarga fallida';
+      if (isPaused) return 'Pausado';
+      if (isQueued) return 'En cola…';
+      return task.statusMessage.isNotEmpty ? task.statusMessage : 'Descargando';
+    }
+
+    final receivedMB = task.receivedBytes / (1024 * 1024);
+    String progressDetails = '${receivedMB.toStringAsFixed(1)} MB';
+    if (task.totalBytes != null && task.totalBytes! > 0) {
+      final totalMB = task.totalBytes! / (1024 * 1024);
+      progressDetails += ' / ${totalMB.toStringAsFixed(1)} MB';
+    }
+
+    if (isDownloading && task.speed > 0) {
+      progressDetails += ' (${task.speed.toStringAsFixed(1)} MB/s)';
+      if (task.eta.isNotEmpty && task.eta != '--') {
+        progressDetails += ' · ETA: ${task.eta}';
+      }
+    }
 
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
@@ -137,25 +173,30 @@ class _ActiveDownloadCard extends StatelessWidget {
             Row(
               children: [
                 Icon(
-                  isFailed
-                      ? Icons.error_outline
-                      : (task.status == DownloadTaskStatus.queued
-                          ? Icons.hourglass_top
-                          : Icons.downloading),
-                  color: isFailed ? AppTheme.dangerColor : AppTheme.primaryColor,
+                  getStatusIcon(),
+                  color: getStatusColor(),
                   size: 20,
                 ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    isFailed ? 'Descarga fallida' : (task.statusMessage.isNotEmpty ? task.statusMessage : 'Descargando'),
+                    getStatusText(),
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
-                      color: isFailed ? AppTheme.dangerColor : AppTheme.primaryColor,
+                      color: getStatusColor(),
                     ),
                   ),
                 ),
+                if (!isFailed)
+                  Text(
+                    '${(task.progress * 100).toStringAsFixed(0)}%',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: getStatusColor(),
+                    ),
+                  ),
               ],
             ),
             const SizedBox(height: 8),
@@ -198,27 +239,61 @@ class _ActiveDownloadCard extends StatelessWidget {
               ),
             ] else ...[
               LinearProgressIndicator(
-                value: task.progress > 0 ? task.progress : null,
-                color: AppTheme.primaryColor,
-                backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.15),
+                value: isQueued ? null : task.progress,
+                color: getStatusColor(),
+                backgroundColor: getStatusColor().withValues(alpha: 0.15),
               ),
-              const SizedBox(height: 6),
-              Text(
-                task.progress > 0
-                    ? '${(task.progress * 100).toStringAsFixed(0)}%'
-                    : (task.statusMessage.isNotEmpty ? task.statusMessage : 'Preparando…'),
-                style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
-              ),
-              if (isActive) ...[
-                const SizedBox(height: 8),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton(
-                    onPressed: () => downloads.cancelDownload(task.episodeUrl, task.isSub),
-                    child: const Text('Cancelar'),
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      progressDetails,
+                      style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                    ),
                   ),
-                ),
-              ],
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (isDownloading)
+                        IconButton(
+                          icon: const Icon(Icons.pause, size: 20),
+                          color: AppTheme.primaryColor,
+                          onPressed: () => downloads.pauseDownload(task.episodeUrl, task.isSub),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          tooltip: 'Pausar',
+                        ),
+                      if (isPaused)
+                        IconButton(
+                          icon: const Icon(Icons.play_arrow, size: 20),
+                          color: AppTheme.primaryColor,
+                          onPressed: () => downloads.resumeDownload(
+                            episodeUrl: task.episodeUrl,
+                            episodeNumber: task.episodeNumber,
+                            animeTitle: task.animeTitle,
+                            animeUrl: task.animeUrl,
+                            animeImage: task.animeImage,
+                            preferSub: task.isSub,
+                          ),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          tooltip: 'Reanudar',
+                        ),
+                      const SizedBox(width: 12),
+                      IconButton(
+                        icon: const Icon(Icons.close, size: 20),
+                        color: AppTheme.dangerColor,
+                        onPressed: () => downloads.cancelDownload(task.episodeUrl, task.isSub),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        tooltip: 'Cancelar',
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ],
           ],
         ),

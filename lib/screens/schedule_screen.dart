@@ -109,8 +109,8 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                         const Spacer(),
                         Text(
                           'Hora local: $timeLabel',
-                          style: const TextStyle(
-                            color: AppTheme.textSecondary,
+                          style: TextStyle(
+                            color: context.textSecondary,
                             fontSize: 13,
                           ),
                         ),
@@ -133,7 +133,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                             selectedColor: AppTheme.primaryColor.withValues(alpha: 0.25),
                             checkmarkColor: AppTheme.primaryColor,
                             labelStyle: TextStyle(
-                              color: selected ? AppTheme.primaryColor : AppTheme.textSecondary,
+                              color: selected ? AppTheme.primaryColor : context.textSecondary,
                               fontWeight: selected ? FontWeight.bold : FontWeight.normal,
                             ),
                           );
@@ -170,7 +170,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                 child: Center(
                   child: Text(
                     'No hay emisiones para $_selectedDay',
-                    style: const TextStyle(color: AppTheme.textSecondary),
+                    style: TextStyle(color: context.textSecondary),
                   ),
                 ),
               )
@@ -205,7 +205,7 @@ class _ScheduleCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: AppTheme.cardColor,
+      color: context.cardColor,
       borderRadius: BorderRadius.circular(12),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -267,7 +267,7 @@ class _ScheduleCard extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       'Ep. ${entry.episodeNumber!.toStringAsFixed(entry.episodeNumber! % 1 == 0 ? 0 : 1)}',
-                      style: const TextStyle(color: AppTheme.textSecondary, fontSize: 11),
+                      style: TextStyle(color: context.textSecondary, fontSize: 11),
                     ),
                   ],
                 ],

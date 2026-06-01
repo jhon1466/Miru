@@ -93,7 +93,7 @@ class _UpdateDialogContentState extends State<_UpdateDialogContent> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      backgroundColor: AppTheme.cardColor,
+      backgroundColor: context.cardColor,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(24),
         side: BorderSide(color: AppTheme.primaryColor.withValues(alpha: 0.2), width: 1.5),
@@ -117,44 +117,44 @@ class _UpdateDialogContentState extends State<_UpdateDialogContent> {
           children: [
             Text(
               'Versión ${widget.info.latestVersion}',
-              style: const TextStyle(color: AppTheme.accentColor, fontWeight: FontWeight.bold),
+              style: TextStyle(color: AppTheme.accentColor, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
             if (_isDownloading || _progress != null) ...[
               LinearProgressIndicator(
                 value: _progress != null ? _progress! / 100 : null,
-                backgroundColor: AppTheme.darkBackground,
+                backgroundColor: context.backgroundColor,
                 color: AppTheme.primaryColor,
               ),
               const SizedBox(height: 8),
               Text(
                 _progress != null ? 'Descargando: $_progress%' : (_statusMessage ?? 'Descargando...'),
-                style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                style: TextStyle(fontSize: 12, color: context.textSecondary),
               ),
               const SizedBox(height: 12),
             ] else if (_statusMessage != null) ...[
-              Text(_statusMessage!, style: const TextStyle(color: AppTheme.dangerColor, fontSize: 12)),
+              Text(_statusMessage!, style: TextStyle(color: AppTheme.dangerColor, fontSize: 12)),
               const SizedBox(height: 12),
             ],
             Container(
               constraints: const BoxConstraints(maxHeight: 100),
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: AppTheme.darkBackground.withValues(alpha: 0.5),
+                color: context.backgroundColor.withValues(alpha: 0.5),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: SingleChildScrollView(
                 child: Text(
                   widget.info.releaseNotes,
-                  style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary, height: 1.4),
+                  style: TextStyle(fontSize: 12, color: context.textSecondary, height: 1.4),
                 ),
               ),
             ),
             if (_canInstallInApp) ...[
               const SizedBox(height: 12),
-              const Text(
+              Text(
                 'La actualización se descargará e instalará dentro de la app.',
-                style: TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                style: TextStyle(fontSize: 11, color: context.textSecondary),
               ),
             ],
           ],
@@ -164,7 +164,7 @@ class _UpdateDialogContentState extends State<_UpdateDialogContent> {
         if (!_isDownloading && !_finished)
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Más tarde', style: TextStyle(color: AppTheme.textSecondary)),
+            child: Text('Más tarde', style: TextStyle(color: context.textSecondary)),
           ),
         if (!_isDownloading && !_finished)
           ElevatedButton.icon(

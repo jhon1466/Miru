@@ -1,4 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
 import '../models/anime.dart';
 
 /// Modelo ligero para representar un favorito guardado en Firestore.
@@ -75,6 +77,22 @@ class FavoriteService {
     return _favRef(userId).doc(docId).snapshots().map((doc) => doc.exists);
   }
 
+  /// Helper to generate a clean topic name for FCM.
+  static String _getTopicName(String animeUrl) {
+    try {
+      final slug = Uri.parse(animeUrl).pathSegments.lastWhere(
+            (s) => s.isNotEmpty,
+            orElse: () => animeUrl.hashCode.toString(),
+          );
+      // Sanitize slug for FCM topic: only allow [a-zA-Z0-9-_.~%]
+      final cleanSlug = slug.replaceAll(RegExp(r'[^a-zA-Z0-9-_.~%]'), '_');
+      final topic = 'anime_$cleanSlug';
+      return topic.length > 900 ? topic.substring(0, 900) : topic;
+    } catch (_) {
+      return 'anime_${animeUrl.hashCode}';
+    }
+  }
+
   /// Alterna favorito: si existe lo borra, si no existe lo agrega.
   static Future<void> toggleFavorite(
     String userId,
@@ -85,9 +103,16 @@ class FavoriteService {
     final docId = _urlToDocId(animeUrl);
     final ref = _favRef(userId).doc(docId);
     final doc = await ref.get();
+    final topic = _getTopicName(animeUrl);
 
     if (doc.exists) {
       await ref.delete();
+      try {
+        await FirebaseMessaging.instance.unsubscribeFromTopic(topic);
+        debugPrint('Unsubscribed from FCM topic: $topic');
+      } catch (e) {
+        debugPrint('Error unsubscribing from topic $topic: $e');
+      }
     } else {
       final fav = FavoriteAnime(
         animeUrl: animeUrl,
@@ -99,6 +124,37 @@ class FavoriteService {
         addedAt: DateTime.now(),
       );
       await ref.set(fav.toFirestore());
+      try {
+        await FirebaseMessaging.instance.subscribeToTopic(topic);
+        debugPrint('Subscribed to FCM topic: $topic');
+      } catch (e) {
+        debugPrint('Error subscribing to topic $topic: $e');
+      }
+    }
+  }
+
+  /// Sincroniza todos los favoritos del usuario para suscribirse a sus respectivos canales de FCM.
+  static Future<void> syncFavoriteTopics(String userId) async {
+    try {
+      final snap = await _favRef(userId).get();
+      final List<Future<void>> futures = [];
+      for (final doc in snap.docs) {
+        final data = doc.data() as Map<String, dynamic>?;
+        final animeUrl = data?['animeUrl'] as String?;
+        if (animeUrl != null && animeUrl.isNotEmpty) {
+          final topic = _getTopicName(animeUrl);
+          futures.add(FirebaseMessaging.instance.subscribeToTopic(topic).then((_) {
+            debugPrint('Synced subscription to FCM topic: $topic');
+          }).catchError((e) {
+            debugPrint('Error syncing subscription to topic $topic: $e');
+          }));
+        }
+      }
+      if (futures.isNotEmpty) {
+        await Future.wait(futures);
+      }
+    } catch (e) {
+      debugPrint('Error in syncFavoriteTopics: $e');
     }
   }
 

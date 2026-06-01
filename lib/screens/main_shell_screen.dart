@@ -94,7 +94,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
         child: Container(
           height: 64,
           decoration: BoxDecoration(
-            color: AppTheme.cardColor,
+            color: context.cardColor,
             borderRadius: BorderRadius.circular(28),
             border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.25)),
             boxShadow: [
@@ -118,7 +118,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
                     children: [
                       Icon(
                         item.icon,
-                        color: selected ? AppTheme.primaryColor : AppTheme.textSecondary,
+                        color: selected ? AppTheme.primaryColor : context.textSecondary,
                         size: 24,
                       ),
                       const SizedBox(height: 2),
@@ -129,7 +129,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
                         style: TextStyle(
                           fontSize: 10,
                           fontWeight: selected ? FontWeight.bold : FontWeight.normal,
-                          color: selected ? AppTheme.primaryColor : AppTheme.textSecondary,
+                          color: selected ? AppTheme.primaryColor : context.textSecondary,
                         ),
                       ),
                     ],

@@ -30,10 +30,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     if (!auth.isLoggedIn) {
       return Scaffold(
         appBar: AppBar(title: const Text('Notificaciones')),
-        body: const Center(
+        body: Center(
           child: Text(
             'Inicia sesión para ver tus notificaciones',
-            style: TextStyle(color: AppTheme.textSecondary),
+            style: TextStyle(color: context.textSecondary),
           ),
         ),
       );
@@ -50,7 +50,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 context.read<NotificationProvider>().refreshUnread();
               }
             },
-            child: const Text('Marcar leídas', style: TextStyle(color: AppTheme.primaryColor)),
+            child: Text('Marcar leídas', style: TextStyle(color: AppTheme.primaryColor)),
           ),
         ],
       ),
@@ -67,10 +67,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
           final items = snapshot.data ?? [];
           if (items.isEmpty) {
-            return const Center(
+            return Center(
               child: Text(
                 'No tienes notificaciones',
-                style: TextStyle(color: AppTheme.textSecondary),
+                style: TextStyle(color: context.textSecondary),
               ),
             );
           }
@@ -78,15 +78,15 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           return ListView.separated(
             padding: const EdgeInsets.symmetric(vertical: 8),
             itemCount: items.length,
-            separatorBuilder: (_, __) => const Divider(height: 1, color: AppTheme.cardColor),
+            separatorBuilder: (_, __) => Divider(height: 1, color: context.cardColor),
             itemBuilder: (context, index) {
               final n = items[index];
               return ListTile(
                 leading: CircleAvatar(
-                  backgroundColor: n.read ? AppTheme.cardColor : AppTheme.primaryColor.withValues(alpha: 0.3),
+                  backgroundColor: n.read ? context.cardColor : AppTheme.primaryColor.withValues(alpha: 0.3),
                   child: Icon(
                     Icons.reply_rounded,
-                    color: n.read ? AppTheme.textSecondary : AppTheme.primaryColor,
+                    color: n.read ? context.textSecondary : AppTheme.primaryColor,
                   ),
                 ),
                 title: Text(
@@ -101,7 +101,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   '${n.animeTitle}\n${n.body}',
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12),
+                  style: TextStyle(color: context.textSecondary, fontSize: 12),
                 ),
                 onTap: () => _openNotification(context, auth, n),
               );

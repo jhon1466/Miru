@@ -10,6 +10,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../providers/notification_provider.dart';
 import 'user_service.dart';
+import 'favorite_service.dart';
 import '../utils/notification_routing.dart';
 import 'notification_navigation.dart';
 
@@ -115,6 +116,7 @@ class PushNotificationService {
     final settings = await _messaging.requestPermission(alert: true, badge: true, sound: true);
     debugPrint('FCM permission: ${settings.authorizationStatus}');
 
+    // Escuchar mensajes en primer y segundo plano
     FirebaseMessaging.onMessage.listen(_onForegroundMessage);
     FirebaseMessaging.onMessageOpenedApp.listen(_onMessageOpenedApp);
 
@@ -126,6 +128,7 @@ class PushNotificationService {
     FirebaseAuth.instance.authStateChanges().listen((user) async {
       if (user != null) {
         await registerTokenForUser(user.uid);
+        unawaited(FavoriteService.syncFavoriteTopics(user.uid));
       } else if (_currentToken != null) {
         final uid = FirebaseAuth.instance.currentUser?.uid;
         if (uid != null) {
@@ -138,6 +141,7 @@ class PushNotificationService {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
       await registerTokenForUser(user.uid);
+      unawaited(FavoriteService.syncFavoriteTopics(user.uid));
     }
 
     _messaging.onTokenRefresh.listen((token) async {

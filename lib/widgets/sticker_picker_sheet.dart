@@ -15,7 +15,7 @@ class StickerPickerSheet extends StatefulWidget {
   static Future<StickerItem?> pick(BuildContext context) {
     return showModalBottomSheet<StickerItem>(
       context: context,
-      backgroundColor: AppTheme.cardColor,
+      backgroundColor: context.cardColor,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -82,7 +82,7 @@ class _StickerPickerSheetState extends State<StickerPickerSheet> {
       final ok = await showModalBottomSheet<bool>(
         context: context,
         isScrollControlled: true,
-        backgroundColor: AppTheme.cardColor,
+        backgroundColor: context.cardColor,
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
         ),
@@ -120,8 +120,8 @@ class _StickerPickerSheetState extends State<StickerPickerSheet> {
                 const Spacer(),
                 TextButton.icon(
                   onPressed: _create,
-                  icon: const Icon(Icons.add_circle_outline, color: AppTheme.primaryColor),
-                  label: const Text('Crear', style: TextStyle(color: AppTheme.primaryColor)),
+                  icon: Icon(Icons.add_circle_outline, color: AppTheme.primaryColor),
+                  label: Text('Crear', style: TextStyle(color: AppTheme.primaryColor)),
                 ),
               ],
             ),
@@ -131,10 +131,10 @@ class _StickerPickerSheetState extends State<StickerPickerSheet> {
               padding: const EdgeInsets.all(24),
               child: Column(
                 children: [
-                  const Text(
+                  Text(
                     'Aún no tienes stickers.\nCrea uno con una imagen o GIF/WebP.',
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: AppTheme.textSecondary, height: 1.4),
+                    style: TextStyle(color: context.textSecondary, height: 1.4),
                   ),
                   const SizedBox(height: 12),
                   ElevatedButton.icon(
@@ -173,20 +173,20 @@ class _StickerPickerSheetState extends State<StickerPickerSheet> {
                       final delete = await showDialog<bool>(
                         context: context,
                         builder: (ctx) => AlertDialog(
-                          backgroundColor: AppTheme.cardColor,
+                          backgroundColor: context.cardColor,
                           title: const Text('Eliminar sticker', style: TextStyle(color: Colors.white)),
-                          content: const Text(
+                          content: Text(
                             '¿Deseas eliminar este sticker permanentemente?',
-                            style: TextStyle(color: AppTheme.textSecondary),
+                            style: TextStyle(color: context.textSecondary),
                           ),
                           actions: [
                             TextButton(
                               onPressed: () => Navigator.pop(ctx, false),
-                              child: const Text('Cancelar', style: TextStyle(color: AppTheme.textSecondary)),
+                              child: Text('Cancelar', style: TextStyle(color: context.textSecondary)),
                             ),
                             TextButton(
                               onPressed: () => Navigator.pop(ctx, true),
-                              child: const Text('Eliminar', style: TextStyle(color: AppTheme.dangerColor)),
+                              child: Text('Eliminar', style: TextStyle(color: AppTheme.dangerColor)),
                             ),
                           ],
                         ),
@@ -214,7 +214,7 @@ class _StickerPickerSheetState extends State<StickerPickerSheet> {
                               imageUrl: item.filePath,
                               fit: BoxFit.contain,
                               placeholder: (_, __) => Container(
-                                color: AppTheme.cardColor,
+                                color: context.cardColor,
                                 child: const Center(
                                   child: SizedBox(
                                     width: 20,
@@ -223,17 +223,17 @@ class _StickerPickerSheetState extends State<StickerPickerSheet> {
                                   ),
                                 ),
                               ),
-                              errorWidget: (_, __, ___) => const ColoredBox(
-                                color: AppTheme.cardColor,
-                                child: Icon(Icons.broken_image_outlined, color: AppTheme.textSecondary),
+                              errorWidget: (_, __, ___) => ColoredBox(
+                                color: context.cardColor,
+                                child: Icon(Icons.broken_image_outlined, color: context.textSecondary),
                               ),
                             )
                           : Image.file(
                               File(item.filePath),
                               fit: BoxFit.contain,
-                              errorBuilder: (_, __, ___) => const ColoredBox(
-                                color: AppTheme.cardColor,
-                                child: Icon(Icons.broken_image_outlined, color: AppTheme.textSecondary),
+                              errorBuilder: (_, __, ___) => ColoredBox(
+                                color: context.cardColor,
+                                child: Icon(Icons.broken_image_outlined, color: context.textSecondary),
                               ),
                             ),
                     ),

@@ -30,10 +30,10 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     final isOwner = authProvider.userId == widget.userId;
 
     return Scaffold(
-      backgroundColor: AppTheme.darkBackground,
+      backgroundColor: context.backgroundColor,
       appBar: AppBar(
         title: Text(profileTitle(isOwner)),
-        backgroundColor: AppTheme.darkBackground,
+        backgroundColor: context.backgroundColor,
       ),
       body: StreamBuilder<UserProfile?>(
         stream: UserService.profileStream(widget.userId),
@@ -127,7 +127,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       return CircleAvatar(
         radius: 48,
         backgroundImage: NetworkImage(photoUrl),
-        backgroundColor: AppTheme.cardColor,
+        backgroundColor: context.cardColor,
       );
     }
     final initial = (profile?.displayName ?? widget.displayName).isNotEmpty
@@ -158,11 +158,11 @@ class _PrivateProfileWarning extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppTheme.dangerColor.withValues(alpha: 0.45)),
       ),
-      child: const Column(
+      child: Column(
         children: [
-          Icon(Icons.lock_outline, size: 52, color: AppTheme.dangerColor),
-          SizedBox(height: 14),
-          Text(
+          const Icon(Icons.lock_outline, size: 52, color: AppTheme.dangerColor),
+          const SizedBox(height: 14),
+          const Text(
             'Perfil privado',
             style: TextStyle(
               fontSize: 18,
@@ -170,14 +170,14 @@ class _PrivateProfileWarning extends StatelessWidget {
               color: Colors.white,
             ),
           ),
-          SizedBox(height: 8),
+          const SizedBox(height: 8),
           Text(
             'Este usuario ha configurado su perfil como privado.\n'
             'Su lista de animes favoritos no está disponible.',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 14,
-              color: AppTheme.textSecondary,
+              color: context.textSecondary,
               height: 1.45,
             ),
           ),
@@ -202,16 +202,16 @@ class _OwnerPrivateNotice extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.amber.withValues(alpha: 0.4)),
       ),
-      child: const Row(
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.visibility_off, color: Colors.amber, size: 22),
-          SizedBox(width: 12),
+          const Icon(Icons.visibility_off, color: Colors.amber, size: 22),
+          const SizedBox(width: 12),
           Expanded(
             child: Text(
               'Tu perfil es privado. Solo tú puedes ver tus favoritos aquí; '
               'otros usuarios verán este perfil como privado.',
-              style: TextStyle(fontSize: 13, color: AppTheme.textSecondary, height: 1.4),
+              style: TextStyle(fontSize: 13, color: context.textSecondary, height: 1.4),
             ),
           ),
         ],
@@ -237,11 +237,11 @@ class _PrivateProfileBadge extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.lock, size: 14, color: AppTheme.dangerColor),
+          Icon(Icons.lock, size: 14, color: AppTheme.dangerColor),
           const SizedBox(width: 6),
           Text(
             isOwner ? 'Tu perfil es privado' : 'Perfil privado',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
               color: AppTheme.dangerColor,
@@ -280,14 +280,14 @@ class _FavoritesGrid extends StatelessWidget {
             width: double.infinity,
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: AppTheme.cardColor,
+              color: context.cardColor,
               borderRadius: BorderRadius.circular(16),
             ),
-            child: const Column(
+            child: Column(
               children: [
-                Icon(Icons.bookmark_outline, size: 40, color: AppTheme.textSecondary),
-                SizedBox(height: 10),
-                Text('Sin favoritos aún', style: TextStyle(color: AppTheme.textSecondary)),
+                Icon(Icons.bookmark_outline, size: 40, color: context.textSecondary),
+                const SizedBox(height: 10),
+                Text('Sin favoritos aún', style: TextStyle(color: context.textSecondary)),
               ],
             ),
           );

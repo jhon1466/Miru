@@ -12,6 +12,7 @@ import '../providers/history_provider.dart';
 import '../models/anime.dart';
 import '../widgets/comments_section.dart';
 import '../widgets/episode_download_button.dart';
+import '../widgets/native_video_player.dart';
 
 class PlayerScreen extends StatefulWidget {
   final String episodeUrl;
@@ -422,6 +423,20 @@ class _PlayerScreenState extends State<PlayerScreen> {
     );
   }
 
+  bool _isDirectMediaUrl(String url) {
+    final lower = url.toLowerCase();
+    if (lower.contains('.mp4') ||
+        lower.contains('.m3u8') ||
+        lower.contains('.mkv') ||
+        lower.contains('.webm') ||
+        lower.contains('googleusercontent.com') ||
+        lower.contains('.m3u') ||
+        _selectedServerName?.toLowerCase() == 'hls') {
+      return true;
+    }
+    return false;
+  }
+
   Widget _buildPlayerWidget() {
     if (_selectedServerUrl == null) {
       return Container(
@@ -429,6 +444,14 @@ class _PlayerScreenState extends State<PlayerScreen> {
         child: const Center(
           child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation(AppTheme.primaryColor)),
         ),
+      );
+    }
+
+    if (_isDirectMediaUrl(_selectedServerUrl!)) {
+      return NativeVideoPlayer(
+        key: ValueKey('native-player-$_selectedServerUrl'),
+        url: _selectedServerUrl!,
+        title: '${widget.animeTitle} - Ep. ${widget.episodeNumber.toString().replaceAll('.0', '')}',
       );
     }
 

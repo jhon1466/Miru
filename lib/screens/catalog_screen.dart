@@ -100,7 +100,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
 
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-      color: AppTheme.cardColor.withValues(alpha: 0.5),
+      color: context.cardColor.withValues(alpha: 0.5),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -111,13 +111,13 @@ class _CatalogScreenState extends State<CatalogScreen> {
               provider.setCatalogQuery(v);
               _reloadFromApi();
             },
-            style: const TextStyle(color: Colors.white),
+            style: TextStyle(color: context.textPrimary),
             decoration: InputDecoration(
               hintText: 'Filtrar por título...',
-              prefixIcon: const Icon(Icons.search, color: AppTheme.textSecondary),
+              prefixIcon: Icon(Icons.search, color: context.textSecondary),
               suffixIcon: _searchController.text.isNotEmpty
                   ? IconButton(
-                      icon: const Icon(Icons.clear, color: AppTheme.textSecondary),
+                      icon: Icon(Icons.clear, color: context.textSecondary),
                       onPressed: () {
                         _searchController.clear();
                         provider.setCatalogQuery('');
@@ -203,10 +203,10 @@ class _CatalogScreenState extends State<CatalogScreen> {
       children: [
         Text(
           label,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 11,
             fontWeight: FontWeight.w700,
-            color: AppTheme.primaryColor,
+            color: context.primaryColor,
             letterSpacing: 0.3,
           ),
         ),
@@ -215,25 +215,26 @@ class _CatalogScreenState extends State<CatalogScreen> {
           constraints: const BoxConstraints(minWidth: 100, maxWidth: 130),
           padding: const EdgeInsets.symmetric(horizontal: 10),
           decoration: BoxDecoration(
-            color: AppTheme.cardColor,
+            color: context.cardColor,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: value.isNotEmpty ? AppTheme.primaryColor : AppTheme.textSecondary.withValues(alpha: 0.25),
+              color: value.isNotEmpty ? context.primaryColor : context.textSecondary.withValues(alpha: 0.25),
             ),
           ),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<String>(
               isExpanded: true,
               value: value.isEmpty ? '' : value,
-              dropdownColor: AppTheme.cardColor,
-              style: const TextStyle(fontSize: 12, color: Colors.white),
-              icon: const Icon(Icons.arrow_drop_down, color: AppTheme.textSecondary, size: 20),
+              dropdownColor: context.cardColor,
+              style: TextStyle(fontSize: 12, color: context.textPrimary),
+              icon: Icon(Icons.arrow_drop_down, color: context.textSecondary, size: 20),
               items: items.map((item) {
                 return DropdownMenuItem(
                   value: item,
                   child: Text(
                     item.isEmpty ? 'Todos' : item,
                     overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: context.textPrimary),
                   ),
                 );
               }).toList(),
@@ -244,7 +245,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
                     child: Text(
                       selected,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 12, color: Colors.white),
+                      style: TextStyle(fontSize: 12, color: context.textPrimary),
                     ),
                   );
                 }).toList();
@@ -278,15 +279,15 @@ class _CatalogScreenState extends State<CatalogScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const CircularProgressIndicator(valueColor: AlwaysStoppedAnimation(AppTheme.primaryColor)),
+            CircularProgressIndicator(valueColor: AlwaysStoppedAnimation(context.primaryColor)),
             if (slowFilter) ...[
               const SizedBox(height: 16),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 32),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 32),
                 child: Text(
                   'Aplicando filtros al catálogo…\nPuede tardar un momento la primera vez.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+                  style: TextStyle(color: context.textSecondary, fontSize: 13),
                 ),
               ),
             ],
@@ -302,9 +303,9 @@ class _CatalogScreenState extends State<CatalogScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.error_outline, color: AppTheme.dangerColor, size: 48),
+              Icon(Icons.error_outline, color: context.dangerColor, size: 48),
               const SizedBox(height: 12),
-              Text(provider.catalogError!, textAlign: TextAlign.center),
+              Text(provider.catalogError!, textAlign: TextAlign.center, style: TextStyle(color: context.textPrimary)),
               const SizedBox(height: 16),
               ElevatedButton(
                 onPressed: () => provider.loadCatalog(),
@@ -318,11 +319,11 @@ class _CatalogScreenState extends State<CatalogScreen> {
 
     final results = provider.catalogResults;
     if (results.isEmpty) {
-      return const Center(
+      return Center(
         child: Text(
           'No hay resultados con estos filtros.\nPrueba limpiar o cambiar de proveedor.',
           textAlign: TextAlign.center,
-          style: TextStyle(color: AppTheme.textSecondary),
+          style: TextStyle(color: context.textSecondary),
         ),
       );
     }
@@ -341,7 +342,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
         children: [
           Text(
             _countLabel(provider),
-            style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+            style: TextStyle(color: context.textSecondary, fontSize: 13),
           ),
           const SizedBox(height: 8),
           Expanded(
@@ -356,12 +357,12 @@ class _CatalogScreenState extends State<CatalogScreen> {
               ),
               itemBuilder: (context, index) {
                 if (index >= results.length) {
-                  return const Center(
+                  return Center(
                     child: Padding(
-                      padding: EdgeInsets.all(16),
+                      padding: const EdgeInsets.all(16),
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation(AppTheme.primaryColor),
+                        valueColor: AlwaysStoppedAnimation(context.primaryColor),
                       ),
                     ),
                   );
@@ -399,10 +400,10 @@ class _CatalogScreenState extends State<CatalogScreen> {
                         anime.title,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 11,
-                          color: Colors.white,
+                          color: context.textPrimary,
                         ),
                       ),
                     ],
