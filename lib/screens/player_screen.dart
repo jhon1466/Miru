@@ -41,6 +41,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
   bool _isSub = true;
   int _webViewGeneration = 0;
   final _webViewKeepAlive = InAppWebViewKeepAlive();
+  InAppWebViewController? _webViewController;
 
   @override
   void initState() {
@@ -135,6 +136,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   @override
   void dispose() {
+    _webViewController = null;
     unawaited(_restoreSystemUiAfterPlayer());
     super.dispose();
   }
@@ -146,8 +148,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
       _selectedServerUrl = url;
       _selectedServerName = name;
       _isSub = isSub;
-      _webViewGeneration++;
     });
+
+    _webViewController?.loadUrl(urlRequest: URLRequest(url: WebUri(url)));
 
     if (logHistory) {
       final auth = context.read<app_auth.AuthProvider>();
@@ -435,9 +438,12 @@ class _PlayerScreenState extends State<PlayerScreen> {
     return Stack(
       children: [
         InAppWebView(
-          key: ValueKey('player-$_webViewGeneration'),
+          key: const ValueKey('player-webview'),
           keepAlive: _webViewKeepAlive,
           initialUrlRequest: URLRequest(url: webUri),
+          onWebViewCreated: (controller) {
+            _webViewController = controller;
+          },
           initialSettings: InAppWebViewSettings(
             javaScriptEnabled: true,
             mediaPlaybackRequiresUserGesture: false,
