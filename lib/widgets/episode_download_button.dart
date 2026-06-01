@@ -3,7 +3,9 @@ import 'package:provider/provider.dart';
 
 import '../core/theme.dart';
 import '../models/anime.dart';
+import '../models/downloaded_episode.dart';
 import '../providers/download_provider.dart';
+import '../screens/downloads_screen.dart';
 import '../screens/offline_player_screen.dart';
 
 /// Botón de descarga / estado offline para un episodio.
@@ -31,6 +33,25 @@ class EpisodeDownloadButton extends StatelessWidget {
 
   Future<void> _start(BuildContext context) async {
     final downloads = context.read<DownloadProvider>();
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('Descarga iniciada. Revisa el progreso en Mis descargas.'),
+        duration: const Duration(seconds: 3),
+        backgroundColor: AppTheme.primaryColor,
+        action: SnackBarAction(
+          label: 'Ver',
+          textColor: Colors.white,
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const DownloadsScreen()),
+            );
+          },
+        ),
+      ),
+    );
+
     final ok = await downloads.startEpisodeDownload(
       episodeUrl: episodeUrl,
       episodeNumber: episodeNumber,
@@ -40,7 +61,9 @@ class EpisodeDownloadButton extends StatelessWidget {
       preferSub: preferSub,
       links: links,
     );
+
     if (!context.mounted) return;
+
     if (ok) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -53,7 +76,20 @@ class EpisodeDownloadButton extends StatelessWidget {
       final msg = task?.error;
       if (msg != null && msg.isNotEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(msg), backgroundColor: AppTheme.dangerColor),
+          SnackBar(
+            content: Text(msg),
+            backgroundColor: AppTheme.dangerColor,
+            action: SnackBarAction(
+              label: 'Detalles',
+              textColor: Colors.white,
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const DownloadsScreen()),
+                );
+              },
+            ),
+          ),
         );
       }
     }
@@ -64,6 +100,7 @@ class EpisodeDownloadButton extends StatelessWidget {
     final downloads = context.watch<DownloadProvider>();
     final saved = downloads.getDownloaded(episodeUrl, preferSub);
     final task = downloads.taskFor(episodeUrl, preferSub);
+    final isActive = downloads.isDownloading(episodeUrl, preferSub);
 
     if (saved != null) {
       return _buildControl(
@@ -80,14 +117,29 @@ class EpisodeDownloadButton extends StatelessWidget {
       );
     }
 
-    if (task != null) {
+    if (isActive && task != null && task.status != DownloadTaskStatus.failed) {
       final pct = task.progress > 0 ? (task.progress * 100).round() : null;
       return _buildControl(
         context,
         icon: Icons.downloading,
         color: AppTheme.primaryColor,
-        label: pct != null ? '$pct%' : '...',
-        onPressed: () => downloads.cancelDownload(episodeUrl, preferSub),
+        label: pct != null ? '$pct%' : '…',
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const DownloadsScreen()),
+          );
+        },
+      );
+    }
+
+    if (task != null && task.status == DownloadTaskStatus.failed) {
+      return _buildControl(
+        context,
+        icon: Icons.error_outline,
+        color: AppTheme.dangerColor,
+        label: 'Error',
+        onPressed: () => _start(context),
       );
     }
 

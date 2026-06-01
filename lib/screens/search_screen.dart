@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import '../core/theme.dart';
 import '../providers/anime_provider.dart';
 import '../widgets/anime_poster_image.dart';
-import '../widgets/provider_chips_row.dart';
 import 'detail_screen.dart';
 
 class SearchScreen extends StatefulWidget {
@@ -115,33 +114,27 @@ class _SearchScreenState extends State<SearchScreen> {
         child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ProviderChipsRow(
-            provider: animeProvider,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-            color: AppTheme.cardColor.withOpacity(0.5),
-            child: Row(
-              children: [
-                const Icon(Icons.filter_list, size: 16, color: AppTheme.primaryColor),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    animeProvider.selectedProviderDomain.isEmpty
-                        ? 'Buscando en: Todos los proveedores'
-                        : 'Buscando en: ${animeProvider.providers.firstWhere((p) => p['domain'] == animeProvider.selectedProviderDomain)['name']}',
-                    style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+          if (_searchController.text.trim().isNotEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              color: AppTheme.cardColor.withValues(alpha: 0.5),
+              child: const Row(
+                children: [
+                  Icon(Icons.search, size: 16, color: AppTheme.primaryColor),
+                  SizedBox(width: 8),
+                  Text(
+                    'Buscando en todos los proveedores',
+                    style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
                   ),
-                ),
-                if (_searchController.text.trim().isNotEmpty)
-                  const Text(
+                  Spacer(),
+                  Text(
                     'En vivo',
                     style: TextStyle(fontSize: 10, color: AppTheme.accentColor, fontWeight: FontWeight.bold),
                   ),
-              ],
+                ],
+              ),
             ),
-          ),
           Expanded(
             child: _buildSearchBody(animeProvider),
           ),

@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:image_picker/image_picker.dart';
@@ -7,8 +8,11 @@ import '../core/theme.dart';
 import '../models/comment.dart';
 import '../providers/auth_provider.dart' as app_auth;
 import '../services/comment_service.dart';
+import '../models/sticker.dart';
 import '../services/comment_image_service.dart';
+import '../services/sticker_service.dart';
 import '../services/user_service.dart';
+import 'sticker_picker_sheet.dart';
 import '../screens/user_profile_screen.dart';
 import '../utils/auth_ui.dart';
 
@@ -43,6 +47,7 @@ class _CommentsSectionState extends State<CommentsSection> {
   bool _isSending = false;
   bool _didScrollToFocus = false;
   XFile? _pendingImage;
+  StickerItem? _pendingSticker;
   Comment? _replyTarget;
   Comment? _replyRoot;
 
@@ -77,19 +82,32 @@ class _CommentsSectionState extends State<CommentsSection> {
 
   Future<void> _sendComment(app_auth.AuthProvider auth) async {
     final text = _commentController.text.trim();
-    if ((text.isEmpty && _pendingImage == null) || !auth.isLoggedIn) return;
+    if ((text.isEmpty && _pendingImage == null && _pendingSticker == null) || !auth.isLoggedIn) {
+      return;
+    }
 
     setState(() => _isSending = true);
     try {
       String? imageUrl;
+      String? stickerUrl;
       if (_pendingImage != null) {
         imageUrl = await CommentImageService.uploadCompressed(
           animeSlug: widget.animeSlug,
           file: _pendingImage!,
         );
       }
+      if (_pendingSticker != null) {
+        stickerUrl = await StickerService.uploadForComment(
+          animeSlug: widget.animeSlug,
+          file: File(_pendingSticker!.filePath),
+        );
+      }
 
       final parent = _replyRoot;
+      final messageText = text.isEmpty
+          ? (stickerUrl != null ? '🎭' : '📷 Imagen')
+          : text;
+
       await CommentService.addComment(
         animeSlug: widget.animeSlug,
         animeTitle: widget.animeTitle,
@@ -97,8 +115,9 @@ class _CommentsSectionState extends State<CommentsSection> {
         userId: auth.userId!,
         userDisplayName: auth.displayName ?? 'Usuario',
         userPhotoUrl: auth.photoUrl,
-        text: text.isEmpty ? '📷 Imagen' : text,
+        text: messageText,
         imageUrl: imageUrl,
+        stickerUrl: stickerUrl,
         episodeNumber: widget.episodeNumber,
         episodeUrl: widget.episodeUrl,
         parentId: parent?.id,
@@ -109,6 +128,7 @@ class _CommentsSectionState extends State<CommentsSection> {
       _commentController.clear();
       setState(() {
         _pendingImage = null;
+        _pendingSticker = null;
         _replyTarget = null;
         _replyRoot = null;
       });
@@ -126,6 +146,16 @@ class _CommentsSectionState extends State<CommentsSection> {
   Future<void> _pickImage() async {
     final file = await CommentImageService.pickImage();
     if (file != null && mounted) setState(() => _pendingImage = file);
+  }
+
+  Future<void> _pickSticker() async {
+    final sticker = await StickerPickerSheet.pick(context);
+    if (sticker != null && mounted) {
+      setState(() {
+        _pendingSticker = sticker;
+        _pendingImage = null;
+      });
+    }
   }
 
   void _startReply(Comment target, Comment? root) {
@@ -382,6 +412,20 @@ class _CommentsSectionState extends State<CommentsSection> {
               ),
             ),
           ],
+          if (_pendingSticker != null) ...[
+            SizedBox(
+              height: 96,
+              width: 96,
+              child: Image.file(File(_pendingSticker!.filePath), fit: BoxFit.contain),
+            ),
+            Align(
+              alignment: Alignment.centerRight,
+              child: IconButton(
+                icon: const Icon(Icons.close, color: AppTheme.dangerColor, size: 20),
+                onPressed: () => setState(() => _pendingSticker = null),
+              ),
+            ),
+          ],
           TextField(
             controller: _commentController,
             focusNode: _inputFocus,
@@ -403,6 +447,11 @@ class _CommentsSectionState extends State<CommentsSection> {
           ),
           Row(
             children: [
+              IconButton(
+                onPressed: _isSending ? null : _pickSticker,
+                icon: const Icon(Icons.emoji_emotions_outlined, color: AppTheme.accentColor),
+                tooltip: 'Sticker',
+              ),
               IconButton(
                 onPressed: _isSending ? null : _pickImage,
                 icon: const Icon(Icons.image_outlined, color: AppTheme.primaryColor),
@@ -518,6 +567,17 @@ class _CommentsSectionState extends State<CommentsSection> {
                           style: const TextStyle(fontSize: 14, color: AppTheme.textPrimary, height: 1.4),
                         ),
                       ],
+                      if (liveComment.hasSticker) ...[
+                        const SizedBox(height: 8),
+                        SizedBox(
+                          height: 120,
+                          width: 120,
+                          child: CachedNetworkImage(
+                            imageUrl: liveComment.stickerUrl!,
+                            fit: BoxFit.contain,
+                          ),
+                        ),
+                      ],
                       if (liveComment.imageUrl != null && liveComment.imageUrl!.isNotEmpty) ...[
                         const SizedBox(height: 8),
                         ClipRRect(
@@ -535,6 +595,19 @@ class _CommentsSectionState extends State<CommentsSection> {
                       const SizedBox(height: 6),
                       Row(
                         children: [
+                          if (liveComment.text.isNotEmpty)
+                            TextButton(
+                              onPressed: () {
+                                Clipboard.setData(ClipboardData(text: liveComment.text));
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Texto copiado'),
+                                    duration: Duration(seconds: 1),
+                                  ),
+                                );
+                              },
+                              child: const Text('Copiar', style: TextStyle(fontSize: 12)),
+                            ),
                           TextButton(
                             onPressed: auth.isLoggedIn
                                 ? () => _startReply(liveComment, isReply ? root : liveComment)

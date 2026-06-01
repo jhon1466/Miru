@@ -38,6 +38,7 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
   Widget build(BuildContext context) {
     final downloads = context.watch<DownloadProvider>();
     final active = downloads.activeTasks;
+    final failed = downloads.failedTasks;
     final grouped = _groupByAnime(downloads.library);
     final animeUrls = grouped.keys.toList()
       ..sort((a, b) {
@@ -53,7 +54,7 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
       body: RefreshIndicator(
         onRefresh: downloads.loadLibrary,
         color: AppTheme.primaryColor,
-        child: active.isEmpty && animeUrls.isEmpty
+        child: active.isEmpty && failed.isEmpty && animeUrls.isEmpty
             ? ListView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 children: const [
@@ -63,7 +64,7 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
                   Padding(
                     padding: EdgeInsets.symmetric(horizontal: 32),
                     child: Text(
-                      'Descarga episodios desde el reproductor o la lista de capítulos para verlos sin internet.',
+                      'Descarga episodios desde el reproductor o la lista de capítulos. Verás el progreso aquí.',
                       textAlign: TextAlign.center,
                       style: TextStyle(color: AppTheme.textSecondary, height: 1.4),
                     ),
@@ -75,11 +76,20 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
                 children: [
                   if (active.isNotEmpty) ...[
                     const Text(
-                      'Descargando',
+                      'En progreso',
                       style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 8),
-                    ...active.map((t) => _ActiveDownloadCard(task: t)),
+                    ...active.map((t) => _ActiveDownloadCard(task: t, isFailed: false)),
+                    const SizedBox(height: 24),
+                  ],
+                  if (failed.isNotEmpty) ...[
+                    const Text(
+                      'Con error',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.dangerColor),
+                    ),
+                    const SizedBox(height: 8),
+                    ...failed.map((t) => _ActiveDownloadCard(task: t, isFailed: true)),
                     const SizedBox(height: 24),
                   ],
                   if (animeUrls.isNotEmpty) ...[
@@ -107,28 +117,86 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
 
 class _ActiveDownloadCard extends StatelessWidget {
   final ActiveDownloadTask task;
+  final bool isFailed;
 
-  const _ActiveDownloadCard({required this.task});
+  const _ActiveDownloadCard({required this.task, required this.isFailed});
 
   @override
   Widget build(BuildContext context) {
     final downloads = context.read<DownloadProvider>();
+    final isActive = !isFailed && task.status != DownloadTaskStatus.failed;
+
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
+      color: isFailed ? AppTheme.dangerColor.withValues(alpha: 0.08) : null,
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Row(
+              children: [
+                Icon(
+                  isFailed
+                      ? Icons.error_outline
+                      : (task.status == DownloadTaskStatus.queued
+                          ? Icons.hourglass_top
+                          : Icons.downloading),
+                  color: isFailed ? AppTheme.dangerColor : AppTheme.primaryColor,
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    isFailed ? 'Descarga fallida' : (task.statusMessage.isNotEmpty ? task.statusMessage : 'Descargando'),
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: isFailed ? AppTheme.dangerColor : AppTheme.primaryColor,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
             Text(task.animeTitle, style: const TextStyle(fontWeight: FontWeight.bold)),
             Text(
               '${task.episodeTitle} · ${task.isSub ? 'SUB' : 'DUB'}',
               style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12),
             ),
             const SizedBox(height: 10),
-            if (task.status == DownloadTaskStatus.failed)
-              Text(task.error ?? 'Error', style: const TextStyle(color: AppTheme.dangerColor, fontSize: 12))
-            else ...[
+            if (isFailed) ...[
+              Text(
+                task.error ?? 'No se pudo completar la descarga',
+                style: const TextStyle(color: AppTheme.dangerColor, fontSize: 12, height: 1.35),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => downloads.dismissFailed(task.id),
+                    child: const Text('Descartar'),
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton(
+                    onPressed: () {
+                      downloads.dismissFailed(task.id);
+                      downloads.startEpisodeDownload(
+                        episodeUrl: task.episodeUrl,
+                        episodeNumber: task.episodeNumber,
+                        animeTitle: task.animeTitle,
+                        animeUrl: task.animeUrl,
+                        animeImage: task.animeImage,
+                        preferSub: task.isSub,
+                      );
+                    },
+                    style: FilledButton.styleFrom(backgroundColor: AppTheme.primaryColor),
+                    child: const Text('Reintentar'),
+                  ),
+                ],
+              ),
+            ] else ...[
               LinearProgressIndicator(
                 value: task.progress > 0 ? task.progress : null,
                 color: AppTheme.primaryColor,
@@ -136,19 +204,21 @@ class _ActiveDownloadCard extends StatelessWidget {
               ),
               const SizedBox(height: 6),
               Text(
-                task.progress > 0 ? '${(task.progress * 100).toStringAsFixed(0)}%' : 'Preparando...',
+                task.progress > 0
+                    ? '${(task.progress * 100).toStringAsFixed(0)}%'
+                    : (task.statusMessage.isNotEmpty ? task.statusMessage : 'Preparando…'),
                 style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
               ),
-            ],
-            if (task.status == DownloadTaskStatus.downloading) ...[
-              const SizedBox(height: 8),
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton(
-                  onPressed: () => downloads.cancelDownload(task.episodeUrl, task.isSub),
-                  child: const Text('Cancelar'),
+              if (isActive) ...[
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: () => downloads.cancelDownload(task.episodeUrl, task.isSub),
+                    child: const Text('Cancelar'),
+                  ),
                 ),
-              ),
+              ],
             ],
           ],
         ),

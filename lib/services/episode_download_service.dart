@@ -34,34 +34,31 @@ class EpisodeDownloadService {
     return false;
   }
 
-  static EpisodeLink? pickOfflineLink(EpisodeLinksResponse links, {required bool preferSub}) {
+  /// Solo enlaces de descarga directa (nunca streaming / m3u8).
+  static List<EpisodeLink> listOfflineCandidates(
+    EpisodeLinksResponse links, {
+    required bool preferSub,
+  }) {
     final ordered = preferSub
-        ? [
-            links.subDownload,
-            links.dubDownload,
-            links.subStream,
-            links.dubStream,
-          ]
-        : [
-            links.dubDownload,
-            links.subDownload,
-            links.dubStream,
-            links.subStream,
-          ];
+        ? [links.subDownload, links.dubDownload]
+        : [links.dubDownload, links.subDownload];
 
+    final seen = <String>{};
+    final out = <EpisodeLink>[];
     for (final list in ordered) {
       for (final link in list) {
-        if (link.url.isEmpty) continue;
-        if (isLikelyDirectFile(link.url)) return link;
+        if (link.url.isEmpty || seen.contains(link.url)) continue;
+        if (!isLikelyDirectFile(link.url)) continue;
+        seen.add(link.url);
+        out.add(link);
       }
     }
+    return out;
+  }
 
-    for (final list in ordered) {
-      if (list.isNotEmpty && list.first.url.isNotEmpty) {
-        return list.first;
-      }
-    }
-    return null;
+  static EpisodeLink? pickOfflineLink(EpisodeLinksResponse links, {required bool preferSub}) {
+    final candidates = listOfflineCandidates(links, preferSub: preferSub);
+    return candidates.isEmpty ? null : candidates.first;
   }
 
   static Future<List<DownloadedEpisode>> loadLibrary() async {
@@ -124,7 +121,7 @@ class EpisodeDownloadService {
     required String episodeUrl,
     required String episodeTitle,
     required bool isSub,
-    void Function(double progress)? onProgress,
+    void Function(double progress, int receivedBytes, int? totalBytes)? onProgress,
     bool Function()? isCancelled,
   }) async {
     final id = episodeId(episodeUrl, isSub);
@@ -161,11 +158,11 @@ class EpisodeDownloadService {
         }
         sink.add(chunk);
         received += chunk.length;
-        if (total != null && total > 0) {
-          onProgress?.call(received / total);
-        } else {
-          onProgress?.call(-1);
-        }
+        onProgress?.call(
+          total != null && total > 0 ? received / total : -1,
+          received,
+          total,
+        );
       }
 
       await sink.close();
