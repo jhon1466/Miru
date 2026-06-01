@@ -93,6 +93,34 @@ class ApiClient {
     }
   }
 
+  static Future<Map<String, dynamic>> browseCatalog({
+    String? domain,
+    String? genre,
+    String? year,
+    String? type,
+    String? status,
+    String? query,
+  }) async {
+    final baseUrl = await getBaseUrl();
+    final queryParams = <String, String>{
+      if (domain != null && domain.isNotEmpty) 'domain': domain,
+      if (genre != null && genre.isNotEmpty) 'genre': genre,
+      if (year != null && year.isNotEmpty) 'year': year,
+      if (type != null && type.isNotEmpty) 'type': type,
+      if (status != null && status.isNotEmpty) 'status': status,
+      if (query != null && query.isNotEmpty) 'q': query,
+    };
+    final uri = Uri.parse('$baseUrl/api/v1/anime/catalog').replace(queryParameters: queryParams);
+
+    final response = await http.get(uri).timeout(const Duration(seconds: 45));
+    if (response.statusCode == 200) {
+      final decoded = json.decode(response.body) as Map<String, dynamic>;
+      return decoded['data'] as Map<String, dynamic>? ?? {};
+    }
+    final decoded = json.decode(response.body);
+    throw Exception(decoded['message'] ?? 'Error al cargar el catálogo');
+  }
+
   // Obtener información detallada del anime
   static Future<AnimeDetails> getAnimeInfo(String animeUrl) async {
     final baseUrl = await getBaseUrl();

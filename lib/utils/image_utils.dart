@@ -197,6 +197,41 @@ String resolvePosterUrl({
   return list.isNotEmpty ? list.first : '';
 }
 
+/// Candidatos para miniatura de episodio (screenshots CDN + portada como último recurso).
+List<String> collectEpisodeThumbnailCandidates({
+  String? apiImage,
+  String? animeId,
+  double? episodeNumber,
+  String? animeUrl,
+  String? fallbackPosterUrl,
+}) {
+  final seen = <String>{};
+  final list = <String>[];
+
+  _addUrl(list, seen, apiImage, baseAnimeUrl: animeUrl);
+
+  if (animeId != null && episodeNumber != null) {
+    final n = episodeNumber == episodeNumber.roundToDouble()
+        ? episodeNumber.toInt()
+        : episodeNumber.ceil();
+    _addUrl(list, seen, 'https://cdn.animeav1.com/screenshots/$animeId/$n.jpg');
+  }
+
+  if (animeUrl != null && episodeNumber != null && fallbackPosterUrl != null) {
+    final coverMatch = RegExp(r'/covers/(\d+)\.').firstMatch(fallbackPosterUrl);
+    if (coverMatch != null) {
+      final n = episodeNumber == episodeNumber.roundToDouble()
+          ? episodeNumber.toInt()
+          : episodeNumber.ceil();
+      _addUrl(list, seen, 'https://cdn.animeflv.net/screenshots/${coverMatch.group(1)}/$n.jpg');
+    }
+  }
+
+  _addUrl(list, seen, fallbackPosterUrl, baseAnimeUrl: animeUrl);
+
+  return list;
+}
+
 /// Resuelve URL del banner (misma lógica que lista de candidatos).
 String resolveBannerUrl({
   String? apiBackdrop,
