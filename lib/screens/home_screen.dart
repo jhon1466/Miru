@@ -198,7 +198,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             children: [
                               CachedNetworkImage(
                                 imageUrl: anime.image ?? '',
-                                fit: BoxFit.cover,
+                                fit: BoxFit.contain,
                                 width: double.infinity,
                                 height: double.infinity,
                                 placeholder: (context, url) => Container(color: AppTheme.cardColor),
@@ -341,7 +341,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             children: [
                               AnimePosterImage(
                                 imageUrl: item.image,
-                                fit: BoxFit.cover,
+                                fit: BoxFit.contain,
                                 width: double.infinity,
                                 height: double.infinity,
                               ),
@@ -664,7 +664,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             children: [
                               AnimePosterImage(
                                 imageUrl: anime.image,
-                                fit: BoxFit.cover,
+                                fit: BoxFit.contain,
                                 width: double.infinity,
                                 height: double.infinity,
                               ),
