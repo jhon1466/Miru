@@ -6,6 +6,7 @@ import '../services/user_service.dart';
 import '../utils/auth_ui.dart';
 import 'settings_screen.dart';
 import 'user_profile_screen.dart';
+import 'downloads_screen.dart';
 
 /// Pestaña Perfil: cuenta, foto, privacidad y acceso a ajustes.
 class ProfileTabScreen extends StatelessWidget {
@@ -186,6 +187,25 @@ class _LoggedInBodyState extends State<_LoggedInBody> {
                   onPressed: () {
                     Navigator.push(
                       context,
+                      MaterialPageRoute(builder: (_) => const DownloadsScreen()),
+                    );
+                  },
+                  icon: const Icon(Icons.download_for_offline_outlined, color: AppTheme.accentColor),
+                  label: const Text('Mis descargas', style: TextStyle(color: AppTheme.accentColor)),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    side: BorderSide(color: AppTheme.accentColor.withValues(alpha: 0.5)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
                       MaterialPageRoute(
                         builder: (_) => UserProfileScreen(
                           userId: uid,
@@ -319,6 +339,25 @@ class _LoggedOutBody extends StatelessWidget {
               style: TextStyle(color: AppTheme.textSecondary),
             ),
             const SizedBox(height: 28),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const DownloadsScreen()),
+                  );
+                },
+                icon: const Icon(Icons.download_for_offline_outlined, color: AppTheme.accentColor),
+                label: const Text('Mis descargas', style: TextStyle(color: AppTheme.accentColor)),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  side: BorderSide(color: AppTheme.accentColor.withValues(alpha: 0.5)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(

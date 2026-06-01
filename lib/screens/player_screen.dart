@@ -11,6 +11,7 @@ import '../providers/auth_provider.dart' as app_auth;
 import '../providers/history_provider.dart';
 import '../models/anime.dart';
 import '../widgets/comments_section.dart';
+import '../widgets/episode_download_button.dart';
 
 class PlayerScreen extends StatefulWidget {
   final String episodeUrl;
@@ -275,6 +276,16 @@ class _PlayerScreenState extends State<PlayerScreen> {
             ],
           ),
           actions: [
+            if (links != null)
+              EpisodeDownloadButton(
+                episodeUrl: widget.episodeUrl,
+                episodeNumber: widget.episodeNumber,
+                animeTitle: widget.animeTitle,
+                animeUrl: widget.animeUrl,
+                animeImage: widget.animeImage,
+                preferSub: _isSub,
+                links: links,
+              ),
             if (links != null)
               IconButton(
                 icon: const Icon(Icons.tune),
