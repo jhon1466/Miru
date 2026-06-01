@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../core/theme.dart';
 import '../models/comment.dart';
 import '../providers/auth_provider.dart' as app_auth;
+import '../providers/notification_provider.dart';
 import '../services/notification_service.dart';
 import 'detail_screen.dart';
 import 'player_screen.dart';
@@ -31,7 +32,12 @@ class NotificationsScreen extends StatelessWidget {
         title: const Text('Notificaciones'),
         actions: [
           TextButton(
-            onPressed: () => NotificationService.markAllRead(auth.userId!),
+            onPressed: () async {
+              await NotificationService.markAllRead(auth.userId!);
+              if (context.mounted) {
+                context.read<NotificationProvider>().refreshUnread();
+              }
+            },
             child: const Text('Marcar leídas', style: TextStyle(color: AppTheme.primaryColor)),
           ),
         ],
@@ -100,6 +106,9 @@ class NotificationsScreen extends StatelessWidget {
     AppNotification n,
   ) async {
     await NotificationService.markAsRead(auth.userId!, n.id);
+    if (context.mounted) {
+      context.read<NotificationProvider>().refreshUnread();
+    }
     if (!context.mounted) return;
 
     final animeUrl = n.animeUrl?.isNotEmpty == true

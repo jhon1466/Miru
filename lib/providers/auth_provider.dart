@@ -5,6 +5,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:image_picker/image_picker.dart';
 import '../services/user_service.dart';
+import '../services/push_notification_service.dart';
 
 class AuthProvider with ChangeNotifier {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -51,6 +52,7 @@ class AuthProvider with ChangeNotifier {
           photoUrl: _user!.photoURL,
           email: _user!.email,
         );
+        await PushNotificationService.registerTokenForUser(_user!.uid);
       }
 
       final welcomeName = _user?.displayName ?? _user?.email?.split('@').first ?? 'Usuario';
@@ -70,6 +72,10 @@ class AuthProvider with ChangeNotifier {
   }
 
   Future<void> signOut() async {
+    final uid = _user?.uid;
+    if (uid != null) {
+      await PushNotificationService.unregisterCurrentToken(uid);
+    }
     await _googleSignIn.signOut();
     await _auth.signOut();
     _user = null;

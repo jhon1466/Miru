@@ -1,4 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
+import 'package:flutter/foundation.dart';
 import '../models/comment.dart';
 
 class NotificationService {
@@ -18,9 +20,23 @@ class NotificationService {
 
   static Stream<int> watchUnreadCount(String userId) {
     return _notificationsRef(userId)
-        .where('read', isEqualTo: false)
+        .orderBy('createdAt', descending: true)
+        .limit(100)
         .snapshots()
-        .map((snap) => snap.docs.length);
+        .map((snap) {
+          return snap.docs.where((doc) {
+            final data = doc.data() as Map<String, dynamic>?;
+            return data != null && data['read'] != true;
+          }).length;
+        });
+  }
+
+  static Future<int> countUnread(String userId) async {
+    final snap = await _notificationsRef(userId).orderBy('createdAt', descending: true).limit(100).get();
+    return snap.docs.where((doc) {
+      final data = doc.data() as Map<String, dynamic>?;
+      return data != null && data['read'] != true;
+    }).length;
   }
 
   static Future<void> notifyCommentReply({
@@ -39,9 +55,10 @@ class NotificationService {
 
     final snippet = preview.length > 80 ? '${preview.substring(0, 80)}…' : preview;
 
-    await _notificationsRef(targetUserId).add({
+    final title = '$fromUserName respondió tu comentario';
+    final doc = await _notificationsRef(targetUserId).add({
       'type': 'comment_reply',
-      'title': '$fromUserName respondió tu comentario',
+      'title': title,
       'body': snippet,
       'animeSlug': animeSlug,
       'animeTitle': animeTitle,
@@ -54,6 +71,50 @@ class NotificationService {
       'read': false,
       'createdAt': FieldValue.serverTimestamp(),
     });
+
+    await _sendPushNotification(
+      targetUserId: targetUserId,
+      title: title,
+      body: snippet,
+      animeSlug: animeSlug,
+      animeTitle: animeTitle,
+      animeUrl: animeUrl,
+      episodeNumber: episodeNumber,
+      commentId: commentId,
+      parentCommentId: parentCommentId,
+      notificationId: doc.id,
+    );
+  }
+
+  static Future<void> _sendPushNotification({
+    required String targetUserId,
+    required String title,
+    required String body,
+    required String animeSlug,
+    required String animeTitle,
+    String? animeUrl,
+    double? episodeNumber,
+    required String commentId,
+    String? parentCommentId,
+    required String notificationId,
+  }) async {
+    try {
+      final functions = FirebaseFunctions.instanceFor(region: 'us-central1');
+      await functions.httpsCallable('sendCommentReplyPush').call({
+        'targetUserId': targetUserId,
+        'title': title,
+        'body': body,
+        'animeSlug': animeSlug,
+        'animeTitle': animeTitle,
+        'animeUrl': animeUrl,
+        'commentId': commentId,
+        'parentCommentId': parentCommentId,
+        'episodeNumber': episodeNumber,
+        'notificationId': notificationId,
+      });
+    } catch (e) {
+      debugPrint('Push FCM: $e');
+    }
   }
 
   static Future<void> markAsRead(String userId, String notificationId) async {
