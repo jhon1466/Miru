@@ -118,7 +118,7 @@ class _LoggedInBodyState extends State<_LoggedInBody> {
                       Flexible(
                         child: Text(
                           name,
-                          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
+                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: context.textPrimary),
                           textAlign: TextAlign.center,
                         ),
                       ),
@@ -328,9 +328,9 @@ class _LoggedOutBody extends StatelessWidget {
           children: [
             Icon(Icons.person_outline, size: 72, color: context.textSecondary),
             const SizedBox(height: 20),
-            const Text(
+            Text(
               'Inicia sesión',
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: context.textPrimary),
             ),
             const SizedBox(height: 8),
             Text(
