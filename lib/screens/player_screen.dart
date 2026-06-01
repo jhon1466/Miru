@@ -289,12 +289,6 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 preferSub: _isSub,
                 links: links,
               ),
-            if (links != null)
-              IconButton(
-                icon: const Icon(Icons.tune),
-                tooltip: 'Idioma y servidores',
-                onPressed: () => _openPlaybackOptions(links),
-              ),
           ],
         ),
         body: Column(
@@ -425,12 +419,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
   bool _isDirectMediaUrl(String url) {
     final lower = url.toLowerCase();
     if (lower.contains('.mp4') ||
-        lower.contains('.m3u8') ||
         lower.contains('.mkv') ||
         lower.contains('.webm') ||
-        lower.contains('googleusercontent.com') ||
-        lower.contains('.m3u') ||
-        _selectedServerName?.toLowerCase() == 'hls') {
+        lower.contains('googleusercontent.com')) {
       return true;
     }
     return false;

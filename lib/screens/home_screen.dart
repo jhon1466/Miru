@@ -697,7 +697,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         anime.title,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.white),
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: context.textPrimary),
                       ),
                     ],
                   ),

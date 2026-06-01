@@ -146,7 +146,7 @@ class EpisodeDownloadButton extends StatelessWidget {
     return _buildControl(
       context,
       icon: Icons.download_rounded,
-      color: Colors.white70,
+      color: context.textPrimary,
       label: 'Descargar',
       onPressed: () => _start(context),
     );
