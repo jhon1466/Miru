@@ -13,7 +13,7 @@ class CommentService {
     String animeSlug, {
     double? episodeNumber,
   }) {
-    Query query = _commentsRef(animeSlug).orderBy('createdAt', descending: false);
+    Query query = _commentsRef(animeSlug).orderBy('createdAt', descending: true);
 
     if (episodeNumber != null) {
       query = query.where('episodeNumber', isEqualTo: episodeNumber);
