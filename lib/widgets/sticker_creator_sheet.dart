@@ -76,7 +76,7 @@ class _StickerCreatorSheetState extends State<StickerCreatorSheet> {
                 }
                 return Crop(
                   controller: _cropController,
-                  aspectRatio: 1,
+                  aspectRatio: null,
                   withCircleUi: false,
                   initialRectBuilder: InitialRectBuilder.withSizeAndRatio(size: 0.85),
                   image: snap.data!,
