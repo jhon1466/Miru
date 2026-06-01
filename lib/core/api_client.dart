@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/anime.dart';
+import '../models/schedule.dart';
 
 class ApiClient {
   static const String keyBaseUrl = 'backend_base_url';
@@ -147,6 +148,25 @@ class ApiClient {
     }
     final decoded = json.decode(response.body);
     throw Exception(decoded['message'] ?? 'Error al cargar el catálogo');
+  }
+
+  /// Programación semanal (horario de emisión por día).
+  static Future<WeeklySchedule> getWeeklySchedule({String? domain, String? day}) async {
+    final baseUrl = await getBaseUrl();
+    final queryParams = <String, String>{
+      if (domain != null && domain.isNotEmpty) 'domain': domain,
+      if (day != null && day.isNotEmpty) 'day': day,
+    };
+    final uri = Uri.parse('$baseUrl/api/v1/anime/schedule').replace(queryParameters: queryParams);
+
+    final response = await http.get(uri).timeout(const Duration(seconds: 90));
+    if (response.statusCode == 200) {
+      final decoded = json.decode(response.body) as Map<String, dynamic>;
+      final data = decoded['data'] as Map<String, dynamic>? ?? {};
+      return WeeklySchedule.fromJson(data);
+    }
+    final decoded = json.decode(response.body);
+    throw Exception(decoded['message'] ?? 'Error al cargar el horario');
   }
 
   // Obtener información detallada del anime

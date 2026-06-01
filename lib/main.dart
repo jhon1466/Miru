@@ -8,6 +8,7 @@ import 'providers/anime_provider.dart';
 import 'providers/auth_provider.dart';
 import 'providers/history_provider.dart';
 import 'providers/notification_provider.dart';
+import 'providers/download_provider.dart';
 import 'services/push_notification_service.dart';
 import 'screens/splash_screen.dart';
 
@@ -31,6 +32,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => HistoryProvider()),
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => NotificationProvider()),
+        ChangeNotifierProvider(create: (_) => DownloadProvider()..loadLibrary()),
       ],
       child: Builder(
         builder: (context) {

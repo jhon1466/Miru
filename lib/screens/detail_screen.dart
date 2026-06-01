@@ -10,6 +10,7 @@ import '../widgets/anime_poster_image.dart';
 import '../widgets/comments_section.dart';
 import '../models/anime.dart';
 import 'player_screen.dart';
+import '../widgets/episode_download_button.dart';
 
 class DetailScreen extends StatefulWidget {
   final String animeUrl;
@@ -462,7 +463,19 @@ class _DetailScreenState extends State<DetailScreen> {
                             'Número: ${episode.number.toString().replaceAll('.0', '')}',
                             style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
                           ),
-                          trailing: const Icon(Icons.chevron_right, color: AppTheme.textSecondary),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              EpisodeDownloadButton(
+                                episodeUrl: episode.url,
+                                episodeNumber: episode.number,
+                                animeTitle: details.title,
+                                animeUrl: widget.animeUrl,
+                                animeImage: posterImage,
+                              ),
+                              const Icon(Icons.chevron_right, color: AppTheme.textSecondary),
+                            ],
+                          ),
                         ),
                       );
                     },
