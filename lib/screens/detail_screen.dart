@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import '../core/theme.dart';
 import '../providers/anime_provider.dart';
 import '../providers/auth_provider.dart' as app_auth;
 import '../providers/history_provider.dart';
 import '../services/favorite_service.dart';
+import '../utils/image_utils.dart';
+import '../widgets/anime_poster_image.dart';
 import '../widgets/comments_section.dart';
 import 'player_screen.dart';
 
@@ -99,8 +100,16 @@ class _DetailScreenState extends State<DetailScreen> {
         ? details.episodes.reversed.toList() 
         : details.episodes;
 
-    final posterImage = details.image ?? widget.animeImage ?? '';
-    final backdropImage = details.backdrop ?? details.image ?? widget.animeImage ?? '';
+    final posterImage = resolvePosterUrl(
+      apiImage: details.image,
+      apiBackdrop: details.backdrop,
+      passedImage: widget.animeImage,
+    );
+    final backdropImage = resolvePosterUrl(
+      apiImage: details.backdrop ?? details.image,
+      apiBackdrop: details.backdrop,
+      passedImage: widget.animeImage,
+    );
 
     return CustomScrollView(
       slivers: [
@@ -127,12 +136,16 @@ class _DetailScreenState extends State<DetailScreen> {
                           size: 28,
                         ),
                         onPressed: () async {
-                          if (details == null) return;
+                          final wasFav = isFavCloud;
                           await FavoriteService.toggleFavorite(
                             authProvider.userId!,
                             details,
                             widget.animeUrl,
+                            fallbackImage: widget.animeImage,
                           );
+                          if (wasFav == historyProvider.isFavorite(widget.animeUrl)) {
+                            await historyProvider.toggleFavoriteWithUrl(details, widget.animeUrl);
+                          }
                           if (!context.mounted) return;
                           ScaffoldMessenger.of(context).clearSnackBars();
                           ScaffoldMessenger.of(context).showSnackBar(
@@ -176,10 +189,11 @@ class _DetailScreenState extends State<DetailScreen> {
             background: Stack(
               fit: StackFit.expand,
               children: [
-                CachedNetworkImage(
-                  imageUrl: backdropImage,
-                  fit: BoxFit.cover,
-                  errorWidget: (context, url, error) => Container(color: AppTheme.cardColor),
+                Positioned.fill(
+                  child: AnimePosterImage(
+                    imageUrl: backdropImage.isNotEmpty ? backdropImage : null,
+                    fit: BoxFit.cover,
+                  ),
                 ),
                 const DecoratedBox(
                   decoration: BoxDecoration(
@@ -210,20 +224,11 @@ class _DetailScreenState extends State<DetailScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Poster
-                    ClipRRect(
+                    AnimePosterImage(
+                      imageUrl: posterImage.isNotEmpty ? posterImage : null,
+                      width: 110,
+                      height: 160,
                       borderRadius: BorderRadius.circular(12),
-                      child: CachedNetworkImage(
-                        imageUrl: posterImage,
-                        width: 110,
-                        height: 160,
-                        fit: BoxFit.cover,
-                        errorWidget: (context, url, error) => Container(
-                          width: 110,
-                          height: 160,
-                          color: AppTheme.cardColor,
-                          child: const Icon(Icons.movie),
-                        ),
-                      ),
                     ),
                     const SizedBox(width: 16),
                     // Metadatos
