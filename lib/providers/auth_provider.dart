@@ -118,4 +118,17 @@ class AuthProvider with ChangeNotifier {
       rethrow;
     }
   }
+
+  /// Actualiza el nombre visible en Auth, Firestore y comentarios previos.
+  Future<void> updateDisplayName(String displayName) async {
+    if (_user == null) return;
+    final trimmed = displayName.trim();
+    if (trimmed.isEmpty) return;
+
+    await _user!.updateDisplayName(trimmed);
+    await UserService.updateDisplayName(_user!.uid, trimmed);
+    await _user!.reload();
+    _user = _auth.currentUser;
+    notifyListeners();
+  }
 }

@@ -32,6 +32,23 @@ class Comment {
   bool get isReply => parentId != null && parentId!.isNotEmpty;
   bool get wasEdited => updatedAt != null && updatedAt!.isAfter(createdAt.add(const Duration(seconds: 2)));
 
+  Comment withAuthor({String? displayName, String? photoUrl, String? replyToName}) {
+    return Comment(
+      id: id,
+      userId: userId,
+      userDisplayName: displayName ?? userDisplayName,
+      userPhotoUrl: photoUrl ?? userPhotoUrl,
+      text: text,
+      imageUrl: imageUrl,
+      createdAt: createdAt,
+      updatedAt: updatedAt,
+      episodeNumber: episodeNumber,
+      parentId: parentId,
+      replyToUserId: replyToUserId,
+      replyToUserName: replyToName ?? replyToUserName,
+    );
+  }
+
   factory Comment.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
     final created = (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now();
