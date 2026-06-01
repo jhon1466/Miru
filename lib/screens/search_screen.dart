@@ -7,7 +7,9 @@ import '../widgets/anime_poster_image.dart';
 import 'detail_screen.dart';
 
 class SearchScreen extends StatefulWidget {
-  const SearchScreen({super.key});
+  final bool embedded;
+
+  const SearchScreen({super.key, this.embedded = false});
 
   @override
   State<SearchScreen> createState() => _SearchScreenState();
@@ -73,6 +75,7 @@ class _SearchScreenState extends State<SearchScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: !widget.embedded,
         titleSpacing: 0,
         title: Padding(
           padding: const EdgeInsets.only(right: 16.0),
@@ -106,7 +109,9 @@ class _SearchScreenState extends State<SearchScreen> {
           ),
         ),
       ),
-      body: Column(
+      body: Padding(
+        padding: EdgeInsets.only(bottom: widget.embedded ? 88 : 0),
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
@@ -136,6 +141,7 @@ class _SearchScreenState extends State<SearchScreen> {
             child: _buildSearchBody(animeProvider),
           ),
         ],
+        ),
       ),
     );
   }

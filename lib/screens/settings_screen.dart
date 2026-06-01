@@ -5,6 +5,7 @@ import '../core/theme.dart';
 import '../providers/auth_provider.dart' as app_auth;
 import '../providers/history_provider.dart';
 import '../services/user_service.dart';
+import '../utils/auth_ui.dart';
 import 'splash_screen.dart';
 import 'user_profile_screen.dart';
 
@@ -292,7 +293,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               contentPadding: EdgeInsets.zero,
               leading: Icon(Icons.info_outline, color: AppTheme.primaryColor),
               title: Text('Versión de la app'),
-              subtitle: Text('1.2.0'),
+              subtitle: Text('1.2.1'),
             ),
             const ListTile(
               contentPadding: EdgeInsets.zero,
@@ -307,88 +308,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _buildProfileOptionsSection(BuildContext context, app_auth.AuthProvider authProvider) {
-    return StreamBuilder<UserProfile?>(
-      stream: UserService.profileStream(authProvider.userId!),
-      builder: (context, snapshot) {
-        final profile = snapshot.data;
-        final isPublic = profile?.isPublic ?? true;
-
-        return Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: AppTheme.cardColor,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppTheme.accentColor.withOpacity(0.2)),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Perfil y Privacidad',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Controla quién puede ver tu perfil y tus animes favoritos al tocar tu nombre en los comentarios.',
-                style: TextStyle(fontSize: 12, color: AppTheme.textSecondary, height: 1.4),
-              ),
-              const SizedBox(height: 12),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Perfil público'),
-                subtitle: Text(
-                  isPublic
-                      ? 'Cualquiera puede ver tus favoritos desde comentarios'
-                      : 'Tu perfil y favoritos están ocultos para otros usuarios',
-                  style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
-                ),
-                value: isPublic,
-                activeColor: AppTheme.primaryColor,
-                onChanged: (value) async {
-                  await UserService.setProfilePublic(authProvider.userId!, value);
-                  if (!mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        value
-                            ? 'Perfil configurado como público'
-                            : 'Perfil configurado como privado',
-                      ),
-                      backgroundColor: AppTheme.successColor,
-                      duration: const Duration(seconds: 2),
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(height: 8),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => UserProfileScreen(
-                          userId: authProvider.userId!,
-                          displayName: authProvider.displayName ?? 'Usuario',
-                          photoUrl: authProvider.photoUrl,
-                        ),
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.person, size: 18, color: AppTheme.primaryColor),
-                  label: const Text('Ver mi perfil', style: TextStyle(color: AppTheme.primaryColor)),
-                  style: OutlinedButton.styleFrom(
-                    side: BorderSide(color: AppTheme.primaryColor.withOpacity(0.5)),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
+    return _ProfilePrivacyCard(
+      userId: authProvider.userId!,
+      displayName: authProvider.displayName ?? 'Usuario',
+      photoUrl: authProvider.photoUrl,
     );
   }
 
@@ -566,25 +489,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: () async {
-                final success = await authProvider.signInWithGoogle();
-                if (!mounted) return;
-                if (success) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('¡Bienvenido, ${authProvider.displayName}!'),
-                      backgroundColor: AppTheme.successColor,
-                    ),
-                  );
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('No se pudo iniciar sesión. Inténtalo de nuevo.'),
-                      backgroundColor: AppTheme.dangerColor,
-                    ),
-                  );
-                }
-              },
+              onPressed: () => signInWithGoogleAndWelcome(context, authProvider),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.white,
                 foregroundColor: Colors.black87,
@@ -606,6 +511,122 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _ProfilePrivacyCard extends StatefulWidget {
+  final String userId;
+  final String displayName;
+  final String? photoUrl;
+
+  const _ProfilePrivacyCard({
+    required this.userId,
+    required this.displayName,
+    this.photoUrl,
+  });
+
+  @override
+  State<_ProfilePrivacyCard> createState() => _ProfilePrivacyCardState();
+}
+
+class _ProfilePrivacyCardState extends State<_ProfilePrivacyCard> {
+  bool? _overridePublic;
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<UserProfile?>(
+      stream: UserService.profileStream(widget.userId),
+      builder: (context, snapshot) {
+        final profile = snapshot.data;
+        final isPublic = _overridePublic ?? profile?.isPublic ?? true;
+
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppTheme.cardColor,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppTheme.accentColor.withValues(alpha: 0.2)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Perfil y Privacidad',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Controla quién puede ver tu perfil y tus animes favoritos al tocar tu nombre en los comentarios.',
+                style: TextStyle(fontSize: 12, color: AppTheme.textSecondary, height: 1.4),
+              ),
+              const SizedBox(height: 12),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Perfil público'),
+                subtitle: Text(
+                  isPublic
+                      ? 'Cualquiera puede ver tus favoritos desde comentarios'
+                      : 'Tu perfil y favoritos están ocultos para otros usuarios',
+                  style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                ),
+                value: isPublic,
+                activeThumbColor: AppTheme.primaryColor,
+                onChanged: (value) async {
+                  setState(() => _overridePublic = value);
+                  try {
+                    await UserService.setProfilePublic(widget.userId, value);
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          value ? 'Perfil configurado como público' : 'Perfil configurado como privado',
+                        ),
+                        backgroundColor: AppTheme.successColor,
+                        duration: const Duration(seconds: 2),
+                      ),
+                    );
+                  } catch (e) {
+                    setState(() => _overridePublic = !value);
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Error al guardar privacidad: $e'),
+                        backgroundColor: AppTheme.dangerColor,
+                      ),
+                    );
+                  }
+                },
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => UserProfileScreen(
+                          userId: widget.userId,
+                          displayName: widget.displayName,
+                          photoUrl: widget.photoUrl,
+                        ),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.person, size: 18, color: AppTheme.primaryColor),
+                  label: const Text('Ver mi perfil', style: TextStyle(color: AppTheme.primaryColor)),
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(color: AppTheme.primaryColor.withValues(alpha: 0.5)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

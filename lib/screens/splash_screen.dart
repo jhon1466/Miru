@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import '../core/api_client.dart';
 import '../core/theme.dart';
 import '../providers/history_provider.dart';
-import 'home_screen.dart';
+import 'main_shell_screen.dart';
 import 'settings_screen.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -61,7 +61,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
       if (!mounted) return;
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => const HomeScreen()),
+        MaterialPageRoute(builder: (context) => const MainShellScreen()),
       );
     } else {
       setState(() {

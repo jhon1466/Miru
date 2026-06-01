@@ -100,25 +100,65 @@ class _DetailScreenState extends State<DetailScreen> {
         ? details.episodes.reversed.toList() 
         : details.episodes;
 
-    final posterImage = resolvePosterUrl(
+    final posterCandidates = collectPosterUrlCandidates(
       apiImage: details.image,
       apiBackdrop: details.backdrop,
       passedImage: widget.animeImage,
+      animeUrl: widget.animeUrl,
+      animeId: details.id,
     );
-    final backdropImage = resolvePosterUrl(
-      apiImage: details.backdrop ?? details.image,
+    final posterImage = posterCandidates.isNotEmpty ? posterCandidates.first : '';
+
+    final bannerCandidates = collectBannerUrlCandidates(
+      apiImage: details.image,
       apiBackdrop: details.backdrop,
       passedImage: widget.animeImage,
+      animeUrl: widget.animeUrl,
+      animeId: details.id,
+      knownWorkingPosterUrl: posterImage.isNotEmpty ? posterImage : null,
     );
 
     return CustomScrollView(
       slivers: [
-        // App bar deslizable con backdrop
+        SliverToBoxAdapter(
+          child: SizedBox(
+            height: 240,
+            width: double.infinity,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                AnimePosterImage(
+                  urlCandidates: bannerCandidates,
+                  fit: BoxFit.cover,
+                ),
+                // Degradado solo en la parte inferior para no tapar el banner
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  height: 140,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.transparent,
+                          AppTheme.darkBackground.withValues(alpha: 0.85),
+                          AppTheme.darkBackground,
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
         SliverAppBar(
-          expandedHeight: 240.0,
-          floating: false,
           pinned: true,
           backgroundColor: AppTheme.darkBackground,
+          automaticallyImplyLeading: true,
           actions: [
             // Botón de favorito con Firestore
             authProvider.isLoggedIn
@@ -172,43 +212,10 @@ class _DetailScreenState extends State<DetailScreen> {
                     },
                   ),
           ],
-          flexibleSpace: FlexibleSpaceBar(
-            title: Text(
-              details.title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 16.0,
-                shadows: [
-                  Shadow(color: Colors.black, blurRadius: 10),
-                ],
-              ),
-            ),
-            background: Stack(
-              fit: StackFit.expand,
-              children: [
-                Positioned.fill(
-                  child: AnimePosterImage(
-                    imageUrl: backdropImage.isNotEmpty ? backdropImage : null,
-                    fit: BoxFit.cover,
-                  ),
-                ),
-                const DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.transparent,
-                        AppTheme.darkBackground,
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
+          title: Text(
+            details.title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ),
 
@@ -225,7 +232,7 @@ class _DetailScreenState extends State<DetailScreen> {
                   children: [
                     // Poster
                     AnimePosterImage(
-                      imageUrl: posterImage.isNotEmpty ? posterImage : null,
+                      urlCandidates: posterCandidates,
                       width: 110,
                       height: 160,
                       borderRadius: BorderRadius.circular(12),

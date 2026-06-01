@@ -11,8 +11,6 @@ import '../services/favorite_service.dart';
 import '../widgets/anime_poster_image.dart';
 import '../models/anime.dart';
 import 'detail_screen.dart';
-import 'search_screen.dart';
-import 'settings_screen.dart';
 import 'player_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -198,25 +196,13 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ],
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings, size: 26),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const SettingsScreen(showBackButton: true)),
-              );
-            },
-          ),
-          const SizedBox(width: 8),
-        ],
       ),
       body: SingleChildScrollView(
+        padding: const EdgeInsets.only(bottom: 100),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Banner de Bienvenida y Buscador
-            _buildWelcomeBanner(context),
+            _buildWelcomeBanner(context, authProvider),
 
             // Selector de Proveedores
             _buildProviderSelector(context, animeProvider),
@@ -226,7 +212,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
             // Continuar Viendo (Historial)
             if (historyProvider.history.isNotEmpty)
-              _buildContinueWatchingSection(context, historyProvider.history),
+              _buildContinueWatchingSection(context, historyProvider),
 
             // Favoritos (nube si hay sesión, local si no)
             _buildFavoritesSection(context, historyProvider, authProvider),
@@ -238,47 +224,22 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildWelcomeBanner(BuildContext context) {
+  Widget _buildWelcomeBanner(BuildContext context, app_auth.AuthProvider authProvider) {
+    final greeting = authProvider.isLoggedIn
+        ? '¡Hola, ${authProvider.displayName ?? 'Usuario'}!'
+        : '¡Hola!';
     return Padding(
       padding: const EdgeInsets.all(20.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            '¡Hola!',
-            style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.white),
+          Text(
+            greeting,
+            style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.white),
           ),
           const Text(
             'Encuentra tus animes favoritos hoy.',
             style: TextStyle(fontSize: 14, color: AppTheme.textSecondary),
-          ),
-          const SizedBox(height: 16),
-          // Buscador rápido táctil
-          GestureDetector(
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const SearchScreen()),
-              );
-            },
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              decoration: BoxDecoration(
-                color: AppTheme.cardColor,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.transparent),
-              ),
-              child: const Row(
-                children: [
-                  Icon(Icons.search, color: AppTheme.textSecondary),
-                  SizedBox(width: 12),
-                  Text(
-                    'Buscar anime (luffy, naruto, etc.)...',
-                    style: TextStyle(color: AppTheme.textSecondary, fontSize: 15),
-                  ),
-                ],
-              ),
-            ),
           ),
         ],
       ),
@@ -461,15 +422,23 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildContinueWatchingSection(BuildContext context, List<HistoryItem> history) {
+  Widget _buildContinueWatchingSection(BuildContext context, HistoryProvider historyProvider) {
+    final history = historyProvider.history;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Padding(
-          padding: EdgeInsets.only(left: 20.0, right: 20.0, top: 24.0, bottom: 12.0),
+          padding: EdgeInsets.only(left: 20.0, right: 20.0, top: 24.0, bottom: 4.0),
           child: Text(
             'Continuar Viendo',
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+          ),
+        ),
+        const Padding(
+          padding: EdgeInsets.only(left: 20.0, right: 20.0, bottom: 12.0),
+          child: Text(
+            'Mantén pulsado un anime para quitarlo de la lista',
+            style: TextStyle(fontSize: 11, color: AppTheme.textSecondary),
           ),
         ),
         SizedBox(
@@ -480,13 +449,11 @@ class _HomeScreenState extends State<HomeScreen> {
             itemCount: history.length,
             itemBuilder: (context, index) {
               final item = history[index];
-              debugPrint("Continuar Viendo: '${item.animeTitle}' - Imagen URL: '${item.animeImage}'");
               return Container(
                 width: 280,
                 margin: const EdgeInsets.symmetric(horizontal: 6.0),
                 child: InkWell(
                   onTap: () {
-                    // Abrir directamente en el player
                     Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -500,6 +467,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     );
                   },
+                  onLongPress: () => _confirmRemoveHistory(context, historyProvider, item),
                   borderRadius: BorderRadius.circular(16),
                   child: Card(
                     margin: EdgeInsets.zero,
@@ -572,6 +540,41 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  void _confirmRemoveHistory(BuildContext context, HistoryProvider provider, HistoryItem item) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.cardColor,
+        title: const Text('Quitar del historial', style: TextStyle(color: Colors.white)),
+        content: Text(
+          '¿Eliminar "${item.animeTitle}" de Continuar viendo?',
+          style: const TextStyle(color: AppTheme.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancelar', style: TextStyle(color: AppTheme.textSecondary)),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await provider.removeFromHistory(item.animeUrl);
+              if (!context.mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('"${item.animeTitle}" eliminado del historial'),
+                  backgroundColor: AppTheme.successColor,
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+            },
+            child: const Text('Eliminar', style: TextStyle(color: AppTheme.dangerColor)),
+          ),
+        ],
+      ),
     );
   }
 

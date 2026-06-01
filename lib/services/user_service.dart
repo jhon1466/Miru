@@ -6,7 +6,7 @@ class UserProfile {
   final String displayName;
   final String? photoUrl;
   final String? email;
-  final bool isPublic; // Si el perfil y favoritos son visibles para todos
+  final bool isPublic;
   final DateTime? createdAt;
 
   UserProfile({
@@ -19,13 +19,18 @@ class UserProfile {
   });
 
   factory UserProfile.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
+    final data = doc.data() as Map<String, dynamic>? ?? {};
+    final isPublicRaw = data['isPublic'];
+    final isPublic = isPublicRaw is bool
+        ? isPublicRaw
+        : (isPublicRaw?.toString().toLowerCase() != 'false');
+
     return UserProfile(
       uid: doc.id,
       displayName: data['displayName'] ?? 'Usuario',
-      photoUrl: data['photoUrl'],
-      email: data['email'],
-      isPublic: data['isPublic'] ?? true,
+      photoUrl: data['photoUrl']?.toString(),
+      email: data['email']?.toString(),
+      isPublic: isPublic,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
     );
   }
@@ -60,11 +65,8 @@ class UserProfile {
 class UserService {
   static final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-  static DocumentReference _userRef(String uid) =>
-      _db.collection('users').doc(uid);
+  static DocumentReference _userRef(String uid) => _db.collection('users').doc(uid);
 
-  /// Crea o actualiza el documento del perfil del usuario en Firestore.
-  /// Usualmente llamado al hacer Sign-In.
   static Future<void> createOrUpdateProfile({
     required String uid,
     required String displayName,
@@ -74,7 +76,6 @@ class UserService {
     final ref = _userRef(uid);
     final doc = await ref.get();
     if (!doc.exists) {
-      // Crear perfil por primera vez
       final profile = UserProfile(
         uid: uid,
         displayName: displayName,
@@ -85,23 +86,23 @@ class UserService {
       );
       await ref.set(profile.toFirestore());
     } else {
-      // Actualizar solo campos que pueden cambiar (nombre de cuenta, foto)
-      await ref.update({
-        'displayName': displayName,
-        if (photoUrl != null) 'photoUrl': photoUrl,
-        if (email != null) 'email': email,
-      });
+      await ref.set(
+        {
+          'displayName': displayName,
+          if (photoUrl != null) 'photoUrl': photoUrl,
+          if (email != null) 'email': email,
+        },
+        SetOptions(merge: true),
+      );
     }
   }
 
-  /// Obtiene el perfil de un usuario por su UID.
   static Future<UserProfile?> getProfile(String uid) async {
     final doc = await _userRef(uid).get();
     if (!doc.exists) return null;
     return UserProfile.fromFirestore(doc);
   }
 
-  /// Stream en tiempo real del perfil del usuario actual.
   static Stream<UserProfile?> profileStream(String uid) {
     return _userRef(uid).snapshots().map((doc) {
       if (!doc.exists) return null;
@@ -109,8 +110,22 @@ class UserService {
     });
   }
 
-  /// Actualiza la privacidad del perfil del usuario.
+  /// Actualiza privacidad del perfil (merge para no fallar si faltan campos).
   static Future<void> setProfilePublic(String uid, bool isPublic) async {
-    await _userRef(uid).update({'isPublic': isPublic});
+    final ref = _userRef(uid);
+    final doc = await ref.get();
+    if (!doc.exists) {
+      await ref.set({
+        'displayName': 'Usuario',
+        'isPublic': isPublic,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+      return;
+    }
+    await ref.set({'isPublic': isPublic}, SetOptions(merge: true));
+  }
+
+  static Future<void> updatePhotoUrl(String uid, String photoUrl) async {
+    await _userRef(uid).set({'photoUrl': photoUrl}, SetOptions(merge: true));
   }
 }
