@@ -1,16 +1,28 @@
-# anime_app
+# Miru (anime_app)
 
-A new Flutter project.
+Cliente Flutter para ver anime con catálogo, horario, descargas offline, comentarios y notificaciones.
 
-## Getting Started
+## Configuración inicial
 
-This project is a starting point for a Flutter application.
+### Firebase (obligatorio para compilar)
 
-A few resources to get you started if this is your first Flutter project:
+Los archivos con claves **no están en el repositorio**. En tu máquina:
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+```bash
+dart pub global activate flutterfire_cli
+flutterfire configure --project=serie-938f4 --platforms=android
+```
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+Asegúrate de tener `lib/core/firebase_options.dart` y `android/app/google-services.json`.  
+Más detalles: [docs/SEGURIDAD_FIREBASE.md](docs/SEGURIDAD_FIREBASE.md).
+
+### Ejecutar
+
+```bash
+flutter pub get
+flutter run
+```
+
+## Releases
+
+APK en [GitHub Releases](https://github.com/jhon1466/Miru/releases).

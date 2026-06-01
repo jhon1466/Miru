@@ -43,3 +43,8 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Firebase (solo local; ver docs/SEGURIDAD_FIREBASE.md)
+lib/core/firebase_options.dart
+lib/firebase_options.dart
+android/app/google-services.json
