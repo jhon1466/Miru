@@ -36,6 +36,7 @@ class CommentService {
     String? userPhotoUrl,
     required String text,
     String? imageUrl,
+    String? stickerUrl,
     double? episodeNumber,
     String? parentId,
     String? replyToUserId,
@@ -48,6 +49,7 @@ class CommentService {
       userPhotoUrl: userPhotoUrl,
       text: text.trim(),
       imageUrl: imageUrl,
+      stickerUrl: stickerUrl,
       createdAt: DateTime.now(),
       episodeNumber: episodeNumber,
       parentId: parentId,
@@ -71,7 +73,7 @@ class CommentService {
         episodeNumber: episodeNumber,
         commentId: doc.id,
         parentCommentId: parentId,
-        preview: text.trim(),
+        preview: hasStickerPreview(text, stickerUrl),
       );
     }
 
@@ -105,6 +107,13 @@ class CommentService {
     }
 
     await ref.update(updates);
+  }
+
+  static String hasStickerPreview(String text, String? stickerUrl) {
+    if (stickerUrl != null && stickerUrl.isNotEmpty) {
+      return text.trim().isEmpty ? '🎭 Sticker' : '${text.trim()} 🎭';
+    }
+    return text.trim();
   }
 
   static Future<void> deleteComment(String animeSlug, String commentId) async {

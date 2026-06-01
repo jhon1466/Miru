@@ -86,6 +86,9 @@ class ActiveDownloadTask {
   DownloadTaskStatus status;
   double progress;
   String? error;
+  String statusMessage;
+  int receivedBytes;
+  int? totalBytes;
 
   ActiveDownloadTask({
     required this.id,
@@ -99,5 +102,8 @@ class ActiveDownloadTask {
     this.status = DownloadTaskStatus.queued,
     this.progress = 0,
     this.error,
+    this.statusMessage = '',
+    this.receivedBytes = 0,
+    this.totalBytes,
   });
 }

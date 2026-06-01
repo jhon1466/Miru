@@ -7,11 +7,13 @@ import '../services/episode_download_service.dart';
 
 class DownloadProvider extends ChangeNotifier {
   final Map<String, ActiveDownloadTask> _active = {};
+  final List<ActiveDownloadTask> _failed = [];
   List<DownloadedEpisode> _library = [];
   bool _loaded = false;
   final Set<String> _cancelled = {};
 
   List<ActiveDownloadTask> get activeTasks => _active.values.toList();
+  List<ActiveDownloadTask> get failedTasks => List.unmodifiable(_failed);
   List<DownloadedEpisode> get library => List.unmodifiable(_library);
   bool get isLoaded => _loaded;
 
@@ -35,7 +37,13 @@ class DownloadProvider extends ChangeNotifier {
   }
 
   ActiveDownloadTask? taskFor(String episodeUrl, bool isSub) {
-    return _active[EpisodeDownloadService.episodeId(episodeUrl, isSub)];
+    final id = EpisodeDownloadService.episodeId(episodeUrl, isSub);
+    return _active[id] ?? _failed.where((t) => t.id == id).firstOrNull;
+  }
+
+  void dismissFailed(String id) {
+    _failed.removeWhere((t) => t.id == id);
+    notifyListeners();
   }
 
   Future<bool> startEpisodeDownload({
@@ -53,7 +61,9 @@ class DownloadProvider extends ChangeNotifier {
     final existing = getDownloaded(episodeUrl, preferSub);
     if (existing != null) return true;
 
+    _failed.removeWhere((t) => t.id == id);
     _cancelled.remove(id);
+
     final task = ActiveDownloadTask(
       id: id,
       animeTitle: animeTitle,
@@ -64,60 +74,92 @@ class DownloadProvider extends ChangeNotifier {
       episodeTitle: 'Episodio ${episodeNumber.toString().replaceAll('.0', '')}',
       isSub: preferSub,
       status: DownloadTaskStatus.queued,
+      statusMessage: 'En cola…',
     );
     _active[id] = task;
     notifyListeners();
 
     try {
+      task.statusMessage = 'Buscando servidor de descarga…';
+      notifyListeners();
+
       final episodeLinks = links ?? await ApiClient.getEpisodeLinks(episodeUrl);
+      final candidates = EpisodeDownloadService.listOfflineCandidates(
+        episodeLinks,
+        preferSub: preferSub,
+      );
 
-      final link = EpisodeDownloadService.pickOfflineLink(episodeLinks, preferSub: preferSub);
-      if (link == null || link.url.isEmpty) {
-        throw Exception('No hay enlace descargable para este episodio');
-      }
-
-      if (!EpisodeDownloadService.isLikelyDirectFile(link.url)) {
+      if (candidates.isEmpty) {
         throw Exception(
-          'Este servidor solo permite streaming. Elige un servidor de descarga directa.',
+          'No hay servidor de descarga directa. Abre el reproductor y elige un servidor marcado como descarga.',
         );
       }
 
       task.status = DownloadTaskStatus.downloading;
+      task.statusMessage = 'Descargando…';
       notifyListeners();
 
-      await EpisodeDownloadService.downloadEpisode(
-        sourceUrl: link.url,
-        serverName: link.server,
-        animeTitle: animeTitle,
-        animeUrl: animeUrl,
-        animeImage: animeImage,
-        episodeNumber: episodeNumber,
-        episodeUrl: episodeUrl,
-        episodeTitle: task.episodeTitle,
-        isSub: preferSub,
-        onProgress: (p) {
-          if (p >= 0) task.progress = p.clamp(0.0, 1.0);
-          notifyListeners();
-        },
-        isCancelled: () => _cancelled.contains(id),
-      );
+      Object? lastError;
+      for (var i = 0; i < candidates.length; i++) {
+        if (_cancelled.contains(id)) throw DownloadCancelledException();
+        final link = candidates[i];
+        task.statusMessage = candidates.length > 1
+            ? 'Descargando (${link.server})…'
+            : 'Descargando…';
+        task.progress = 0;
+        notifyListeners();
 
-      task.status = DownloadTaskStatus.completed;
-      task.progress = 1;
-      _active.remove(id);
-      await loadLibrary();
-      return true;
+        try {
+          await EpisodeDownloadService.downloadEpisode(
+            sourceUrl: link.url,
+            serverName: link.server,
+            animeTitle: animeTitle,
+            animeUrl: animeUrl,
+            animeImage: animeImage,
+            episodeNumber: episodeNumber,
+            episodeUrl: episodeUrl,
+            episodeTitle: task.episodeTitle,
+            isSub: preferSub,
+            onProgress: (p, received, total) {
+              task.receivedBytes = received;
+              task.totalBytes = total;
+              if (p >= 0) {
+                task.progress = p.clamp(0.0, 1.0);
+                task.statusMessage = 'Descargando ${(task.progress * 100).toStringAsFixed(0)}%';
+              } else {
+                final mb = received / (1024 * 1024);
+                task.statusMessage = 'Descargando ${mb.toStringAsFixed(1)} MB…';
+              }
+              notifyListeners();
+            },
+            isCancelled: () => _cancelled.contains(id),
+          );
+
+          task.status = DownloadTaskStatus.completed;
+          task.progress = 1;
+          task.statusMessage = 'Completado';
+          _active.remove(id);
+          await loadLibrary();
+          notifyListeners();
+          return true;
+        } catch (e) {
+          if (e is DownloadCancelledException) rethrow;
+          lastError = e;
+        }
+      }
+
+      throw lastError ?? Exception('No se pudo descargar con ningún servidor');
     } on DownloadCancelledException {
-      task.status = DownloadTaskStatus.cancelled;
       _active.remove(id);
       notifyListeners();
       return false;
     } catch (e) {
       task.status = DownloadTaskStatus.failed;
       task.error = e.toString().replaceFirst('Exception: ', '');
-      notifyListeners();
-      await Future<void>.delayed(const Duration(seconds: 4));
+      task.statusMessage = 'Error';
       _active.remove(id);
+      _failed.removeWhere((t) => t.id == id);
+      _failed.insert(0, task);
       notifyListeners();
       return false;
     }
@@ -126,11 +168,23 @@ class DownloadProvider extends ChangeNotifier {
   void cancelDownload(String episodeUrl, bool isSub) {
     final id = EpisodeDownloadService.episodeId(episodeUrl, isSub);
     _cancelled.add(id);
-    notifyListeners();
+    final task = _active[id];
+    if (task != null) {
+      task.statusMessage = 'Cancelando…';
+      notifyListeners();
+    }
   }
 
   Future<void> deleteDownload(DownloadedEpisode item) async {
     await EpisodeDownloadService.deleteDownload(item);
     await loadLibrary();
+  }
+}
+
+extension _FirstOrNull<E> on Iterable<E> {
+  E? get firstOrNull {
+    final it = iterator;
+    if (it.moveNext()) return it.current;
+    return null;
   }
 }

@@ -128,7 +128,7 @@ class AnimeProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final fresh = await ApiClient.searchAnime(trimmed, domain: _effectiveApiDomain);
+      final fresh = await ApiClient.searchAnime(trimmed, domain: null);
       _searchResults = _filterAdultList(fresh);
       await ApiCacheService.setJsonList(
         cacheKey,

@@ -7,6 +7,7 @@ class Comment {
   final String? userPhotoUrl;
   final String text;
   final String? imageUrl;
+  final String? stickerUrl;
   final DateTime createdAt;
   final DateTime? updatedAt;
   final double? episodeNumber;
@@ -21,6 +22,7 @@ class Comment {
     this.userPhotoUrl,
     required this.text,
     this.imageUrl,
+    this.stickerUrl,
     required this.createdAt,
     this.updatedAt,
     this.episodeNumber,
@@ -32,6 +34,8 @@ class Comment {
   bool get isReply => parentId != null && parentId!.isNotEmpty;
   bool get wasEdited => updatedAt != null && updatedAt!.isAfter(createdAt.add(const Duration(seconds: 2)));
 
+  bool get hasSticker => stickerUrl != null && stickerUrl!.isNotEmpty;
+
   Comment withAuthor({String? displayName, String? photoUrl, String? replyToName}) {
     return Comment(
       id: id,
@@ -40,6 +44,7 @@ class Comment {
       userPhotoUrl: photoUrl ?? userPhotoUrl,
       text: text,
       imageUrl: imageUrl,
+      stickerUrl: stickerUrl ?? this.stickerUrl,
       createdAt: createdAt,
       updatedAt: updatedAt,
       episodeNumber: episodeNumber,
@@ -58,7 +63,8 @@ class Comment {
       userDisplayName: data['userDisplayName'] ?? 'Usuario',
       userPhotoUrl: data['userPhotoUrl'],
       text: data['text'] ?? '',
-      imageUrl: data['imageUrl'],
+      imageUrl: data['imageUrl']?.toString(),
+      stickerUrl: data['stickerUrl']?.toString(),
       createdAt: created,
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
       episodeNumber: (data['episodeNumber'] as num?)?.toDouble(),
@@ -75,6 +81,7 @@ class Comment {
       'userPhotoUrl': userPhotoUrl,
       'text': text,
       if (imageUrl != null) 'imageUrl': imageUrl,
+      if (stickerUrl != null) 'stickerUrl': stickerUrl,
       'createdAt': Timestamp.fromDate(createdAt),
       if (updatedAt != null) 'updatedAt': Timestamp.fromDate(updatedAt!),
       'episodeNumber': episodeNumber,
