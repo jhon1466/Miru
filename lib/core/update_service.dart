@@ -18,7 +18,7 @@ class UpdateInfo {
 
 class UpdateService {
   // Constantes de configuración de la app
-  static const String appVersion = '1.5.0'; // Versión actual de la aplicación
+  static const String appVersion = '1.6.0'; // Versión actual de la aplicación
   static const String githubOwner = 'jhon1466';
   static const String githubRepo = 'Miru';
 
