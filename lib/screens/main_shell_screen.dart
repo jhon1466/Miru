@@ -1,0 +1,94 @@
+import 'package:flutter/material.dart';
+import '../core/theme.dart';
+import 'home_screen.dart';
+import 'search_screen.dart';
+import 'profile_tab_screen.dart';
+
+/// Contenedor principal con barra de navegación flotante inferior.
+class MainShellScreen extends StatefulWidget {
+  const MainShellScreen({super.key});
+
+  @override
+  State<MainShellScreen> createState() => _MainShellScreenState();
+}
+
+class _MainShellScreenState extends State<MainShellScreen> {
+  int _currentIndex = 0;
+
+  static const _tabs = [
+    _NavItem(icon: Icons.home_rounded, label: 'Inicio'),
+    _NavItem(icon: Icons.search_rounded, label: 'Buscar'),
+    _NavItem(icon: Icons.person_rounded, label: 'Perfil'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      extendBody: true,
+      body: IndexedStack(
+        index: _currentIndex,
+        children: const [
+          HomeScreen(),
+          SearchScreen(embedded: true),
+          ProfileTabScreen(),
+        ],
+      ),
+      bottomNavigationBar: SafeArea(
+        minimum: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+        child: Container(
+          height: 64,
+          decoration: BoxDecoration(
+            color: AppTheme.cardColor,
+            borderRadius: BorderRadius.circular(28),
+            border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.25)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.45),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: List.generate(_tabs.length, (i) {
+              final item = _tabs[i];
+              final selected = _currentIndex == i;
+              return Expanded(
+                child: InkWell(
+                  onTap: () => setState(() => _currentIndex = i),
+                  borderRadius: BorderRadius.circular(24),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        item.icon,
+                        color: selected ? AppTheme.primaryColor : AppTheme.textSecondary,
+                        size: 26,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        item.label,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+                          color: selected ? AppTheme.primaryColor : AppTheme.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NavItem {
+  final IconData icon;
+  final String label;
+  const _NavItem({required this.icon, required this.label});
+}

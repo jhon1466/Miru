@@ -1,11 +1,15 @@
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:image_picker/image_picker.dart';
 import '../services/user_service.dart';
 
 class AuthProvider with ChangeNotifier {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final GoogleSignIn _googleSignIn = GoogleSignIn();
+  final ImagePicker _imagePicker = ImagePicker();
 
   User? _user;
 
@@ -17,19 +21,18 @@ class AuthProvider with ChangeNotifier {
   String? get email => _user?.email;
 
   AuthProvider() {
-    // Escuchar cambios de estado de autenticación
+    _user = _auth.currentUser;
     _auth.authStateChanges().listen((user) {
       _user = user;
       notifyListeners();
     });
   }
 
-  /// Inicia sesión con Google y registra/actualiza el usuario en Firebase Auth y Firestore.
-  Future<bool> signInWithGoogle() async {
+  /// Inicia sesión con Google. Devuelve el nombre para mensaje de bienvenida, o null si canceló/falló.
+  Future<String?> signInWithGoogle() async {
     try {
-      // Forzar selector de cuenta de Google
       final googleAccount = await _googleSignIn.signIn();
-      if (googleAccount == null) return false; // El usuario canceló
+      if (googleAccount == null) return null;
 
       final googleAuth = await googleAccount.authentication;
       final credential = GoogleAuthProvider.credential(
@@ -40,7 +43,6 @@ class AuthProvider with ChangeNotifier {
       final userCredential = await _auth.signInWithCredential(credential);
       _user = userCredential.user;
 
-      // Crear o actualizar perfil en Firestore
       if (_user != null) {
         await UserService.createOrUpdateProfile(
           uid: _user!.uid,
@@ -51,19 +53,59 @@ class AuthProvider with ChangeNotifier {
       }
 
       notifyListeners();
-      return true;
+      return _user?.displayName ?? _user?.email?.split('@').first ?? 'Usuario';
     } catch (e) {
       debugPrint('Error en Google Sign-In: $e');
-      return false;
+      return null;
     }
   }
 
-  /// Cierra la sesión de Firebase y de Google.
   Future<void> signOut() async {
     await _googleSignIn.signOut();
     await _auth.signOut();
     _user = null;
     notifyListeners();
   }
-}
 
+  /// Sube foto de perfil a Storage y actualiza Auth + Firestore.
+  Future<String?> updateProfilePhotoFromGallery() async {
+    if (_user == null) return null;
+
+    try {
+      final picked = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 512,
+        maxHeight: 512,
+        imageQuality: 85,
+      );
+      if (picked == null) return null;
+
+      final file = File(picked.path);
+      final uid = _user!.uid;
+      final storageRef = FirebaseStorage.instance
+          .ref()
+          .child('users')
+          .child(uid)
+          .child('profile.jpg');
+
+      await storageRef.putFile(
+        file,
+        SettableMetadata(
+          contentType: 'image/jpeg',
+          customMetadata: {'owner': uid},
+        ),
+      );
+      final downloadUrl = await storageRef.getDownloadURL();
+
+      await _user!.updatePhotoURL(downloadUrl);
+      await UserService.updatePhotoUrl(uid, downloadUrl);
+      await _user!.reload();
+      _user = _auth.currentUser;
+      notifyListeners();
+      return downloadUrl;
+    } catch (e) {
+      debugPrint('Error al actualizar foto de perfil: $e');
+      rethrow;
+    }
+  }
+}

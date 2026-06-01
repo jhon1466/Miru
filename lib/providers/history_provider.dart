@@ -176,7 +176,15 @@ class HistoryProvider extends ChangeNotifier {
     return null;
   }
 
-  // Limpiar todo el historial
+  /// Elimina un anime del historial "Continuar viendo".
+  Future<void> removeFromHistory(String animeUrl) async {
+    final prefs = await SharedPreferences.getInstance();
+    _history.removeWhere((item) => item.animeUrl == animeUrl);
+    final serialized = _history.map((item) => json.encode(item.toJson())).toList();
+    await prefs.setStringList(keyHistory, serialized);
+    notifyListeners();
+  }
+
   Future<void> clearHistory() async {
     final prefs = await SharedPreferences.getInstance();
     _history.clear();
