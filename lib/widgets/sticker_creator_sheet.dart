@@ -46,9 +46,9 @@ class _StickerCreatorSheetState extends State<StickerCreatorSheet> {
   Widget build(BuildContext context) {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) {
-      return const Padding(
-        padding: EdgeInsets.all(24),
-        child: Text('Inicia sesión para crear stickers', style: TextStyle(color: Colors.white)),
+      return Padding(
+        padding: const EdgeInsets.all(24),
+        child: Text('Inicia sesión para crear stickers', style: TextStyle(color: context.textPrimary)),
       );
     }
 
@@ -57,11 +57,11 @@ class _StickerCreatorSheetState extends State<StickerCreatorSheet> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Padding(
-            padding: EdgeInsets.all(16),
+          Padding(
+            padding: const EdgeInsets.all(16),
             child: Text(
               'Crear sticker',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: context.textPrimary),
             ),
           ),
           SizedBox(

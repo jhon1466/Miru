@@ -92,7 +92,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 title: Text(
                   n.title,
                   style: TextStyle(
-                    color: Colors.white,
+                    color: context.textPrimary,
                     fontWeight: n.read ? FontWeight.normal : FontWeight.bold,
                     fontSize: 14,
                   ),

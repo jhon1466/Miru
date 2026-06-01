@@ -63,10 +63,10 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                       const SizedBox(height: 12),
                       Text(
                         profile?.displayName ?? widget.displayName,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.bold,
-                          color: Colors.white,
+                          color: context.textPrimary,
                         ),
                       ),
                       if (isPrivate) ...[
@@ -95,12 +95,12 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                       ] else ...[
                         if (isOwner || isPublic) ...[
                           const SizedBox(height: 8),
-                          const Text(
+                          Text(
                             'Anime Favoritos',
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
-                              color: Colors.white,
+                              color: context.textPrimary,
                             ),
                           ),
                           const SizedBox(height: 12),
@@ -162,12 +162,12 @@ class _PrivateProfileWarning extends StatelessWidget {
         children: [
           const Icon(Icons.lock_outline, size: 52, color: AppTheme.dangerColor),
           const SizedBox(height: 14),
-          const Text(
+          Text(
             'Perfil privado',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
-              color: Colors.white,
+              color: context.textPrimary,
             ),
           ),
           const SizedBox(height: 8),
@@ -336,10 +336,10 @@ class _FavoritesGrid extends StatelessWidget {
                     fav.title,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 12,
-                      color: Colors.white,
+                      color: context.textPrimary,
                     ),
                   ),
                 ],
