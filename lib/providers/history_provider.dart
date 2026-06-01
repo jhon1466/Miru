@@ -1,7 +1,10 @@
+import 'dart:async';
 import 'dart:convert';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/anime.dart';
+import '../services/history_service.dart';
 
 class HistoryItem {
   final String animeUrl;
@@ -34,6 +37,19 @@ class HistoryItem {
     );
   }
 
+  factory HistoryItem.fromFirestore(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>? ?? {};
+    return HistoryItem(
+      animeUrl: data['animeUrl']?.toString() ?? '',
+      animeTitle: data['animeTitle']?.toString() ?? '',
+      animeImage: data['animeImage']?.toString() ?? '',
+      episodeNumber: double.tryParse(data['episodeNumber']?.toString() ?? '1') ?? 1.0,
+      episodeTitle: data['episodeTitle']?.toString() ?? '',
+      episodeUrl: data['episodeUrl']?.toString() ?? '',
+      timestamp: (data['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now(),
+    );
+  }
+
   Map<String, dynamic> toJson() {
     return {
       'animeUrl': animeUrl,
@@ -45,47 +61,86 @@ class HistoryItem {
       'timestamp': timestamp.toIso8601String(),
     };
   }
+
+  Map<String, dynamic> toFirestore() {
+    return {
+      'animeUrl': animeUrl,
+      'animeTitle': animeTitle,
+      'animeImage': animeImage,
+      'episodeNumber': episodeNumber,
+      'episodeTitle': episodeTitle,
+      'episodeUrl': episodeUrl,
+      'timestamp': Timestamp.fromDate(timestamp),
+    };
+  }
 }
 
 class HistoryProvider extends ChangeNotifier {
   static const String keyFavorites = 'favorites_list';
   static const String keyHistory = 'watch_history';
+  static const String keyRecentEpisodes = 'recent_episodes_log';
 
   List<AnimeSearchResult> _favorites = [];
-  List<HistoryItem> _history = [];
+  List<HistoryItem> _recentEpisodes = [];
   bool _isInitialized = false;
+  StreamSubscription<List<HistoryItem>>? _cloudHistorySub;
+  String? _syncedUserId;
 
   List<AnimeSearchResult> get favorites => _favorites;
-  List<HistoryItem> get history => _history;
+  List<HistoryItem> get recentEpisodes => _recentEpisodes;
+  List<HistoryItem> get history => _continueWatchingList();
   bool get isInitialized => _isInitialized;
 
   HistoryProvider() {
     init();
   }
 
-  // Inicializar cargando desde memoria local
+  List<HistoryItem> _continueWatchingList() {
+    final latestByAnime = <String, HistoryItem>{};
+    for (final item in _recentEpisodes) {
+      final existing = latestByAnime[item.animeUrl];
+      if (existing == null || item.timestamp.isAfter(existing.timestamp)) {
+        latestByAnime[item.animeUrl] = item;
+      }
+    }
+    final list = latestByAnime.values.toList();
+    list.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+    return list;
+  }
+
   Future<void> init() async {
     if (_isInitialized) return;
-    
-    final prefs = await SharedPreferences.getInstance();
-    
-    // Cargar Favoritos
-    final favsRaw = prefs.getStringList(keyFavorites) ?? [];
-    _favorites = favsRaw.map((item) {
-      return AnimeSearchResult.fromJson(json.decode(item));
-    }).toList();
 
-    // Cargar Historial de Reproducción
-    final histRaw = prefs.getStringList(keyHistory) ?? [];
-    _history = histRaw.map((item) {
-      return HistoryItem.fromJson(json.decode(item));
-    }).toList();
-    
-    // Ordenar historial por fecha descendente (más reciente primero)
-    _history.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+    final prefs = await SharedPreferences.getInstance();
+
+    final favsRaw = prefs.getStringList(keyFavorites) ?? [];
+    _favorites = favsRaw.map((item) => AnimeSearchResult.fromJson(json.decode(item))).toList();
+
+    final recentRaw = prefs.getStringList(keyRecentEpisodes) ?? prefs.getStringList(keyHistory) ?? [];
+    _recentEpisodes = recentRaw.map((item) => HistoryItem.fromJson(json.decode(item))).toList();
+    _recentEpisodes.sort((a, b) => b.timestamp.compareTo(a.timestamp));
 
     _isInitialized = true;
     notifyListeners();
+  }
+
+  Future<void> bindCloudHistory(String? userId) async {
+    await _cloudHistorySub?.cancel();
+    _cloudHistorySub = null;
+    _syncedUserId = userId;
+
+    if (userId == null || userId.isEmpty) return;
+
+    if (_recentEpisodes.isNotEmpty) {
+      await HistoryService.mergeLocalToCloud(userId, _recentEpisodes);
+    }
+
+    _cloudHistorySub = HistoryService.watchHistoryStream(userId).listen((cloudItems) {
+      if (cloudItems.isEmpty && _recentEpisodes.isNotEmpty) return;
+      _recentEpisodes = cloudItems;
+      _persistRecentLocal();
+      notifyListeners();
+    });
   }
 
   // --- MÉTODOS DE FAVORITOS ---
@@ -129,6 +184,13 @@ class HistoryProvider extends ChangeNotifier {
 
   // --- MÉTODOS DE HISTORIAL ---
 
+  Future<void> _persistRecentLocal() async {
+    final prefs = await SharedPreferences.getInstance();
+    final serialized = _recentEpisodes.map((item) => json.encode(item.toJson())).toList();
+    await prefs.setStringList(keyRecentEpisodes, serialized);
+    await prefs.setStringList(keyHistory, serialized);
+  }
+
   Future<void> addToHistory({
     required String animeUrl,
     required String animeTitle,
@@ -136,13 +198,9 @@ class HistoryProvider extends ChangeNotifier {
     required double episodeNumber,
     required String episodeTitle,
     required String episodeUrl,
+    String? userId,
   }) async {
-    final prefs = await SharedPreferences.getInstance();
-    
-    // Eliminar entrada anterior si ya existía el mismo episodio o si queremos actualizar el último episodio visto de este anime
-    // En las apps de streaming es mejor tener solo el *último* episodio visto por anime en el historial principal para no saturar.
-    // Así "Continuar viendo" muestra una tarjeta por anime con su último episodio.
-    _history.removeWhere((item) => item.animeUrl == animeUrl);
+    _recentEpisodes.removeWhere((item) => item.episodeUrl == episodeUrl);
 
     final newItem = HistoryItem(
       animeUrl: animeUrl,
@@ -154,41 +212,62 @@ class HistoryProvider extends ChangeNotifier {
       timestamp: DateTime.now(),
     );
 
-    _history.insert(0, newItem); // Insertar al inicio
-
-    // Limitar historial a los últimos 20 animes
-    if (_history.length > 20) {
-      _history = _history.sublist(0, 20);
+    _recentEpisodes.insert(0, newItem);
+    if (_recentEpisodes.length > 30) {
+      _recentEpisodes = _recentEpisodes.sublist(0, 30);
     }
 
-    // Persistir
-    final serialized = _history.map((item) => json.encode(item.toJson())).toList();
-    await prefs.setStringList(keyHistory, serialized);
+    await _persistRecentLocal();
+
+    final uid = userId ?? _syncedUserId;
+    if (uid != null && uid.isNotEmpty) {
+      await HistoryService.upsertEntry(uid, newItem);
+    }
+
     notifyListeners();
   }
 
-  // Obtener el último número de episodio visto para un anime específico
   double? getLastWatchedEpisode(String animeUrl) {
-    final index = _history.indexWhere((item) => item.animeUrl == animeUrl);
-    if (index >= 0) {
-      return _history[index].episodeNumber;
+    HistoryItem? latest;
+    for (final item in _recentEpisodes) {
+      if (item.animeUrl != animeUrl) continue;
+      if (latest == null || item.timestamp.isAfter(latest.timestamp)) {
+        latest = item;
+      }
     }
-    return null;
+    return latest?.episodeNumber;
   }
 
-  /// Elimina un anime del historial "Continuar viendo".
-  Future<void> removeFromHistory(String animeUrl) async {
-    final prefs = await SharedPreferences.getInstance();
-    _history.removeWhere((item) => item.animeUrl == animeUrl);
-    final serialized = _history.map((item) => json.encode(item.toJson())).toList();
-    await prefs.setStringList(keyHistory, serialized);
+  Future<void> removeFromHistory(String animeUrl, {String? userId}) async {
+    final toRemove = _recentEpisodes.where((item) => item.animeUrl == animeUrl).toList();
+    _recentEpisodes.removeWhere((item) => item.animeUrl == animeUrl);
+    await _persistRecentLocal();
+
+    final uid = userId ?? _syncedUserId;
+    if (uid != null) {
+      for (final item in toRemove) {
+        await HistoryService.removeEntry(uid, item.episodeUrl);
+      }
+    }
     notifyListeners();
   }
 
-  Future<void> clearHistory() async {
+  Future<void> clearHistory({String? userId}) async {
+    _recentEpisodes.clear();
     final prefs = await SharedPreferences.getInstance();
-    _history.clear();
     await prefs.remove(keyHistory);
+    await prefs.remove(keyRecentEpisodes);
+
+    final uid = userId ?? _syncedUserId;
+    if (uid != null && uid.isNotEmpty) {
+      await HistoryService.clearAll(uid);
+    }
     notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _cloudHistorySub?.cancel();
+    super.dispose();
   }
 }

@@ -5,6 +5,7 @@ import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../core/theme.dart';
 import '../providers/anime_provider.dart';
+import '../providers/auth_provider.dart' as app_auth;
 import '../providers/history_provider.dart';
 import '../models/anime.dart';
 import '../widgets/comments_section.dart';
@@ -29,86 +30,163 @@ class PlayerScreen extends StatefulWidget {
   State<PlayerScreen> createState() => _PlayerScreenState();
 }
 
-class _PlayerScreenState extends State<PlayerScreen> with TickerProviderStateMixin {
+class _PlayerScreenState extends State<PlayerScreen> {
   String? _selectedServerUrl;
   String? _selectedServerName;
-  bool _isSub = true; // SUB por defecto, si no hay cambia a DUB
-  final GlobalKey _webViewKey = GlobalKey();
+  bool _isSub = true;
+  int _webViewGeneration = 0;
 
   @override
   void initState() {
     super.initState();
-    // Bloquear orientaciones verticales por defecto
-    SystemChrome.setPreferredOrientations([
-      DeviceOrientation.portraitUp,
-    ]);
-    
+    SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<AnimeProvider>().loadEpisodeLinks(widget.episodeUrl).then((_) {
-        // Seleccionar automáticamente el primer servidor disponible
-        final links = context.read<AnimeProvider>().episodeLinks;
-        if (links != null) {
-          if (links.subStream.isNotEmpty) {
-            _playServer(links.subStream.first.url, links.subStream.first.server, true);
-          } else if (links.dubStream.isNotEmpty) {
-            _playServer(links.dubStream.first.url, links.dubStream.first.server, false);
-          } else if (links.subDownload.isNotEmpty) {
-            _playServer(links.subDownload.first.url, links.subDownload.first.server, true);
-          }
-        }
-      });
+      _loadEpisodeAndAutoplay();
     });
+  }
+
+  Future<void> _loadEpisodeAndAutoplay() async {
+    final provider = context.read<AnimeProvider>();
+    await provider.loadEpisodeLinks(widget.episodeUrl);
+    if (!mounted) return;
+
+    final links = provider.episodeLinks;
+    if (links == null) return;
+
+    final first = _firstPlayableLink(links, preferSub: true);
+    if (first != null) {
+      _playServer(first.url, first.server, first.isSub, logHistory: false);
+    }
+  }
+
+  ({String url, String server, bool isSub})? _firstPlayableLink(
+    EpisodeLinksResponse links, {
+    required bool preferSub,
+  }) {
+    if (preferSub) {
+      if (links.subStream.isNotEmpty) {
+        return (url: links.subStream.first.url, server: links.subStream.first.server, isSub: true);
+      }
+      if (links.dubStream.isNotEmpty) {
+        return (url: links.dubStream.first.url, server: links.dubStream.first.server, isSub: false);
+      }
+    } else {
+      if (links.dubStream.isNotEmpty) {
+        return (url: links.dubStream.first.url, server: links.dubStream.first.server, isSub: false);
+      }
+      if (links.subStream.isNotEmpty) {
+        return (url: links.subStream.first.url, server: links.subStream.first.server, isSub: true);
+      }
+    }
+    if (links.subDownload.isNotEmpty) {
+      return (url: links.subDownload.first.url, server: links.subDownload.first.server, isSub: true);
+    }
+    if (links.dubDownload.isNotEmpty) {
+      return (url: links.dubDownload.first.url, server: links.dubDownload.first.server, isSub: false);
+    }
+    return null;
   }
 
   @override
   void dispose() {
-    // Restaurar orientación vertical al salir del reproductor
-    SystemChrome.setPreferredOrientations([
-      DeviceOrientation.portraitUp,
-    ]);
+    SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
     super.dispose();
   }
 
-  void _playServer(String url, String name, bool isSub) {
+  void _playServer(String url, String name, bool isSub, {bool logHistory = true}) {
+    if (url.isEmpty) return;
+
     setState(() {
       _selectedServerUrl = url;
       _selectedServerName = name;
       _isSub = isSub;
+      _webViewGeneration++;
     });
 
-    // Registrar en el historial de reproducción
-    Provider.of<HistoryProvider>(context, listen: false).addToHistory(
-      animeUrl: widget.animeUrl,
-      animeTitle: widget.animeTitle,
-      animeImage: widget.animeImage,
-      episodeNumber: widget.episodeNumber,
-      episodeTitle: 'Episodio ${widget.episodeNumber.toString().replaceAll('.0', '')}',
-      episodeUrl: widget.episodeUrl,
+    if (logHistory) {
+      final auth = context.read<app_auth.AuthProvider>();
+      context.read<HistoryProvider>().addToHistory(
+            animeUrl: widget.animeUrl,
+            animeTitle: widget.animeTitle,
+            animeImage: widget.animeImage,
+            episodeNumber: widget.episodeNumber,
+            episodeTitle: 'Episodio ${widget.episodeNumber.toString().replaceAll('.0', '')}',
+            episodeUrl: widget.episodeUrl,
+            userId: auth.userId,
+          );
+    }
+  }
+
+  void _switchLanguage(bool subFlag, EpisodeLinksResponse links) {
+    if (_isSub == subFlag) return;
+
+    final streamList = subFlag ? links.subStream : links.dubStream;
+    final downloadList = subFlag ? links.subDownload : links.dubDownload;
+
+    if (streamList.isNotEmpty) {
+      _playServer(streamList.first.url, streamList.first.server, subFlag);
+      return;
+    }
+    if (downloadList.isNotEmpty) {
+      _playServer(downloadList.first.url, downloadList.first.server, subFlag);
+      return;
+    }
+
+    setState(() => _isSub = subFlag);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(subFlag ? 'No hay servidores SUB disponibles' : 'No hay servidores DUB disponibles'),
+        backgroundColor: AppTheme.dangerColor,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  void _openPlaybackOptions(EpisodeLinksResponse links) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppTheme.cardColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) {
+        return DraggableScrollableSheet(
+          expand: false,
+          initialChildSize: 0.65,
+          minChildSize: 0.4,
+          maxChildSize: 0.92,
+          builder: (_, scrollController) {
+            return Padding(
+              padding: EdgeInsets.only(bottom: MediaQuery.of(sheetContext).viewInsets.bottom),
+              child: SingleChildScrollView(
+                controller: scrollController,
+                child: _buildServersPanel(links, onSelected: () => Navigator.pop(sheetContext)),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
   Future<void> _launchExternalPlayer() async {
     if (_selectedServerUrl == null) return;
-    
+
     final uri = Uri.parse(_selectedServerUrl!);
-    
-    // Alerta al usuario de que intentaremos lanzar el link externamente.
-    // Si tienen VLC, MX Player o un navegador, podrán reproducirlo directamente
     try {
       if (await canLaunchUrl(uri)) {
         await launchUrl(uri, mode: LaunchMode.externalApplication);
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('No se pudo abrir el reproductor externo. Copia el enlace en tu navegador.'),
-              backgroundColor: AppTheme.dangerColor,
-            ),
-          );
-        }
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No se pudo abrir el reproductor externo.'),
+            backgroundColor: AppTheme.dangerColor,
+          ),
+        );
       }
     } catch (_) {
-      // Fallback a navegador por defecto
       await launchUrl(uri, mode: LaunchMode.platformDefault);
     }
   }
@@ -131,7 +209,7 @@ class _PlayerScreenState extends State<PlayerScreen> with TickerProviderStateMix
     final links = animeProvider.episodeLinks;
 
     return Scaffold(
-      backgroundColor: Colors.black, // Fondo ultra oscuro para modo cine
+      backgroundColor: Colors.black,
       appBar: AppBar(
         backgroundColor: Colors.black,
         title: Column(
@@ -148,65 +226,105 @@ class _PlayerScreenState extends State<PlayerScreen> with TickerProviderStateMix
             ),
           ],
         ),
+        actions: [
+          if (links != null)
+            IconButton(
+              icon: const Icon(Icons.tune),
+              tooltip: 'Idioma y servidores',
+              onPressed: () => _openPlaybackOptions(links),
+            ),
+        ],
       ),
       body: OrientationBuilder(
         builder: (context, orientation) {
           final isLandscape = orientation == Orientation.landscape;
-          
+
           if (isLandscape) {
-            // En modo horizontal, el reproductor toma el 100% de la pantalla para máxima inmersión
-            return _buildPlayerWidget();
+            return Stack(
+              fit: StackFit.expand,
+              children: [
+                _buildPlayerWidget(),
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: Material(
+                    color: Colors.black.withValues(alpha: 0.65),
+                    borderRadius: BorderRadius.circular(12),
+                    child: IconButton(
+                      icon: const Icon(Icons.tune, color: Colors.white),
+                      tooltip: 'Idioma y servidores',
+                      onPressed: links != null ? () => _openPlaybackOptions(links) : null,
+                    ),
+                  ),
+                ),
+                if (_selectedServerName != null)
+                  Positioned(
+                    top: 8,
+                    left: 8,
+                    child: IgnorePointer(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.65),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          '${_isSub ? "SUB" : "DUB"} · $_selectedServerName',
+                          style: const TextStyle(fontSize: 11, color: Colors.white),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            );
           }
 
-          // En modo vertical, mostramos el reproductor arriba y los controles/servidores abajo
           return Column(
             children: [
-              // Área del Reproductor
               AspectRatio(
                 aspectRatio: 16 / 9,
                 child: _buildPlayerWidget(),
               ),
-
-              // Detalles, Servidores y Comentarios
+              if (links != null) _buildQuickControlsBar(links),
               Expanded(
                 child: SingleChildScrollView(
                   child: Column(
                     children: [
                       Container(
                         color: AppTheme.darkBackground,
+                        width: double.infinity,
                         child: animeProvider.isLoadingEpisode
-                            ? const Center(
-                                child: Padding(
-                                  padding: EdgeInsets.all(40),
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      CircularProgressIndicator(valueColor: AlwaysStoppedAnimation(AppTheme.primaryColor)),
-                                      SizedBox(height: 12),
-                                      Text('Buscando servidores de video...', style: TextStyle(color: AppTheme.textSecondary)),
-                                    ],
-                                  ),
+                            ? const Padding(
+                                padding: EdgeInsets.all(40),
+                                child: Column(
+                                  children: [
+                                    CircularProgressIndicator(
+                                      valueColor: AlwaysStoppedAnimation(AppTheme.primaryColor),
+                                    ),
+                                    SizedBox(height: 12),
+                                    Text(
+                                      'Buscando servidores de video...',
+                                      style: TextStyle(color: AppTheme.textSecondary),
+                                    ),
+                                  ],
                                 ),
                               )
                             : links == null
-                                ? Center(
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(24.0),
-                                      child: Text(
-                                        animeProvider.episodeError ?? 'Error al cargar los servidores del episodio',
-                                        textAlign: TextAlign.center,
-                                        style: const TextStyle(color: AppTheme.textSecondary),
-                                      ),
+                                ? Padding(
+                                    padding: const EdgeInsets.all(24),
+                                    child: Text(
+                                      animeProvider.episodeError ?? 'Error al cargar servidores',
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(color: AppTheme.textSecondary),
                                     ),
                                   )
-                                : _buildServersSection(links),
+                                : _buildServersPanel(links),
                       ),
-                      // Comentarios del Episodio
                       CommentsSection(
                         animeSlug: Uri.parse(widget.animeUrl).pathSegments.lastWhere(
-                          (s) => s.isNotEmpty,
-                          orElse: () => widget.animeUrl.hashCode.toString(),
-                        ),
+                              (s) => s.isNotEmpty,
+                              orElse: () => widget.animeUrl.hashCode.toString(),
+                            ),
                         animeTitle: widget.animeTitle,
                         episodeNumber: widget.episodeNumber,
                       ),
@@ -221,6 +339,69 @@ class _PlayerScreenState extends State<PlayerScreen> with TickerProviderStateMix
     );
   }
 
+  Widget _buildQuickControlsBar(EpisodeLinksResponse links) {
+    final hasSub = links.subStream.isNotEmpty || links.subDownload.isNotEmpty;
+    final hasDub = links.dubStream.isNotEmpty || links.dubDownload.isNotEmpty;
+
+    return Material(
+      color: AppTheme.cardColor,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: Row(
+          children: [
+            if (hasSub)
+              _miniLangChip('SUB', true, links, enabled: hasSub),
+            if (hasSub && hasDub) const SizedBox(width: 8),
+            if (hasDub)
+              _miniLangChip('DUB', false, links, enabled: hasDub),
+            const SizedBox(width: 8),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: () => _openPlaybackOptions(links),
+                icon: const Icon(Icons.swap_horiz, size: 18),
+                label: Text(
+                  _selectedServerName ?? 'Servidor',
+                  overflow: TextOverflow.ellipsis,
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  side: const BorderSide(color: AppTheme.primaryColor),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _miniLangChip(String label, bool subFlag, EpisodeLinksResponse links, {required bool enabled}) {
+    final selected = _isSub == subFlag;
+    return InkWell(
+      onTap: enabled ? () => _switchLanguage(subFlag, links) : null,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: selected ? AppTheme.primaryColor.withValues(alpha: 0.25) : AppTheme.darkBackground,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: selected ? AppTheme.primaryColor : AppTheme.textSecondary.withValues(alpha: 0.3),
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: selected ? AppTheme.primaryColor : AppTheme.textSecondary,
+            fontSize: 13,
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildPlayerWidget() {
     if (_selectedServerUrl == null) {
       return Container(
@@ -231,21 +412,19 @@ class _PlayerScreenState extends State<PlayerScreen> with TickerProviderStateMix
       );
     }
 
-    // Usar WebUri de flutter_inappwebview
     final webUri = WebUri(_selectedServerUrl!);
     final originalHost = Uri.parse(_selectedServerUrl!).host;
 
     return Stack(
       children: [
         InAppWebView(
-          key: _webViewKey,
+          key: ValueKey('player-$_webViewGeneration'),
           initialUrlRequest: URLRequest(url: webUri),
           initialSettings: InAppWebViewSettings(
             javaScriptEnabled: true,
             mediaPlaybackRequiresUserGesture: false,
             allowsInlineMediaPlayback: true,
             useShouldOverrideUrlLoading: true,
-            // Bloquear ventanas emergentes para evitar anuncios molestos
             javaScriptCanOpenWindowsAutomatically: false,
             supportMultipleWindows: false,
           ),
@@ -253,12 +432,11 @@ class _PlayerScreenState extends State<PlayerScreen> with TickerProviderStateMix
             final uri = navigationAction.request.url;
             if (uri != null) {
               final newHost = uri.host;
-              // Si la redirección intenta sacarnos del servidor de video original (bloqueo de publicidad popup)
-              if (newHost != originalHost && 
-                  !newHost.contains('google') && 
-                  !newHost.contains('recaptcha') && 
+              if (newHost != originalHost &&
+                  !newHost.contains('google') &&
+                  !newHost.contains('recaptcha') &&
                   !newHost.contains('jwplayer')) {
-                return NavigationActionPolicy.CANCEL; // Cancelar redirección de anuncio
+                return NavigationActionPolicy.CANCEL;
               }
             }
             return NavigationActionPolicy.ALLOW;
@@ -271,55 +449,35 @@ class _PlayerScreenState extends State<PlayerScreen> with TickerProviderStateMix
             ]);
           },
           onExitFullscreen: (controller) async {
-            await SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, overlays: SystemUiOverlay.values);
-            await SystemChrome.setPreferredOrientations([
-              DeviceOrientation.portraitUp,
-            ]);
+            await SystemChrome.setEnabledSystemUIMode(
+              SystemUiMode.manual,
+              overlays: SystemUiOverlay.values,
+            );
+            await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
           },
-        ),
-        // Indicador discreto del servidor reproduciéndose (solo visible arriba a la izquierda si no está en fullscreen)
-        Positioned(
-          left: 12,
-          top: 12,
-          child: IgnorePointer(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.7),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Text(
-                'Servidor: ${_selectedServerName ?? "Cargando..."}',
-                style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold),
-              ),
-            ),
-          ),
         ),
       ],
     );
   }
 
-  Widget _buildServersSection(EpisodeLinksResponse data) {
+  Widget _buildServersPanel(EpisodeLinksResponse data, {VoidCallback? onSelected}) {
     final hasSub = data.subStream.isNotEmpty || data.subDownload.isNotEmpty;
     final hasDub = data.dubStream.isNotEmpty || data.dubDownload.isNotEmpty;
-
-    // Servidores actuales según idioma seleccionado
     final currentStreamServers = _isSub ? data.subStream : data.dubStream;
     final currentDownloadServers = _isSub ? data.subDownload : data.dubDownload;
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20.0),
+    return Padding(
+      padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Fila de acciones principales
           Row(
             children: [
               Expanded(
                 child: ElevatedButton.icon(
                   onPressed: _launchExternalPlayer,
                   icon: const Icon(Icons.launch, size: 18),
-                  label: const Text('Reproductor Externo'),
+                  label: const Text('Reproductor externo'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.primaryColor,
                     padding: const EdgeInsets.symmetric(vertical: 10),
@@ -330,170 +488,147 @@ class _PlayerScreenState extends State<PlayerScreen> with TickerProviderStateMix
               ElevatedButton(
                 onPressed: _copyLinkToClipboard,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.cardColor,
+                  backgroundColor: AppTheme.darkBackground,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
                 child: const Icon(Icons.copy, size: 18),
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          const Center(
-            child: Text(
-              '💡 Tip: Usa Reproductor Externo si tienes VLC o MX Player instalado para evitar publicidad',
-              style: TextStyle(fontSize: 10, color: AppTheme.textSecondary),
-            ),
+          const SizedBox(height: 20),
+          const Text(
+            'Idioma',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
           ),
-          
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              if (hasSub)
+                Expanded(child: _buildLanguageButton('Subtitulado (SUB)', true, data, onSelected: onSelected)),
+              if (hasSub && hasDub) const SizedBox(width: 12),
+              if (hasDub)
+                Expanded(child: _buildLanguageButton('Doblado (DUB)', false, data, onSelected: onSelected)),
+            ],
+          ),
+          if (!hasSub && !hasDub)
+            const Padding(
+              padding: EdgeInsets.only(top: 8),
+              child: Text(
+                'No hay variantes de idioma disponibles.',
+                style: TextStyle(color: AppTheme.textSecondary, fontSize: 12),
+              ),
+            ),
           const SizedBox(height: 24),
-          // Selector de Idioma (Subtitulado vs Doblado)
-          if (hasSub && hasDub) ...[
-            const Text(
-              'Idioma',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                _buildLanguageButton('Subtitulado (SUB)', true),
-                const SizedBox(width: 12),
-                _buildLanguageButton('Doblado (DUB)', false),
-              ],
-            ),
-            const SizedBox(height: 24),
-          ],
-
-          // Lista de Servidores Online
           if (currentStreamServers.isNotEmpty) ...[
-            const Text(
-              'Servidores de Streaming',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+            Text(
+              'Servidores (${_isSub ? "SUB" : "DUB"})',
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
             ),
             const SizedBox(height: 10),
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: currentStreamServers.length,
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                childAspectRatio: 2.5,
-                crossAxisSpacing: 10,
-                mainAxisSpacing: 10,
-              ),
-              itemBuilder: (context, index) {
-                final server = currentStreamServers[index];
-                final isCurrent = _selectedServerUrl == server.url;
-                return InkWell(
-                  onTap: () => _playServer(server.url, server.server, _isSub),
+            ...currentStreamServers.map((server) {
+              final isCurrent = _selectedServerUrl == server.url;
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Material(
+                  color: isCurrent
+                      ? AppTheme.primaryColor.withValues(alpha: 0.15)
+                      : AppTheme.darkBackground,
                   borderRadius: BorderRadius.circular(12),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: isCurrent ? AppTheme.primaryColor.withOpacity(0.15) : AppTheme.cardColor,
+                  child: ListTile(
+                    shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: isCurrent ? AppTheme.primaryColor : AppTheme.cardColor,
+                      side: BorderSide(
+                        color: isCurrent ? AppTheme.primaryColor : Colors.transparent,
                         width: 1.5,
                       ),
                     ),
-                    child: Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            server.server,
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: isCurrent ? AppTheme.primaryColor : Colors.white,
-                              fontSize: 14,
-                            ),
-                          ),
-                          if (server.quality != null)
-                            Text(
-                              server.quality!,
-                              style: const TextStyle(fontSize: 10, color: AppTheme.textSecondary),
-                            ),
-                        ],
+                    title: Text(
+                      server.server,
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: isCurrent ? AppTheme.primaryColor : Colors.white,
                       ),
                     ),
+                    subtitle: server.quality != null
+                        ? Text(server.quality!, style: const TextStyle(fontSize: 11))
+                        : null,
+                    trailing: isCurrent
+                        ? const Icon(Icons.play_circle_fill, color: AppTheme.primaryColor)
+                        : const Icon(Icons.play_circle_outline, color: AppTheme.textSecondary),
+                    onTap: () {
+                      _playServer(server.url, server.server, _isSub);
+                      onSelected?.call();
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Reproduciendo en ${server.server}'),
+                            duration: const Duration(seconds: 1),
+                            backgroundColor: AppTheme.successColor,
+                          ),
+                        );
+                      }
+                    },
                   ),
-                );
-              },
-            ),
-            const SizedBox(height: 24),
+                ),
+              );
+            }),
+            const SizedBox(height: 16),
           ],
-
-          // Lista de Servidores de Descarga
           if (currentDownloadServers.isNotEmpty) ...[
             const Text(
-              'Enlaces de Descarga (Directo)',
+              'Descarga directa',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
             ),
-            const SizedBox(height: 10),
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: currentDownloadServers.length,
-              itemBuilder: (context, index) {
-                final server = currentDownloadServers[index];
-                return Card(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  child: ListTile(
-                    leading: const Icon(Icons.download, color: AppTheme.accentColor),
-                    title: Text(server.server, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                    subtitle: Text(server.quality ?? 'Calidad HD', style: const TextStyle(fontSize: 11)),
-                    trailing: const Icon(Icons.open_in_new, size: 18),
-                    onTap: () => launchUrl(Uri.parse(server.url), mode: LaunchMode.externalApplication),
-                  ),
-                );
-              },
-            ),
+            const SizedBox(height: 8),
+            ...currentDownloadServers.map((server) {
+              return Card(
+                margin: const EdgeInsets.only(bottom: 8),
+                child: ListTile(
+                  leading: const Icon(Icons.download, color: AppTheme.accentColor),
+                  title: Text(server.server, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  subtitle: Text(server.quality ?? 'HD', style: const TextStyle(fontSize: 11)),
+                  trailing: const Icon(Icons.open_in_new, size: 18),
+                  onTap: () => launchUrl(Uri.parse(server.url), mode: LaunchMode.externalApplication),
+                ),
+              );
+            }),
           ],
         ],
       ),
     );
   }
 
-  Widget _buildLanguageButton(String text, bool subFlag) {
+  Widget _buildLanguageButton(
+    String text,
+    bool subFlag,
+    EpisodeLinksResponse links, {
+    VoidCallback? onSelected,
+  }) {
     final isSelected = _isSub == subFlag;
-    return Expanded(
-      child: InkWell(
-        onTap: () {
-          setState(() {
-            _isSub = subFlag;
-            // Seleccionar automáticamente primer servidor de esta variante
-            final links = context.read<AnimeProvider>().episodeLinks;
-            if (links != null) {
-              final streamList = subFlag ? links.subStream : links.dubStream;
-              final downloadList = subFlag ? links.subDownload : links.dubDownload;
-              if (streamList.isNotEmpty) {
-                _playServer(streamList.first.url, streamList.first.server, subFlag);
-              } else if (downloadList.isNotEmpty) {
-                _playServer(downloadList.first.url, downloadList.first.server, subFlag);
-              }
-            }
-          });
-        },
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          decoration: BoxDecoration(
-            color: isSelected ? AppTheme.primaryColor.withOpacity(0.2) : AppTheme.cardColor,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: isSelected ? AppTheme.primaryColor : Colors.transparent,
-              width: 1.5,
-            ),
+    return InkWell(
+      onTap: () {
+        _switchLanguage(subFlag, links);
+        onSelected?.call();
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: isSelected ? AppTheme.primaryColor.withValues(alpha: 0.2) : AppTheme.darkBackground,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondary.withValues(alpha: 0.3),
+            width: 1.5,
           ),
-          child: Center(
-            child: Text(
-              text,
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondary,
-                fontSize: 13,
-              ),
+        ),
+        child: Center(
+          child: Text(
+            text,
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondary,
+              fontSize: 13,
             ),
           ),
         ),

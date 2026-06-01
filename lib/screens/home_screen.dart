@@ -29,6 +29,9 @@ class _HomeScreenState extends State<HomeScreen> {
       if (provider.popularAnime.isEmpty) {
         provider.loadPopularAnime();
       }
+      if (provider.latestPublishedEpisodes.isEmpty) {
+        provider.loadLatestPublishedEpisodes();
+      }
       _checkUpdates();
     });
   }
@@ -114,6 +117,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
             // Animes Destacados / Populares
             _buildPopularSection(context, animeProvider),
+
+            _buildLatestPublishedSection(context, animeProvider),
 
             // Continuar Viendo (Historial)
             if (historyProvider.history.isNotEmpty)
@@ -327,6 +332,144 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget _buildLatestPublishedSection(BuildContext context, AnimeProvider provider) {
+    if (provider.isLoadingLatestEpisodes && provider.latestPublishedEpisodes.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.only(top: 24),
+        child: Center(
+          child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation(AppTheme.primaryColor)),
+        ),
+      );
+    }
+
+    if (provider.latestEpisodesError != null && provider.latestPublishedEpisodes.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.all(20),
+        child: Text(
+          provider.latestEpisodesError!,
+          style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12),
+        ),
+      );
+    }
+
+    final episodes = provider.latestPublishedEpisodes;
+    if (episodes.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 20.0, right: 20.0, top: 24.0, bottom: 4.0),
+          child: Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Capítulos más recientes',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.refresh, size: 20, color: AppTheme.textSecondary),
+                onPressed: () => provider.loadLatestPublishedEpisodes(),
+                tooltip: 'Actualizar',
+              ),
+            ],
+          ),
+        ),
+        const Padding(
+          padding: EdgeInsets.only(left: 20.0, right: 20.0, bottom: 12.0),
+          child: Text(
+            'Recién publicados en el sitio',
+            style: TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+          ),
+        ),
+        SizedBox(
+          height: 200,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            itemCount: episodes.length,
+            itemBuilder: (context, index) {
+              final item = episodes[index];
+              return Container(
+                width: 130,
+                margin: const EdgeInsets.symmetric(horizontal: 6.0),
+                child: InkWell(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => PlayerScreen(
+                          episodeUrl: item.episodeUrl,
+                          episodeNumber: item.episodeNumber,
+                          animeTitle: item.animeTitle,
+                          animeUrl: item.animeUrl,
+                          animeImage: item.image ?? '',
+                        ),
+                      ),
+                    );
+                  },
+                  borderRadius: BorderRadius.circular(14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              AnimePosterImage(
+                                imageUrl: item.image,
+                                fit: BoxFit.cover,
+                                width: double.infinity,
+                                height: double.infinity,
+                              ),
+                              Positioned(
+                                right: 6,
+                                bottom: 6,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.primaryColor,
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    'Ep. ${item.episodeNumber.toString().replaceAll('.0', '')}',
+                                    style: const TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        item.animeTitle,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 11,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildContinueWatchingSection(BuildContext context, HistoryProvider historyProvider) {
     final history = historyProvider.history;
     return Column(
@@ -466,7 +609,8 @@ class _HomeScreenState extends State<HomeScreen> {
           TextButton(
             onPressed: () async {
               Navigator.pop(ctx);
-              await provider.removeFromHistory(item.animeUrl);
+              final uid = Provider.of<app_auth.AuthProvider>(context, listen: false).userId;
+              await provider.removeFromHistory(item.animeUrl, userId: uid);
               if (!context.mounted) return;
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
