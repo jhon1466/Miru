@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../core/theme.dart';
 import '../core/update_service.dart';
+import '../widgets/update_dialog.dart';
 import '../providers/anime_provider.dart';
 import '../providers/auth_provider.dart' as app_auth;
 import '../providers/history_provider.dart';
@@ -36,135 +36,8 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _checkUpdates() async {
     final updateInfo = await UpdateService.checkForUpdates();
     if (updateInfo.hasUpdate && mounted) {
-      _showUpdateDialog(context, updateInfo);
+      showAppUpdateDialog(context, updateInfo);
     }
-  }
-
-  void _showUpdateDialog(BuildContext context, UpdateInfo info) {
-    showDialog(
-      context: context,
-      barrierDismissible: true,
-      builder: (context) {
-        return AlertDialog(
-          backgroundColor: AppTheme.cardColor,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24),
-            side: BorderSide(color: AppTheme.primaryColor.withOpacity(0.2), width: 1.5),
-          ),
-          title: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: AppTheme.primaryColor.withOpacity(0.15),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.system_update_rounded,
-                  color: AppTheme.primaryColor,
-                  size: 28,
-                ),
-              ),
-              const SizedBox(width: 12),
-              const Expanded(
-                child: Text(
-                  'Actualización',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 20,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '¡Una nueva versión está disponible!',
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.9),
-                    fontWeight: FontWeight.w600,
-                    fontSize: 15,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Versión: v${info.latestVersion}',
-                  style: const TextStyle(
-                    color: AppTheme.accentColor,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'Notas de versión:',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(12),
-                  constraints: const BoxConstraints(maxHeight: 120),
-                  decoration: BoxDecoration(
-                    color: AppTheme.darkBackground.withOpacity(0.5),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.white10),
-                  ),
-                  child: SingleChildScrollView(
-                    child: Text(
-                      info.releaseNotes,
-                      style: const TextStyle(
-                        color: AppTheme.textSecondary,
-                        fontSize: 12,
-                        height: 1.4,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          actionsAlignment: MainAxisAlignment.spaceBetween,
-          actionsPadding: const EdgeInsets.only(left: 16, right: 16, bottom: 16),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text(
-                'Más tarde',
-                style: TextStyle(color: AppTheme.textSecondary, fontWeight: FontWeight.w600),
-              ),
-            ),
-            ElevatedButton.icon(
-              onPressed: () async {
-                final uri = Uri.parse(info.downloadUrl);
-                if (await canLaunchUrl(uri)) {
-                  await launchUrl(uri, mode: LaunchMode.externalApplication);
-                }
-              },
-              icon: const Icon(Icons.download_rounded, size: 18),
-              label: const Text('Actualizar'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primaryColor,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              ),
-            ),
-          ],
-        );
-      },
-    );
   }
 
   @override
@@ -196,6 +69,38 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ],
         ),
+        actions: [
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.notifications_outlined, size: 26),
+                tooltip: 'Notificaciones',
+                onPressed: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Las notificaciones estarán disponibles pronto'),
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+                },
+              ),
+              Positioned(
+                right: 10,
+                top: 10,
+                child: Container(
+                  width: 8,
+                  height: 8,
+                  decoration: const BoxDecoration(
+                    color: AppTheme.accentColor,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(width: 4),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.only(bottom: 100),

@@ -11,6 +11,7 @@ class AnimeSearchResult {
   final double? score;
   final String? status;
   final String? year;
+  final List<String> genres;
 
   AnimeSearchResult({
     this.id,
@@ -23,9 +24,18 @@ class AnimeSearchResult {
     this.score,
     this.status,
     this.year,
+    this.genres = const [],
   });
 
   factory AnimeSearchResult.fromJson(Map<String, dynamic> json) {
+    final genresRaw = json['genres'];
+    final genresList = genresRaw is List
+        ? genresRaw.map((g) {
+            if (g is String) return g;
+            if (g is Map) return (g['name'] ?? g['title'] ?? '').toString();
+            return g.toString();
+          }).where((s) => s.isNotEmpty).cast<String>().toList()
+        : <String>[];
     return AnimeSearchResult(
       id: json['id']?.toString(),
       title: json['title'] ?? 'Sin Título',
@@ -39,6 +49,7 @@ class AnimeSearchResult {
       score: json['score'] != null ? double.tryParse(json['score'].toString()) : null,
       status: json['status']?.toString(),
       year: json['year']?.toString(),
+      genres: genresList,
     );
   }
 
@@ -54,6 +65,7 @@ class AnimeSearchResult {
       'score': score,
       'status': status,
       'year': year,
+      'genres': genres,
     };
   }
 }
@@ -84,12 +96,14 @@ class Episode {
   final double number;
   final String title;
   final String url;
+  final String? image;
 
   Episode({
     this.id,
     required this.number,
     required this.title,
     required this.url,
+    this.image,
   });
 
   factory Episode.fromJson(Map<String, dynamic> json) {
@@ -98,6 +112,7 @@ class Episode {
       number: double.tryParse(json['number']?.toString() ?? '1') ?? 1.0,
       title: json['title'] ?? 'Episodio',
       url: json['url'] ?? '',
+      image: pickAnimeImageUrl(json),
     );
   }
 
@@ -107,6 +122,7 @@ class Episode {
       'number': number,
       'title': title,
       'url': url,
+      'image': image,
     };
   }
 }

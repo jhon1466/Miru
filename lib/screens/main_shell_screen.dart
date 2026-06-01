@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../core/theme.dart';
 import 'home_screen.dart';
+import 'catalog_screen.dart';
 import 'search_screen.dart';
 import 'profile_tab_screen.dart';
 
@@ -17,6 +18,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
 
   static const _tabs = [
     _NavItem(icon: Icons.home_rounded, label: 'Inicio'),
+    _NavItem(icon: Icons.grid_view_rounded, label: 'Catálogo'),
     _NavItem(icon: Icons.search_rounded, label: 'Buscar'),
     _NavItem(icon: Icons.person_rounded, label: 'Perfil'),
   ];
@@ -29,12 +31,13 @@ class _MainShellScreenState extends State<MainShellScreen> {
         index: _currentIndex,
         children: const [
           HomeScreen(),
+          CatalogScreen(embedded: true),
           SearchScreen(embedded: true),
           ProfileTabScreen(),
         ],
       ),
       bottomNavigationBar: SafeArea(
-        minimum: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+        minimum: const EdgeInsets.fromLTRB(12, 0, 12, 16),
         child: Container(
           height: 64,
           decoration: BoxDecoration(
@@ -50,7 +53,6 @@ class _MainShellScreenState extends State<MainShellScreen> {
             ],
           ),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: List.generate(_tabs.length, (i) {
               final item = _tabs[i];
               final selected = _currentIndex == i;
@@ -64,13 +66,15 @@ class _MainShellScreenState extends State<MainShellScreen> {
                       Icon(
                         item.icon,
                         color: selected ? AppTheme.primaryColor : AppTheme.textSecondary,
-                        size: 26,
+                        size: 24,
                       ),
                       const SizedBox(height: 2),
                       Text(
                         item.label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          fontSize: 11,
+                          fontSize: 10,
                           fontWeight: selected ? FontWeight.bold : FontWeight.normal,
                           color: selected ? AppTheme.primaryColor : AppTheme.textSecondary,
                         ),
