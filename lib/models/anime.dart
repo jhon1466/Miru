@@ -98,6 +98,17 @@ class LatestPublishedEpisode {
       image: pickAnimeImageUrl(json) ?? normalizeAnimeImageUrl(json['image']?.toString()),
     );
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'animeTitle': animeTitle,
+      'slug': slug,
+      'episodeNumber': episodeNumber,
+      'episodeUrl': episodeUrl,
+      'animeUrl': animeUrl,
+      'image': image,
+    };
+  }
 }
 
 class Genre {

@@ -8,8 +8,21 @@ import '../services/notification_service.dart';
 import 'detail_screen.dart';
 import 'player_screen.dart';
 
-class NotificationsScreen extends StatelessWidget {
+class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
+
+  @override
+  State<NotificationsScreen> createState() => _NotificationsScreenState();
+}
+
+class _NotificationsScreenState extends State<NotificationsScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<NotificationProvider>().refreshUnread();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
