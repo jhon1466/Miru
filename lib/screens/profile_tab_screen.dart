@@ -106,9 +106,26 @@ class _LoggedInBodyState extends State<_LoggedInBody> {
                 ],
               ),
               const SizedBox(height: 12),
-              Text(
-                name,
-                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
+              InkWell(
+                onTap: () => _editDisplayName(context, name),
+                borderRadius: BorderRadius.circular(8),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Flexible(
+                        child: Text(
+                          name,
+                          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      const Icon(Icons.edit_outlined, size: 16, color: AppTheme.textSecondary),
+                    ],
+                  ),
+                ),
               ),
               Text(
                 widget.authProvider.email ?? '',
@@ -116,7 +133,8 @@ class _LoggedInBodyState extends State<_LoggedInBody> {
               ),
               const SizedBox(height: 8),
               Text(
-                'Toca el ícono de cámara para cambiar tu foto',
+                'Toca tu nombre para editarlo · cámara para cambiar la foto',
+                textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 12, color: AppTheme.textSecondary.withValues(alpha: 0.8)),
               ),
               const SizedBox(height: 28),
@@ -211,6 +229,49 @@ class _LoggedInBodyState extends State<_LoggedInBody> {
         );
       },
     );
+  }
+
+  Future<void> _editDisplayName(BuildContext context, String currentName) async {
+    final controller = TextEditingController(text: currentName);
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.cardColor,
+        title: const Text('Editar nombre', style: TextStyle(color: Colors.white)),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          maxLength: 40,
+          style: const TextStyle(color: Colors.white),
+          decoration: const InputDecoration(
+            hintText: 'Tu nombre en comentarios',
+            hintStyle: TextStyle(color: AppTheme.textSecondary),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Guardar')),
+        ],
+      ),
+    );
+
+    if (saved != true || !mounted) return;
+
+    try {
+      await widget.authProvider.updateDisplayName(controller.text);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Nombre actualizado en tu perfil y comentarios'),
+          backgroundColor: AppTheme.successColor,
+        ),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e'), backgroundColor: AppTheme.dangerColor),
+      );
+    }
   }
 
   Future<void> _changePhoto(BuildContext context) async {
