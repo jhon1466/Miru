@@ -161,6 +161,51 @@ class _StickerPickerSheetState extends State<StickerPickerSheet> {
                   final item = allStickers[index];
                   return InkWell(
                     onTap: () => Navigator.pop(context, item),
+                    onLongPress: () async {
+                      final uid = FirebaseAuth.instance.currentUser?.uid;
+                      if (uid == null) return;
+
+                      final pack = _packs.firstWhere(
+                        (p) => p.stickers.any((s) => s.id == item.id),
+                        orElse: () => _packs.first,
+                      );
+
+                      final delete = await showDialog<bool>(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          backgroundColor: AppTheme.cardColor,
+                          title: const Text('Eliminar sticker', style: TextStyle(color: Colors.white)),
+                          content: const Text(
+                            '¿Deseas eliminar este sticker permanentemente?',
+                            style: TextStyle(color: AppTheme.textSecondary),
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(ctx, false),
+                              child: const Text('Cancelar', style: TextStyle(color: AppTheme.textSecondary)),
+                            ),
+                            TextButton(
+                              onPressed: () => Navigator.pop(ctx, true),
+                              child: const Text('Eliminar', style: TextStyle(color: AppTheme.dangerColor)),
+                            ),
+                          ],
+                        ),
+                      );
+
+                      if (delete == true) {
+                        setState(() => _loading = true);
+                        await StickerService.deleteSticker(pack.id, item.id);
+                        await _load();
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Sticker eliminado'),
+                              backgroundColor: AppTheme.successColor,
+                            ),
+                          );
+                        }
+                      }
+                    },
                     borderRadius: BorderRadius.circular(12),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(12),
