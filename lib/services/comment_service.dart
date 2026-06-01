@@ -108,4 +108,47 @@ class CommentService {
   static Future<void> deleteComment(String animeSlug, String commentId) async {
     await _commentsRef(animeSlug).doc(commentId).delete();
   }
+
+  /// Propaga nombre y foto actuales a todos los comentarios del usuario.
+  static Future<int> syncAuthorProfile({
+    required String uid,
+    required String displayName,
+    String? photoUrl,
+  }) async {
+    var updated = 0;
+    final batchLimit = 400;
+
+    Future<void> applyUpdates(QuerySnapshot snap, Map<String, dynamic> fields) async {
+      if (snap.docs.isEmpty) return;
+      for (var i = 0; i < snap.docs.length; i += batchLimit) {
+        final chunk = snap.docs.skip(i).take(batchLimit);
+        final batch = _db.batch();
+        for (final doc in chunk) {
+          batch.update(doc.reference, fields);
+        }
+        await batch.commit();
+        updated += chunk.length;
+      }
+    }
+
+    final ownComments = await _db
+        .collectionGroup('entries')
+        .where('userId', isEqualTo: uid)
+        .get();
+
+    final authorFields = <String, dynamic>{
+      'userDisplayName': displayName,
+      if (photoUrl != null) 'userPhotoUrl': photoUrl,
+    };
+    await applyUpdates(ownComments, authorFields);
+
+    final repliesMention = await _db
+        .collectionGroup('entries')
+        .where('replyToUserId', isEqualTo: uid)
+        .get();
+
+    await applyUpdates(repliesMention, {'replyToUserName': displayName});
+
+    return updated;
+  }
 }

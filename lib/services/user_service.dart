@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'comment_service.dart';
 
 /// Datos del perfil de usuario en Firestore (/users/{uid})
 class UserProfile {
@@ -94,6 +95,19 @@ class UserService {
         },
         SetOptions(merge: true),
       );
+      await _syncCommentsAuthor(uid, displayName, photoUrl);
+    }
+  }
+
+  static Future<void> _syncCommentsAuthor(String uid, String displayName, String? photoUrl) async {
+    try {
+      await CommentService.syncAuthorProfile(
+        uid: uid,
+        displayName: displayName,
+        photoUrl: photoUrl,
+      );
+    } catch (_) {
+      // Índices de collection group pueden estar propagándose; la UI usa perfil en vivo.
     }
   }
 
@@ -126,6 +140,17 @@ class UserService {
   }
 
   static Future<void> updatePhotoUrl(String uid, String photoUrl) async {
+    final profile = await getProfile(uid);
+    final name = profile?.displayName ?? 'Usuario';
     await _userRef(uid).set({'photoUrl': photoUrl}, SetOptions(merge: true));
+    await _syncCommentsAuthor(uid, name, photoUrl);
+  }
+
+  static Future<void> updateDisplayName(String uid, String displayName) async {
+    final trimmed = displayName.trim();
+    if (trimmed.isEmpty) return;
+    final profile = await getProfile(uid);
+    await _userRef(uid).set({'displayName': trimmed}, SetOptions(merge: true));
+    await _syncCommentsAuthor(uid, trimmed, profile?.photoUrl);
   }
 }

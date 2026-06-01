@@ -8,6 +8,7 @@ import '../models/comment.dart';
 import '../providers/auth_provider.dart' as app_auth;
 import '../services/comment_service.dart';
 import '../services/comment_image_service.dart';
+import '../services/user_service.dart';
 import '../screens/user_profile_screen.dart';
 import '../utils/auth_ui.dart';
 
@@ -405,100 +406,138 @@ class _CommentsSectionState extends State<CommentsSection> {
     final isFocused = widget.focusCommentId == comment.id;
     final key = _keyFor(comment.id);
 
-    return Padding(
-      key: key,
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          GestureDetector(
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => UserProfileScreen(
-                  userId: comment.userId,
-                  displayName: comment.userDisplayName,
-                  photoUrl: comment.userPhotoUrl,
-                ),
-              ),
-            ),
-            child: _avatar(comment.userPhotoUrl, comment.userDisplayName),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppTheme.cardColor,
-                borderRadius: BorderRadius.circular(16),
-                border: isFocused ? Border.all(color: AppTheme.accentColor, width: 2) : null,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          comment.userDisplayName,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.primaryColor),
-                        ),
-                      ),
-                      Text(_timeAgo(comment.createdAt), style: const TextStyle(fontSize: 10, color: AppTheme.textSecondary)),
-                      if (comment.wasEdited)
-                        const Text(' · editado', style: TextStyle(fontSize: 10, color: AppTheme.textSecondary)),
-                    ],
+    return StreamBuilder<UserProfile?>(
+      stream: UserService.profileStream(comment.userId),
+      builder: (context, authorSnap) {
+        final authorProfile = authorSnap.data;
+        final displayName = authorProfile?.displayName ?? comment.userDisplayName;
+        final photoUrl = authorProfile?.photoUrl ?? comment.userPhotoUrl;
+        final liveComment = comment.withAuthor(displayName: displayName, photoUrl: photoUrl);
+
+        return Padding(
+          key: key,
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              GestureDetector(
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => UserProfileScreen(
+                      userId: liveComment.userId,
+                      displayName: displayName,
+                      photoUrl: photoUrl,
+                    ),
                   ),
-                  if (isReply && comment.replyToUserName != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 2),
-                      child: Text(
-                        '→ ${comment.replyToUserName}',
-                        style: const TextStyle(fontSize: 11, color: AppTheme.accentColor),
-                      ),
-                    ),
-                  if (comment.text.isNotEmpty) ...[
-                    const SizedBox(height: 6),
-                    Text(comment.text, style: const TextStyle(fontSize: 14, color: AppTheme.textPrimary, height: 1.4)),
-                  ],
-                  if (comment.imageUrl != null && comment.imageUrl!.isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: CachedNetworkImage(
-                        imageUrl: comment.imageUrl!,
-                        fit: BoxFit.cover,
-                        placeholder: (_, __) => const SizedBox(height: 120, child: Center(child: CircularProgressIndicator())),
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 6),
-                  Row(
+                ),
+                child: _avatar(photoUrl, displayName),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppTheme.cardColor,
+                    borderRadius: BorderRadius.circular(16),
+                    border: isFocused ? Border.all(color: AppTheme.accentColor, width: 2) : null,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      TextButton(
-                        onPressed: auth.isLoggedIn
-                            ? () => _startReply(comment, isReply ? root : comment)
-                            : null,
-                        child: const Text('Responder', style: TextStyle(fontSize: 12)),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              displayName,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                                color: AppTheme.primaryColor,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            _timeAgo(liveComment.createdAt),
+                            style: const TextStyle(fontSize: 10, color: AppTheme.textSecondary),
+                          ),
+                          if (liveComment.wasEdited)
+                            const Text(' · editado', style: TextStyle(fontSize: 10, color: AppTheme.textSecondary)),
+                        ],
                       ),
-                      if (isOwner) ...[
-                        TextButton(
-                          onPressed: () => _editComment(comment, auth),
-                          child: const Text('Editar', style: TextStyle(fontSize: 12)),
+                      if (isReply && liveComment.replyToUserId != null)
+                        StreamBuilder<UserProfile?>(
+                          stream: UserService.profileStream(liveComment.replyToUserId!),
+                          builder: (context, replySnap) {
+                            final replyName =
+                                replySnap.data?.displayName ?? liveComment.replyToUserName ?? 'Usuario';
+                            return Padding(
+                              padding: const EdgeInsets.only(top: 2),
+                              child: Text(
+                                '→ $replyName',
+                                style: const TextStyle(fontSize: 11, color: AppTheme.accentColor),
+                              ),
+                            );
+                          },
+                        )
+                      else if (isReply && liveComment.replyToUserName != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: Text(
+                            '→ ${liveComment.replyToUserName}',
+                            style: const TextStyle(fontSize: 11, color: AppTheme.accentColor),
+                          ),
                         ),
-                        TextButton(
-                          onPressed: () => _deleteComment(comment, auth),
-                          child: const Text('Eliminar', style: TextStyle(fontSize: 12, color: AppTheme.dangerColor)),
+                      if (liveComment.text.isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          liveComment.text,
+                          style: const TextStyle(fontSize: 14, color: AppTheme.textPrimary, height: 1.4),
                         ),
                       ],
+                      if (liveComment.imageUrl != null && liveComment.imageUrl!.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: CachedNetworkImage(
+                            imageUrl: liveComment.imageUrl!,
+                            fit: BoxFit.cover,
+                            placeholder: (_, __) => const SizedBox(
+                              height: 120,
+                              child: Center(child: CircularProgressIndicator()),
+                            ),
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          TextButton(
+                            onPressed: auth.isLoggedIn
+                                ? () => _startReply(liveComment, isReply ? root : liveComment)
+                                : null,
+                            child: const Text('Responder', style: TextStyle(fontSize: 12)),
+                          ),
+                          if (isOwner) ...[
+                            TextButton(
+                              onPressed: () => _editComment(liveComment, auth),
+                              child: const Text('Editar', style: TextStyle(fontSize: 12)),
+                            ),
+                            TextButton(
+                              onPressed: () => _deleteComment(liveComment, auth),
+                              child: const Text('Eliminar', style: TextStyle(fontSize: 12, color: AppTheme.dangerColor)),
+                            ),
+                          ],
+                        ],
+                      ),
                     ],
                   ),
-                ],
+                ),
               ),
-            ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
