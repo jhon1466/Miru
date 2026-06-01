@@ -146,6 +146,19 @@ class UserService {
     await _syncCommentsAuthor(uid, name, photoUrl);
   }
 
+  static Future<void> addFcmToken(String uid, String token) async {
+    await _userRef(uid).set({
+      'fcmTokens': FieldValue.arrayUnion([token]),
+      'fcmToken': token,
+    }, SetOptions(merge: true));
+  }
+
+  static Future<void> removeFcmToken(String uid, String token) async {
+    await _userRef(uid).set({
+      'fcmTokens': FieldValue.arrayRemove([token]),
+    }, SetOptions(merge: true));
+  }
+
   static Future<void> updateDisplayName(String uid, String displayName) async {
     final trimmed = displayName.trim();
     if (trimmed.isEmpty) return;
