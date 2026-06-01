@@ -70,6 +70,27 @@ class ApiClient {
     }
   }
 
+  /// Episodios recién publicados (portada del sitio, p. ej. inicio AnimeAV1).
+  static Future<List<LatestPublishedEpisode>> getLatestPublishedEpisodes({String? domain}) async {
+    final baseUrl = await getBaseUrl();
+    final queryParams = {
+      if (domain != null && domain.isNotEmpty) 'domain': domain,
+    };
+    final uri = Uri.parse('$baseUrl/api/v1/anime/latest-episodes').replace(queryParameters: queryParams);
+
+    final response = await http.get(uri).timeout(const Duration(seconds: 30));
+    if (response.statusCode == 200) {
+      final decoded = json.decode(response.body);
+      final resultsList = decoded['data']?['results'] as List?;
+      if (resultsList != null) {
+        return resultsList.map((item) => LatestPublishedEpisode.fromJson(item)).toList();
+      }
+      return [];
+    }
+    final decoded = json.decode(response.body);
+    throw Exception(decoded['message'] ?? 'Error al cargar episodios recientes');
+  }
+
   // Buscar animes por nombre y proveedor opcional
   static Future<List<AnimeSearchResult>> searchAnime(String query, {String? domain}) async {
     final baseUrl = await getBaseUrl();

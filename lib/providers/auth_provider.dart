@@ -12,6 +12,7 @@ class AuthProvider with ChangeNotifier {
   final ImagePicker _imagePicker = ImagePicker();
 
   User? _user;
+  String? _pendingWelcomeName;
 
   User? get currentUser => _user;
   bool get isLoggedIn => _user != null;
@@ -52,18 +53,27 @@ class AuthProvider with ChangeNotifier {
         );
       }
 
+      final welcomeName = _user?.displayName ?? _user?.email?.split('@').first ?? 'Usuario';
+      _pendingWelcomeName = welcomeName;
       notifyListeners();
-      return _user?.displayName ?? _user?.email?.split('@').first ?? 'Usuario';
+      return welcomeName;
     } catch (e) {
       debugPrint('Error en Google Sign-In: $e');
       return null;
     }
   }
 
+  String? consumeWelcomeName() {
+    final name = _pendingWelcomeName;
+    _pendingWelcomeName = null;
+    return name;
+  }
+
   Future<void> signOut() async {
     await _googleSignIn.signOut();
     await _auth.signOut();
     _user = null;
+    _pendingWelcomeName = null;
     notifyListeners();
   }
 

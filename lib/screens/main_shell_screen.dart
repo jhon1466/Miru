@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../core/theme.dart';
+import '../providers/auth_provider.dart' as app_auth;
+import '../providers/history_provider.dart';
+import '../utils/auth_ui.dart';
 import 'home_screen.dart';
 import 'catalog_screen.dart';
 import 'search_screen.dart';
@@ -15,6 +19,8 @@ class MainShellScreen extends StatefulWidget {
 
 class _MainShellScreenState extends State<MainShellScreen> {
   int _currentIndex = 0;
+  bool _welcomeChecked = false;
+  String? _boundUserId;
 
   static const _tabs = [
     _NavItem(icon: Icons.home_rounded, label: 'Inicio'),
@@ -22,6 +28,48 @@ class _MainShellScreenState extends State<MainShellScreen> {
     _NavItem(icon: Icons.search_rounded, label: 'Buscar'),
     _NavItem(icon: Icons.person_rounded, label: 'Perfil'),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final auth = context.read<app_auth.AuthProvider>();
+      auth.addListener(_onAuthChanged);
+      _syncUser(auth);
+    });
+  }
+
+  @override
+  void dispose() {
+    context.read<app_auth.AuthProvider>().removeListener(_onAuthChanged);
+    super.dispose();
+  }
+
+  void _onAuthChanged() {
+    _syncUser(context.read<app_auth.AuthProvider>());
+  }
+
+  Future<void> _syncUser(app_auth.AuthProvider auth) async {
+    if (!mounted) return;
+    if (_boundUserId == auth.userId) {
+      _tryShowWelcome(auth);
+      return;
+    }
+    _boundUserId = auth.userId;
+    await context.read<HistoryProvider>().bindCloudHistory(auth.userId);
+    _tryShowWelcome(auth);
+  }
+
+  void _tryShowWelcome(app_auth.AuthProvider auth) {
+    if (_welcomeChecked || !auth.isLoggedIn) return;
+    final name = auth.consumeWelcomeName();
+    if (name == null || !mounted) return;
+    _welcomeChecked = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      await showWelcomeDialog(context, name);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
