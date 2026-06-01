@@ -100,9 +100,11 @@ class ApiClient {
     String? type,
     String? status,
     String? query,
+    int page = 1,
   }) async {
     final baseUrl = await getBaseUrl();
     final queryParams = <String, String>{
+      'page': page.toString(),
       if (domain != null && domain.isNotEmpty) 'domain': domain,
       if (genre != null && genre.isNotEmpty) 'genre': genre,
       if (year != null && year.isNotEmpty) 'year': year,

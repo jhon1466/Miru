@@ -141,6 +141,11 @@ class AnimeProvider extends ChangeNotifier {
   List<AnimeSearchResult> _catalogResults = [];
   List<AnimeSearchResult> _catalogAll = [];
   bool _isLoadingCatalog = false;
+  bool _isLoadingMoreCatalog = false;
+  bool _catalogHasMore = true;
+  int _catalogPage = 1;
+  int? _catalogTotalRecords;
+  int? _catalogTotalPages;
   String? _catalogError;
   String _catalogGenre = '';
   String _catalogYear = '';
@@ -154,6 +159,10 @@ class AnimeProvider extends ChangeNotifier {
 
   List<AnimeSearchResult> get catalogResults => _catalogResults;
   bool get isLoadingCatalog => _isLoadingCatalog;
+  bool get isLoadingMoreCatalog => _isLoadingMoreCatalog;
+  bool get catalogHasMore => _catalogHasMore;
+  int? get catalogTotalRecords => _catalogTotalRecords;
+  int? get catalogTotalPages => _catalogTotalPages;
   String? get catalogError => _catalogError;
   String get catalogGenre => _catalogGenre;
   String get catalogYear => _catalogYear;
@@ -167,31 +176,26 @@ class AnimeProvider extends ChangeNotifier {
 
   void setCatalogGenre(String v) {
     _catalogGenre = v;
-    _applyCatalogFiltersLocal();
     notifyListeners();
   }
 
   void setCatalogYear(String v) {
     _catalogYear = v;
-    _applyCatalogFiltersLocal();
     notifyListeners();
   }
 
   void setCatalogType(String v) {
     _catalogType = v;
-    _applyCatalogFiltersLocal();
     notifyListeners();
   }
 
   void setCatalogStatus(String v) {
     _catalogStatus = v;
-    _applyCatalogFiltersLocal();
     notifyListeners();
   }
 
   void setCatalogQuery(String v) {
     _catalogQuery = v;
-    _applyCatalogFiltersLocal();
     notifyListeners();
   }
 
@@ -201,36 +205,7 @@ class AnimeProvider extends ChangeNotifier {
     _catalogType = '';
     _catalogStatus = '';
     _catalogQuery = '';
-    _applyCatalogFiltersLocal();
     notifyListeners();
-  }
-
-  void _applyCatalogFiltersLocal() {
-    _catalogResults = _catalogAll.where((anime) {
-      if (_catalogQuery.isNotEmpty) {
-        final q = _catalogQuery.toLowerCase();
-        if (!anime.title.toLowerCase().contains(q) &&
-            !(anime.slug ?? '').toLowerCase().contains(q)) {
-          return false;
-        }
-      }
-      if (_catalogGenre.isNotEmpty) {
-        final g = _catalogGenre.toLowerCase();
-        final hasGenre = anime.genres.any((x) => x.toLowerCase().contains(g)) ||
-            anime.title.toLowerCase().contains(g);
-        if (!hasGenre) return false;
-      }
-      if (_catalogYear.isNotEmpty && anime.year != _catalogYear) return false;
-      if (_catalogType.isNotEmpty &&
-          !(anime.type ?? '').toLowerCase().contains(_catalogType.toLowerCase())) {
-        return false;
-      }
-      if (_catalogStatus.isNotEmpty &&
-          !(anime.status ?? '').toLowerCase().contains(_catalogStatus.toLowerCase())) {
-        return false;
-      }
-      return true;
-    }).toList();
   }
 
   void _parseFacets(Map<String, dynamic>? facets) {
@@ -246,40 +221,75 @@ class AnimeProvider extends ChangeNotifier {
     return raw.map((e) => e.toString()).where((s) => s.isNotEmpty).toList();
   }
 
-  Future<void> loadCatalog({bool refreshFromApi = true}) async {
-    if (refreshFromApi) {
+  Future<void> loadCatalog({bool refresh = true}) async {
+    if (refresh) {
+      if (_isLoadingCatalog) return;
+      _catalogPage = 1;
+      _catalogHasMore = true;
+      _catalogAll = [];
+      _catalogResults = [];
       _isLoadingCatalog = true;
       _catalogError = null;
       notifyListeners();
+    } else {
+      if (_isLoadingCatalog || _isLoadingMoreCatalog || !_catalogHasMore) return;
+      _isLoadingMoreCatalog = true;
+      notifyListeners();
+    }
 
-      try {
-        final data = await ApiClient.browseCatalog(
-          domain: _selectedProviderDomain.isEmpty ? null : _selectedProviderDomain,
-          genre: _catalogGenre.isEmpty ? null : _catalogGenre,
-          year: _catalogYear.isEmpty ? null : _catalogYear,
-          type: _catalogType.isEmpty ? null : _catalogType,
-          status: _catalogStatus.isEmpty ? null : _catalogStatus,
-          query: _catalogQuery.isEmpty ? null : _catalogQuery,
-        );
-        final resultsList = data['results'] as List?;
-        _catalogAll = resultsList != null
-            ? resultsList.map((item) => AnimeSearchResult.fromJson(item)).toList()
-            : [];
-        _parseFacets(data['facets'] as Map<String, dynamic>?);
-        _applyCatalogFiltersLocal();
-      } catch (e) {
+    try {
+      final data = await ApiClient.browseCatalog(
+        domain: _selectedProviderDomain.isEmpty ? null : _selectedProviderDomain,
+        genre: _catalogGenre.isEmpty ? null : _catalogGenre,
+        year: _catalogYear.isEmpty ? null : _catalogYear,
+        type: _catalogType.isEmpty ? null : _catalogType,
+        status: _catalogStatus.isEmpty ? null : _catalogStatus,
+        query: _catalogQuery.isEmpty ? null : _catalogQuery,
+        page: _catalogPage,
+      );
+
+      final resultsList = data['results'] as List?;
+      final pageItems = resultsList != null
+          ? resultsList.map((item) => AnimeSearchResult.fromJson(item)).toList()
+          : <AnimeSearchResult>[];
+
+      if (refresh) {
+        _catalogAll = pageItems;
+      } else {
+        final seen = _catalogAll.map((e) => e.url).toSet();
+        _catalogAll.addAll(pageItems.where((e) => !seen.contains(e.url)));
+      }
+
+      _catalogResults = List.from(_catalogAll);
+      _parseFacets(data['facets'] as Map<String, dynamic>?);
+
+      _catalogTotalRecords = data['totalRecords'] is int
+          ? data['totalRecords'] as int
+          : int.tryParse(data['totalRecords']?.toString() ?? '');
+      _catalogTotalPages = data['totalPages'] is int
+          ? data['totalPages'] as int
+          : int.tryParse(data['totalPages']?.toString() ?? '');
+      _catalogHasMore = data['hasMore'] == true;
+
+      if (pageItems.isNotEmpty) {
+        _catalogPage += 1;
+      } else {
+        _catalogHasMore = false;
+      }
+    } catch (e) {
+      if (refresh) {
         _catalogError = e.toString().replaceAll('Exception: ', '');
         _catalogAll = [];
         _catalogResults = [];
-      } finally {
-        _isLoadingCatalog = false;
-        notifyListeners();
       }
-    } else {
-      _applyCatalogFiltersLocal();
+    } finally {
+      _isLoadingCatalog = false;
+      _isLoadingMoreCatalog = false;
       notifyListeners();
     }
   }
+
+  Future<void> loadMoreCatalog() => loadCatalog(refresh: false);
 
   // Limpiar estados
   void clearSearch() {

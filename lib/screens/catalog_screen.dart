@@ -18,6 +18,7 @@ class CatalogScreen extends StatefulWidget {
 class _CatalogScreenState extends State<CatalogScreen> {
   Timer? _filterDebounce;
   final _searchController = TextEditingController();
+  final _scrollController = ScrollController();
 
   static const _defaultGenres = [
     'Acción', 'Aventura', 'Fantasía', 'Drama', 'Romance', 'Comedia',
@@ -26,17 +27,34 @@ class _CatalogScreenState extends State<CatalogScreen> {
   static const _defaultTypes = ['TV Anime', 'Película', 'OVA', 'Especial'];
   static const _defaultStatuses = ['En emisión', 'Finalizado', 'Próximamente'];
 
+  static List<String> get _yearOptions {
+    final current = DateTime.now().year;
+    return List.generate(current - 1991 + 1, (i) => (current - i).toString());
+  }
+
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_onScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<AnimeProvider>().loadCatalog();
     });
   }
 
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    final max = _scrollController.position.maxScrollExtent;
+    if (max <= 0) return;
+    if (_scrollController.position.pixels >= max - 280) {
+      context.read<AnimeProvider>().loadMoreCatalog();
+    }
+  }
+
   @override
   void dispose() {
     _filterDebounce?.cancel();
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -60,6 +78,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
+            tooltip: 'Recargar catálogo',
             onPressed: () => provider.loadCatalog(),
           ),
         ],
@@ -75,9 +94,6 @@ class _CatalogScreenState extends State<CatalogScreen> {
 
   Widget _buildFilters(BuildContext context, AnimeProvider provider) {
     final genres = provider.facetGenres.isNotEmpty ? provider.facetGenres : _defaultGenres;
-    final years = provider.facetYears.isNotEmpty
-        ? provider.facetYears
-        : List.generate(30, (i) => (DateTime.now().year - i).toString());
     final types = provider.facetTypes.isNotEmpty ? provider.facetTypes : _defaultTypes;
     final statuses = provider.facetStatuses.isNotEmpty ? provider.facetStatuses : _defaultStatuses;
 
@@ -96,7 +112,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
             style: const TextStyle(color: Colors.white),
             decoration: InputDecoration(
               hintText: 'Filtrar por título...',
-              prefixIcon: const Icon(Icons.filter_alt, color: AppTheme.textSecondary),
+              prefixIcon: const Icon(Icons.search, color: AppTheme.textSecondary),
               suffixIcon: _searchController.text.isNotEmpty
                   ? IconButton(
                       icon: const Icon(Icons.clear, color: AppTheme.textSecondary),
@@ -113,8 +129,9 @@ class _CatalogScreenState extends State<CatalogScreen> {
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                _filterChip(
+                _filterDropdown(
                   label: 'Género',
                   value: provider.catalogGenre,
                   items: ['', ...genres],
@@ -124,17 +141,17 @@ class _CatalogScreenState extends State<CatalogScreen> {
                   },
                 ),
                 const SizedBox(width: 8),
-                _filterChip(
+                _filterDropdown(
                   label: 'Año',
                   value: provider.catalogYear,
-                  items: ['', ...years.take(15)],
+                  items: ['', ..._yearOptions],
                   onChanged: (v) {
                     provider.setCatalogYear(v ?? '');
                     _reloadFromApi();
                   },
                 ),
                 const SizedBox(width: 8),
-                _filterChip(
+                _filterDropdown(
                   label: 'Tipo',
                   value: provider.catalogType,
                   items: ['', ...types],
@@ -144,7 +161,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
                   },
                 ),
                 const SizedBox(width: 8),
-                _filterChip(
+                _filterDropdown(
                   label: 'Estado',
                   value: provider.catalogStatus,
                   items: ['', ...statuses],
@@ -170,47 +187,94 @@ class _CatalogScreenState extends State<CatalogScreen> {
     );
   }
 
-  Widget _filterChip({
+  Widget _filterDropdown({
     required String label,
     required String value,
     required List<String> items,
     required ValueChanged<String?> onChanged,
   }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: AppTheme.cardColor,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: value.isNotEmpty ? AppTheme.primaryColor : Colors.transparent,
+    final selected = value.isEmpty ? 'Todos' : value;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            color: AppTheme.primaryColor,
+            letterSpacing: 0.3,
+          ),
         ),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          value: value.isEmpty ? '' : value,
-          hint: Text(label, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
-          dropdownColor: AppTheme.cardColor,
-          style: const TextStyle(fontSize: 12, color: Colors.white),
-          items: items.map((item) {
-            return DropdownMenuItem(
-              value: item,
-              child: Text(item.isEmpty ? 'Todos' : item, overflow: TextOverflow.ellipsis),
-            );
-          }).toList(),
-          onChanged: onChanged,
+        const SizedBox(height: 4),
+        Container(
+          constraints: const BoxConstraints(minWidth: 100, maxWidth: 130),
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          decoration: BoxDecoration(
+            color: AppTheme.cardColor,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: value.isNotEmpty ? AppTheme.primaryColor : AppTheme.textSecondary.withValues(alpha: 0.25),
+            ),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              isExpanded: true,
+              value: value.isEmpty ? '' : value,
+              dropdownColor: AppTheme.cardColor,
+              style: const TextStyle(fontSize: 12, color: Colors.white),
+              icon: const Icon(Icons.arrow_drop_down, color: AppTheme.textSecondary, size: 20),
+              items: items.map((item) {
+                return DropdownMenuItem(
+                  value: item,
+                  child: Text(
+                    item.isEmpty ? 'Todos' : item,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                );
+              }).toList(),
+              selectedItemBuilder: (context) {
+                return items.map((_) {
+                  return Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      selected,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 12, color: Colors.white),
+                    ),
+                  );
+                }).toList();
+              },
+              onChanged: onChanged,
+            ),
+          ),
         ),
-      ),
+      ],
     );
   }
 
+  String _countLabel(AnimeProvider provider) {
+    final loaded = provider.catalogResults.length;
+    final total = provider.catalogTotalRecords;
+    if (total != null && total > 0) {
+      return 'Mostrando $loaded de $total animes';
+    }
+    if (provider.catalogTotalPages != null && provider.catalogTotalPages! > 1) {
+      return '$loaded animes cargados · desliza para ver más';
+    }
+    return '$loaded animes';
+  }
+
   Widget _buildBody(AnimeProvider provider) {
-    if (provider.isLoadingCatalog) {
+    if (provider.isLoadingCatalog && provider.catalogResults.isEmpty) {
       return const Center(
         child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation(AppTheme.primaryColor)),
       );
     }
 
-    if (provider.catalogError != null) {
+    if (provider.catalogError != null && provider.catalogResults.isEmpty) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -242,6 +306,8 @@ class _CatalogScreenState extends State<CatalogScreen> {
       );
     }
 
+    final itemCount = results.length + (provider.isLoadingMoreCatalog ? 1 : 0);
+
     return Padding(
       padding: EdgeInsets.only(
         left: 12,
@@ -253,13 +319,14 @@ class _CatalogScreenState extends State<CatalogScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            '${results.length} animes',
+            _countLabel(provider),
             style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13),
           ),
           const SizedBox(height: 8),
           Expanded(
             child: GridView.builder(
-              itemCount: results.length,
+              controller: _scrollController,
+              itemCount: itemCount,
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 3,
                 childAspectRatio: 0.58,
@@ -267,6 +334,18 @@ class _CatalogScreenState extends State<CatalogScreen> {
                 mainAxisSpacing: 12,
               ),
               itemBuilder: (context, index) {
+                if (index >= results.length) {
+                  return const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(16),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation(AppTheme.primaryColor),
+                      ),
+                    ),
+                  );
+                }
+
                 final anime = results[index];
                 return InkWell(
                   onTap: () => Navigator.push(
