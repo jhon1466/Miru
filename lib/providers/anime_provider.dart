@@ -39,6 +39,15 @@ class AnimeProvider extends ChangeNotifier {
   bool get isLoadingPopular => _isLoadingPopular;
   String? get popularError => _popularError;
 
+  // Episodios recién publicados
+  List<LatestPublishedEpisode> _latestPublishedEpisodes = [];
+  bool _isLoadingLatestEpisodes = false;
+  String? _latestEpisodesError;
+
+  List<LatestPublishedEpisode> get latestPublishedEpisodes => _latestPublishedEpisodes;
+  bool get isLoadingLatestEpisodes => _isLoadingLatestEpisodes;
+  String? get latestEpisodesError => _latestEpisodesError;
+
   // Proveedores
   String _selectedProviderDomain = ''; // '' = Todos
   final List<Map<String, String>> _providers = [
@@ -57,6 +66,7 @@ class AnimeProvider extends ChangeNotifier {
     _selectedProviderDomain = domain;
     notifyListeners();
     loadPopularAnime();
+    loadLatestPublishedEpisodes();
     if (_catalogAll.isNotEmpty) {
       loadCatalog();
     }
@@ -133,6 +143,24 @@ class AnimeProvider extends ChangeNotifier {
       _popularAnime = [];
     } finally {
       _isLoadingPopular = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> loadLatestPublishedEpisodes() async {
+    _isLoadingLatestEpisodes = true;
+    _latestEpisodesError = null;
+    notifyListeners();
+
+    try {
+      _latestPublishedEpisodes = await ApiClient.getLatestPublishedEpisodes(
+        domain: _selectedProviderDomain.isEmpty ? null : _selectedProviderDomain,
+      );
+    } catch (e) {
+      _latestEpisodesError = e.toString().replaceAll('Exception: ', '');
+      _latestPublishedEpisodes = [];
+    } finally {
+      _isLoadingLatestEpisodes = false;
       notifyListeners();
     }
   }
@@ -221,6 +249,39 @@ class AnimeProvider extends ChangeNotifier {
     return raw.map((e) => e.toString()).where((s) => s.isNotEmpty).toList();
   }
 
+  List<AnimeSearchResult> _filterCatalogPage(List<AnimeSearchResult> items) {
+    return items.where((anime) {
+      if (_catalogQuery.isNotEmpty) {
+        final q = _catalogQuery.toLowerCase();
+        if (!anime.title.toLowerCase().contains(q) &&
+            !(anime.slug ?? '').toLowerCase().contains(q)) {
+          return false;
+        }
+      }
+      if (_catalogGenre.isNotEmpty) {
+        final g = _catalogGenre.toLowerCase();
+        final inGenres = anime.genres.any((x) => x.toLowerCase().contains(g));
+        final inTitle = anime.title.toLowerCase().contains(g);
+        if (!inGenres && !inTitle) return false;
+      }
+      if (_catalogYear.isNotEmpty && anime.year != null && anime.year != _catalogYear) {
+        return false;
+      }
+      if (_catalogYear.isNotEmpty && anime.year == null) {
+        return false;
+      }
+      if (_catalogType.isNotEmpty &&
+          !(anime.type ?? '').toLowerCase().contains(_catalogType.toLowerCase())) {
+        return false;
+      }
+      if (_catalogStatus.isNotEmpty &&
+          !(anime.status ?? '').toLowerCase().contains(_catalogStatus.toLowerCase())) {
+        return false;
+      }
+      return true;
+    }).toList();
+  }
+
   Future<void> loadCatalog({bool refresh = true}) async {
     if (refresh) {
       if (_isLoadingCatalog) return;
@@ -240,18 +301,19 @@ class AnimeProvider extends ChangeNotifier {
     try {
       final data = await ApiClient.browseCatalog(
         domain: _selectedProviderDomain.isEmpty ? null : _selectedProviderDomain,
-        genre: _catalogGenre.isEmpty ? null : _catalogGenre,
+        genre: _catalogQuery.isEmpty && _catalogGenre.isNotEmpty ? _catalogGenre : null,
         year: _catalogYear.isEmpty ? null : _catalogYear,
         type: _catalogType.isEmpty ? null : _catalogType,
         status: _catalogStatus.isEmpty ? null : _catalogStatus,
-        query: _catalogQuery.isEmpty ? null : _catalogQuery,
+        query: _catalogQuery.isNotEmpty ? _catalogQuery : null,
         page: _catalogPage,
       );
 
       final resultsList = data['results'] as List?;
-      final pageItems = resultsList != null
+      var pageItems = resultsList != null
           ? resultsList.map((item) => AnimeSearchResult.fromJson(item)).toList()
           : <AnimeSearchResult>[];
+      pageItems = _filterCatalogPage(pageItems);
 
       if (refresh) {
         _catalogAll = pageItems;

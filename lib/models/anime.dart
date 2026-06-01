@@ -70,6 +70,36 @@ class AnimeSearchResult {
   }
 }
 
+/// Episodio recién publicado en el sitio (feed del inicio de AnimeAV1).
+class LatestPublishedEpisode {
+  final String animeTitle;
+  final String? slug;
+  final double episodeNumber;
+  final String episodeUrl;
+  final String animeUrl;
+  final String? image;
+
+  LatestPublishedEpisode({
+    required this.animeTitle,
+    this.slug,
+    required this.episodeNumber,
+    required this.episodeUrl,
+    required this.animeUrl,
+    this.image,
+  });
+
+  factory LatestPublishedEpisode.fromJson(Map<String, dynamic> json) {
+    return LatestPublishedEpisode(
+      animeTitle: json['animeTitle']?.toString() ?? 'Sin título',
+      slug: json['slug']?.toString(),
+      episodeNumber: double.tryParse(json['episodeNumber']?.toString() ?? '1') ?? 1.0,
+      episodeUrl: json['episodeUrl']?.toString() ?? '',
+      animeUrl: json['animeUrl']?.toString() ?? '',
+      image: pickAnimeImageUrl(json) ?? normalizeAnimeImageUrl(json['image']?.toString()),
+    );
+  }
+}
+
 class Genre {
   final String name;
   final String? slug;

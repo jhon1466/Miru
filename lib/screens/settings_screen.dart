@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../core/api_client.dart';
 import '../core/theme.dart';
 import '../providers/auth_provider.dart' as app_auth;
 import '../providers/history_provider.dart';
 import '../services/user_service.dart';
 import '../utils/auth_ui.dart';
-import 'splash_screen.dart';
 import 'user_profile_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -18,82 +16,8 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  final TextEditingController _urlController = TextEditingController();
-  bool _isTesting = false;
-  bool? _testResult;
-  String _testResultMessage = '';
   bool _notificationsEnabled = true;
   bool _autoplayNextEpisode = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadCurrentUrl();
-  }
-
-  @override
-  void dispose() {
-    _urlController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _loadCurrentUrl() async {
-    final url = await ApiClient.getBaseUrl();
-    setState(() {
-      _urlController.text = url;
-    });
-  }
-
-  Future<void> _testConnection() async {
-    setState(() {
-      _isTesting = true;
-      _testResult = null;
-      _testResultMessage = 'Probando conexión...';
-    });
-
-    final targetUrl = _urlController.text.trim();
-    if (targetUrl.isEmpty) {
-      setState(() {
-        _isTesting = false;
-        _testResult = false;
-        _testResultMessage = 'Por favor ingresa una URL válida';
-      });
-      return;
-    }
-
-    final success = await ApiClient.testConnection(targetUrl);
-
-    setState(() {
-      _isTesting = false;
-      _testResult = success;
-      _testResultMessage = success 
-          ? '¡Conexión exitosa! Servidor Miru en línea.' 
-          : 'Fallo al conectar. Verifica que el backend esté corriendo y la URL sea correcta.';
-    });
-  }
-
-  Future<void> _saveSettings() async {
-    final targetUrl = _urlController.text.trim();
-    if (targetUrl.isEmpty) return;
-
-    await ApiClient.setBaseUrl(targetUrl);
-    
-    if (!mounted) return;
-    
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Configuración guardada correctamente'),
-        backgroundColor: AppTheme.successColor,
-      ),
-    );
-
-    // Reiniciar al splash para validar nuevamente
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(builder: (context) => const SplashScreen()),
-      (route) => false,
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -149,90 +73,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
               onChanged: (v) => setState(() => _autoplayNextEpisode = v),
             ),
             const SizedBox(height: 32),
-
-            const Text(
-              'Servidor Backend API',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Especifica la URL base del servidor Node.js (miru-api). Si usas el emulador Android por defecto, usa http://10.0.2.2:3000. Si usas un dispositivo físico, usa la IP de tu computadora (ej: http://192.168.1.50:3000).',
-              style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _urlController,
-              decoration: const InputDecoration(
-                labelText: 'URL Base del Backend',
-                hintText: 'http://10.0.2.2:3000',
-                prefixIcon: Icon(Icons.dns, color: AppTheme.primaryColor),
-              ),
-              keyboardType: TextInputType.url,
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: _isTesting ? null : _testConnection,
-                    icon: _isTesting 
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation(Colors.white)),
-                          )
-                        : const Icon(Icons.wifi_tethering),
-                    label: const Text('Probar Conexión'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.transparent,
-                      foregroundColor: AppTheme.primaryColor,
-                      side: const BorderSide(color: AppTheme.primaryColor, width: 1.5),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: _saveSettings,
-                    icon: const Icon(Icons.save),
-                    label: const Text('Guardar'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryColor,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            if (_testResult != null || _testResultMessage.isNotEmpty) ...[
-              const SizedBox(height: 16),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: _testResult == true 
-                      ? AppTheme.successColor.withOpacity(0.15) 
-                      : AppTheme.dangerColor.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: _testResult == true ? AppTheme.successColor : AppTheme.dangerColor,
-                    width: 1,
-                  ),
-                ),
-                child: Text(
-                  _testResultMessage,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: _testResult == true ? AppTheme.successColor : AppTheme.dangerColor,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ],
-            const SizedBox(height: 40),
             const Text(
               'Datos de Aplicación',
               style: TextStyle(
@@ -255,7 +95,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     'Historial', 
                     '¿Estás seguro de que deseas vaciar tu historial de reproducción?',
                     () async {
-                      await historyProvider.clearHistory();
+                      await historyProvider.clearHistory(userId: authProvider.userId);
                       if (!mounted) return;
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('Historial eliminado'), backgroundColor: AppTheme.successColor),
