@@ -15,12 +15,14 @@ class DetailScreen extends StatefulWidget {
   final String animeUrl;
   final String animeTitle;
   final String? animeImage;
+  final String? focusCommentId;
 
   const DetailScreen({
     super.key,
     required this.animeUrl,
     required this.animeTitle,
     this.animeImage,
+    this.focusCommentId,
   });
 
   @override
@@ -29,13 +31,30 @@ class DetailScreen extends StatefulWidget {
 
 class _DetailScreenState extends State<DetailScreen> {
   bool _reverseEpisodeOrder = false;
+  final ScrollController _scrollController = ScrollController();
+  final GlobalKey _commentsKey = GlobalKey();
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<AnimeProvider>().loadAnimeDetails(widget.animeUrl);
+      if (widget.focusCommentId != null) {
+        Future.delayed(const Duration(milliseconds: 900), () {
+          if (!mounted) return;
+          final ctx = _commentsKey.currentContext;
+          if (ctx != null) {
+            Scrollable.ensureVisible(ctx, duration: const Duration(milliseconds: 500), curve: Curves.easeInOut);
+          }
+        });
+      }
     });
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   @override
@@ -120,6 +139,7 @@ class _DetailScreenState extends State<DetailScreen> {
     );
 
     return CustomScrollView(
+      controller: _scrollController,
       slivers: [
         SliverToBoxAdapter(
           child: SizedBox(
@@ -454,11 +474,14 @@ class _DetailScreenState extends State<DetailScreen> {
         // Sección de Comentarios del Anime
         SliverToBoxAdapter(
           child: CommentsSection(
+            sectionKey: _commentsKey,
             animeSlug: Uri.parse(widget.animeUrl).pathSegments.lastWhere(
               (s) => s.isNotEmpty,
               orElse: () => widget.animeUrl.hashCode.toString(),
             ),
             animeTitle: widget.animeTitle,
+            animeUrl: widget.animeUrl,
+            focusCommentId: widget.focusCommentId,
           ),
         ),
 

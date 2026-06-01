@@ -12,6 +12,8 @@ import '../widgets/anime_poster_image.dart';
 import '../models/anime.dart';
 import 'detail_screen.dart';
 import 'player_screen.dart';
+import 'notifications_screen.dart';
+import '../services/notification_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -73,35 +75,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
         actions: [
-          Stack(
-            clipBehavior: Clip.none,
-            children: [
-              IconButton(
-                icon: const Icon(Icons.notifications_outlined, size: 26),
-                tooltip: 'Notificaciones',
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Las notificaciones estarán disponibles pronto'),
-                      duration: Duration(seconds: 2),
-                    ),
-                  );
-                },
-              ),
-              Positioned(
-                right: 10,
-                top: 10,
-                child: Container(
-                  width: 8,
-                  height: 8,
-                  decoration: const BoxDecoration(
-                    color: AppTheme.accentColor,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-              ),
-            ],
-          ),
+          _NotificationsBell(authProvider: authProvider),
           const SizedBox(width: 4),
         ],
       ),
@@ -792,6 +766,67 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
         ],
       ),
+    );
+  }
+}
+
+class _NotificationsBell extends StatelessWidget {
+  final app_auth.AuthProvider authProvider;
+
+  const _NotificationsBell({required this.authProvider});
+
+  @override
+  Widget build(BuildContext context) {
+    if (!authProvider.isLoggedIn) {
+      return IconButton(
+        icon: const Icon(Icons.notifications_outlined, size: 26),
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+          );
+        },
+      );
+    }
+
+    return StreamBuilder<int>(
+      stream: NotificationService.watchUnreadCount(authProvider.userId!),
+      builder: (context, snapshot) {
+        final unread = snapshot.data ?? 0;
+        return Stack(
+          clipBehavior: Clip.none,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.notifications_outlined, size: 26),
+              tooltip: 'Notificaciones',
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+                );
+              },
+            ),
+            if (unread > 0)
+              Positioned(
+                right: 8,
+                top: 8,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                  constraints: const BoxConstraints(minWidth: 16),
+                  decoration: const BoxDecoration(
+                    color: AppTheme.accentColor,
+                    borderRadius: BorderRadius.all(Radius.circular(10)),
+                  ),
+                  child: Text(
+                    unread > 9 ? '9+' : '$unread',
+                    style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 }

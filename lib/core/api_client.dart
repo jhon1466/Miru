@@ -78,7 +78,7 @@ class ApiClient {
     };
     final uri = Uri.parse('$baseUrl/api/v1/anime/latest-episodes').replace(queryParameters: queryParams);
 
-    final response = await http.get(uri).timeout(const Duration(seconds: 30));
+    final response = await http.get(uri).timeout(const Duration(seconds: 120));
     if (response.statusCode == 200) {
       final decoded = json.decode(response.body);
       final resultsList = decoded['data']?['results'] as List?;
@@ -135,7 +135,12 @@ class ApiClient {
     };
     final uri = Uri.parse('$baseUrl/api/v1/anime/catalog').replace(queryParameters: queryParams);
 
-    final response = await http.get(uri).timeout(const Duration(seconds: 45));
+    final hasHeavyFilters = (year != null && year.isNotEmpty) ||
+        (status != null && status.isNotEmpty) ||
+        (type != null && type.isNotEmpty);
+    final timeout = hasHeavyFilters ? const Duration(seconds: 180) : const Duration(seconds: 45);
+
+    final response = await http.get(uri).timeout(timeout);
     if (response.statusCode == 200) {
       final decoded = json.decode(response.body) as Map<String, dynamic>;
       return decoded['data'] as Map<String, dynamic>? ?? {};

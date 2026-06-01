@@ -1,26 +1,32 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:image_picker/image_picker.dart';
 import '../core/theme.dart';
 import '../models/comment.dart';
 import '../providers/auth_provider.dart' as app_auth;
 import '../services/comment_service.dart';
+import '../services/comment_image_service.dart';
 import '../screens/user_profile_screen.dart';
 import '../utils/auth_ui.dart';
-import 'dart:math' as math;
 
-/// Widget reutilizable de comentarios. Funciona tanto para el anime general
-/// (episodeNumber == null) como para un episodio específico.
 class CommentsSection extends StatefulWidget {
   final String animeSlug;
   final String animeTitle;
+  final String? animeUrl;
   final double? episodeNumber;
+  final String? focusCommentId;
+  final GlobalKey? sectionKey;
 
   const CommentsSection({
     super.key,
     required this.animeSlug,
     required this.animeTitle,
+    this.animeUrl,
     this.episodeNumber,
+    this.focusCommentId,
+    this.sectionKey,
   });
 
   @override
@@ -29,7 +35,11 @@ class CommentsSection extends StatefulWidget {
 
 class _CommentsSectionState extends State<CommentsSection> {
   final TextEditingController _commentController = TextEditingController();
+  final Map<String, GlobalKey> _commentKeys = {};
   bool _isSending = false;
+  XFile? _pendingImage;
+  Comment? _replyTarget;
+  Comment? _replyRoot;
 
   @override
   void dispose() {
@@ -37,29 +47,66 @@ class _CommentsSectionState extends State<CommentsSection> {
     super.dispose();
   }
 
-  Future<void> _sendComment(app_auth.AuthProvider authProvider) async {
+  GlobalKey _keyFor(String id) => _commentKeys.putIfAbsent(id, () => GlobalKey());
+
+  void _scrollToFocus(List<Comment> comments) {
+    final id = widget.focusCommentId;
+    if (id == null || id.isEmpty) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final key = _commentKeys[id];
+      final ctx = key?.currentContext;
+      if (ctx != null) {
+        Scrollable.ensureVisible(
+          ctx,
+          duration: const Duration(milliseconds: 450),
+          curve: Curves.easeInOut,
+          alignment: 0.2,
+        );
+      }
+    });
+  }
+
+  Future<void> _sendComment(app_auth.AuthProvider auth) async {
     final text = _commentController.text.trim();
-    if (text.isEmpty || !authProvider.isLoggedIn) return;
+    if ((text.isEmpty && _pendingImage == null) || !auth.isLoggedIn) return;
 
     setState(() => _isSending = true);
-
     try {
+      String? imageUrl;
+      if (_pendingImage != null) {
+        imageUrl = await CommentImageService.uploadCompressed(
+          animeSlug: widget.animeSlug,
+          file: _pendingImage!,
+        );
+      }
+
+      final parent = _replyRoot;
       await CommentService.addComment(
         animeSlug: widget.animeSlug,
-        userId: authProvider.userId!,
-        userDisplayName: authProvider.displayName ?? 'Usuario',
-        userPhotoUrl: authProvider.photoUrl,
-        text: text,
+        animeTitle: widget.animeTitle,
+        animeUrl: widget.animeUrl,
+        userId: auth.userId!,
+        userDisplayName: auth.displayName ?? 'Usuario',
+        userPhotoUrl: auth.photoUrl,
+        text: text.isEmpty ? '📷 Imagen' : text,
+        imageUrl: imageUrl,
         episodeNumber: widget.episodeNumber,
+        parentId: parent?.id,
+        replyToUserId: _replyTarget?.userId,
+        replyToUserName: _replyTarget?.userDisplayName,
       );
+
       _commentController.clear();
+      setState(() {
+        _pendingImage = null;
+        _replyTarget = null;
+        _replyRoot = null;
+      });
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error al enviar comentario: $e'),
-            backgroundColor: AppTheme.dangerColor,
-          ),
+          SnackBar(content: Text('Error al enviar: $e'), backgroundColor: AppTheme.dangerColor),
         );
       }
     } finally {
@@ -67,247 +114,303 @@ class _CommentsSectionState extends State<CommentsSection> {
     }
   }
 
-  Future<void> _deleteComment(String commentId, String commentUserId, app_auth.AuthProvider authProvider) async {
-    if (!authProvider.isLoggedIn || authProvider.userId != commentUserId) return;
+  Future<void> _pickImage() async {
+    final file = await CommentImageService.pickImage();
+    if (file != null && mounted) setState(() => _pendingImage = file);
+  }
 
-    final confirm = await showDialog<bool>(
+  void _startReply(Comment target, Comment? root) {
+    setState(() {
+      _replyTarget = target;
+      _replyRoot = root ?? target;
+    });
+    _commentController.text = '@${target.userDisplayName} ';
+  }
+
+  void _cancelReply() {
+    setState(() {
+      _replyTarget = null;
+      _replyRoot = null;
+    });
+  }
+
+  Future<void> _editComment(Comment comment, app_auth.AuthProvider auth) async {
+    final textCtrl = TextEditingController(text: comment.text);
+    XFile? newImage;
+    var removeImage = false;
+
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialog) => AlertDialog(
+          backgroundColor: AppTheme.cardColor,
+          title: const Text('Editar comentario', style: TextStyle(color: Colors.white)),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: textCtrl,
+                  maxLines: 4,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: const InputDecoration(
+                    hintText: 'Mensaje',
+                    hintStyle: TextStyle(color: AppTheme.textSecondary),
+                  ),
+                ),
+                if (comment.imageUrl != null && !removeImage) ...[
+                  const SizedBox(height: 12),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: CachedNetworkImage(imageUrl: comment.imageUrl!, height: 120, fit: BoxFit.cover),
+                  ),
+                  TextButton(
+                    onPressed: () => setDialog(() => removeImage = true),
+                    child: const Text('Quitar imagen', style: TextStyle(color: AppTheme.dangerColor)),
+                  ),
+                ],
+                TextButton.icon(
+                  onPressed: () async {
+                    final picked = await CommentImageService.pickImage();
+                    if (picked != null) setDialog(() => newImage = picked);
+                  },
+                  icon: const Icon(Icons.image_outlined, color: AppTheme.primaryColor),
+                  label: const Text('Cambiar imagen', style: TextStyle(color: AppTheme.primaryColor)),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+            TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Guardar')),
+          ],
+        ),
+      ),
+    );
+
+    if (saved != true) return;
+
+    String? imageUrl = comment.imageUrl;
+    if (removeImage) {
+      await CommentImageService.deleteIfOwned(comment.imageUrl);
+      imageUrl = null;
+    } else if (newImage != null) {
+      await CommentImageService.deleteIfOwned(comment.imageUrl);
+      imageUrl = await CommentImageService.uploadCompressed(
+        animeSlug: widget.animeSlug,
+        file: newImage!,
+      );
+    }
+
+    await CommentService.updateComment(
+      animeSlug: widget.animeSlug,
+      commentId: comment.id,
+      userId: auth.userId!,
+      text: textCtrl.text,
+      imageUrl: imageUrl,
+      removeImage: removeImage && newImage == null,
+    );
+  }
+
+  Future<void> _deleteComment(Comment comment, app_auth.AuthProvider auth) async {
+    if (auth.userId != comment.userId) return;
+    final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppTheme.cardColor,
-        title: const Text('Eliminar comentario', style: TextStyle(color: Colors.white)),
-        content: const Text('¿Estás seguro de que deseas eliminar este comentario?',
-            style: TextStyle(color: AppTheme.textSecondary)),
+        title: const Text('Eliminar', style: TextStyle(color: Colors.white)),
+        content: const Text('¿Eliminar este comentario?', style: TextStyle(color: AppTheme.textSecondary)),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancelar', style: TextStyle(color: AppTheme.textSecondary)),
-          ),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('No')),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Eliminar', style: TextStyle(color: AppTheme.dangerColor)),
+            child: const Text('Sí', style: TextStyle(color: AppTheme.dangerColor)),
           ),
         ],
       ),
     );
-
-    if (confirm == true) {
-      await CommentService.deleteComment(widget.animeSlug, commentId);
+    if (ok == true) {
+      await CommentImageService.deleteIfOwned(comment.imageUrl);
+      await CommentService.deleteComment(widget.animeSlug, comment.id);
     }
   }
 
+  List<Comment> _roots(List<Comment> all) =>
+      all.where((c) => c.parentId == null || c.parentId!.isEmpty).toList()
+        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+  List<Comment> _repliesFor(String parentId, List<Comment> all) =>
+      all.where((c) => c.parentId == parentId).toList()
+        ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+
   @override
   Widget build(BuildContext context) {
-    final authProvider = Provider.of<app_auth.AuthProvider>(context);
+    final auth = Provider.of<app_auth.AuthProvider>(context);
     final label = widget.episodeNumber != null
         ? 'Comentarios del Episodio ${widget.episodeNumber!.toInt()}'
         : 'Comentarios del Anime';
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Header
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-          child: Row(
-            children: [
-              const Icon(Icons.chat_bubble_outline, color: AppTheme.primaryColor, size: 20),
-              const SizedBox(width: 8),
-              Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-            ],
+    return Container(
+      key: widget.sectionKey,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            child: Row(
+              children: [
+                const Icon(Icons.chat_bubble_outline, color: AppTheme.primaryColor, size: 20),
+                const SizedBox(width: 8),
+                Text(label, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+              ],
+            ),
           ),
-        ),
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 20),
-          child: Divider(color: AppTheme.cardColor, height: 1),
-        ),
-        const SizedBox(height: 12),
-
-        // Input o prompt de login
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: authProvider.isLoggedIn
-              ? _buildCommentInput(authProvider)
-              : _buildLoginPrompt(authProvider),
-        ),
-        const SizedBox(height: 16),
-
-        // Lista de comentarios en tiempo real
-        StreamBuilder<List<Comment>>(
-          stream: CommentService.getComments(
-            widget.animeSlug,
-            episodeNumber: widget.episodeNumber,
+          const Divider(color: AppTheme.cardColor, height: 1),
+          const SizedBox(height: 12),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: auth.isLoggedIn ? _buildInput(auth) : _buildLoginPrompt(auth),
           ),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(
-                child: Padding(
+          const SizedBox(height: 16),
+          StreamBuilder<List<Comment>>(
+            stream: CommentService.getComments(widget.animeSlug, episodeNumber: widget.episodeNumber),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Padding(
                   padding: EdgeInsets.all(24),
-                  child: CircularProgressIndicator(
-                    valueColor: AlwaysStoppedAnimation(AppTheme.primaryColor),
-                  ),
-                ),
-              );
-            }
+                  child: Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation(AppTheme.primaryColor))),
+                );
+              }
+              if (snapshot.hasError) {
+                return Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Text('Error: ${snapshot.error}', style: const TextStyle(color: AppTheme.dangerColor)),
+                );
+              }
 
-            if (snapshot.hasError) {
-              return Padding(
-                padding: const EdgeInsets.all(20),
-                child: Text(
-                  'Error al cargar comentarios: ${snapshot.error}',
-                  style: const TextStyle(color: AppTheme.dangerColor),
-                ),
-              );
-            }
+              final all = snapshot.data ?? [];
+              _scrollToFocus(all);
+              final roots = _roots(all);
 
-            final comments = snapshot.data ?? [];
+              if (roots.isEmpty) {
+                return const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 32),
+                  child: Center(child: Text('Sé el primero en comentar', style: TextStyle(color: AppTheme.textSecondary))),
+                );
+              }
 
-            if (comments.isEmpty) {
-              return const Padding(
-                padding: EdgeInsets.symmetric(vertical: 32, horizontal: 20),
-                child: Center(
-                  child: Column(
+              return ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: roots.length,
+                itemBuilder: (context, i) {
+                  final root = roots[i];
+                  final replies = _repliesFor(root.id, all);
+                  return Column(
                     children: [
-                      Icon(Icons.chat_bubble_outline, size: 40, color: AppTheme.textSecondary),
-                      SizedBox(height: 12),
-                      Text(
-                        'Sé el primero en comentar',
-                        style: TextStyle(color: AppTheme.textSecondary, fontSize: 14),
-                      ),
+                      _tile(root, auth, isReply: false),
+                      ...replies.map((r) => Padding(
+                            padding: const EdgeInsets.only(left: 36),
+                            child: _tile(r, auth, isReply: true, root: root),
+                          )),
                     ],
-                  ),
-                ),
+                  );
+                },
               );
-            }
-
-            return ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: comments.length,
-              itemBuilder: (context, index) {
-                return _buildCommentTile(comments[index], authProvider);
-              },
-            );
-          },
-        ),
-        const SizedBox(height: 40),
-      ],
+            },
+          ),
+          const SizedBox(height: 40),
+        ],
+      ),
     );
   }
 
-  Widget _buildCommentInput(app_auth.AuthProvider authProvider) {
+  Widget _buildInput(app_auth.AuthProvider auth) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: AppTheme.cardColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.primaryColor.withOpacity(0.2)),
+        border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.2)),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.end,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Avatar del usuario
-              _buildAvatar(authProvider.photoUrl, authProvider.displayName ?? 'U', radius: 18),
-              const SizedBox(width: 10),
-              Expanded(
-                child: TextField(
-                  controller: _commentController,
-                  style: const TextStyle(color: Colors.white, fontSize: 14),
-                  maxLines: 3,
-                  minLines: 1,
-                  maxLength: 500,
-                  decoration: InputDecoration(
-                    hintText: 'Escribe tu comentario...',
-                    hintStyle: TextStyle(color: AppTheme.textSecondary.withOpacity(0.6), fontSize: 14),
-                    border: InputBorder.none,
-                    counterStyle: const TextStyle(color: AppTheme.textSecondary, fontSize: 10),
-                    isDense: true,
-                    contentPadding: EdgeInsets.zero,
+          if (_replyTarget != null)
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Respondiendo a ${_replyTarget!.userDisplayName}',
+                    style: const TextStyle(color: AppTheme.primaryColor, fontSize: 12),
                   ),
                 ),
+                IconButton(
+                  icon: const Icon(Icons.close, size: 18, color: AppTheme.textSecondary),
+                  onPressed: _cancelReply,
+                ),
+              ],
+            ),
+          if (_pendingImage != null) ...[
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Image.file(File(_pendingImage!.path), height: 100, fit: BoxFit.cover),
+            ),
+            Align(
+              alignment: Alignment.centerRight,
+              child: IconButton(
+                icon: const Icon(Icons.close, color: AppTheme.dangerColor, size: 20),
+                onPressed: () => setState(() => _pendingImage = null),
+              ),
+            ),
+          ],
+          TextField(
+            controller: _commentController,
+            style: const TextStyle(color: Colors.white, fontSize: 14),
+            maxLines: 4,
+            minLines: 1,
+            maxLength: 500,
+            decoration: const InputDecoration(
+              hintText: 'Escribe tu comentario...',
+              hintStyle: TextStyle(color: AppTheme.textSecondary),
+              border: InputBorder.none,
+              counterStyle: TextStyle(color: AppTheme.textSecondary, fontSize: 10),
+            ),
+          ),
+          Row(
+            children: [
+              IconButton(
+                onPressed: _isSending ? null : _pickImage,
+                icon: const Icon(Icons.image_outlined, color: AppTheme.primaryColor),
+                tooltip: 'Adjuntar imagen',
+              ),
+              const Spacer(),
+              ElevatedButton.icon(
+                onPressed: _isSending ? null : () => _sendComment(auth),
+                icon: _isSending
+                    ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Icon(Icons.send_rounded, size: 16),
+                label: Text(_replyTarget != null ? 'Responder' : 'Publicar', style: const TextStyle(fontSize: 13)),
+                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor),
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          SizedBox(
-            height: 34,
-            child: ElevatedButton.icon(
-              onPressed: _isSending ? null : () => _sendComment(authProvider),
-              icon: _isSending
-                  ? const SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                    )
-                  : const Icon(Icons.send_rounded, size: 16),
-              label: const Text('Publicar', style: TextStyle(fontSize: 13)),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primaryColor,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-              ),
-            ),
-          ),
         ],
       ),
     );
   }
 
-  Widget _buildLoginPrompt(app_auth.AuthProvider authProvider) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppTheme.cardColor,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.primaryColor.withOpacity(0.15)),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.lock_outline, color: AppTheme.textSecondary, size: 20),
-          const SizedBox(width: 12),
-          const Expanded(
-            child: Text(
-              'Inicia sesión para comentar y que tu voz sea escuchada',
-              style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
-            ),
-          ),
-          const SizedBox(width: 8),
-          ElevatedButton(
-            onPressed: () => _showLoginDialog(context, authProvider),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.primaryColor,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-              textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-            ),
-            child: const Text('Entrar'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCommentTile(Comment comment, app_auth.AuthProvider authProvider) {
-    final isOwner = authProvider.userId == comment.userId;
-    final timeAgo = _formatTimeAgo(comment.createdAt);
+  Widget _tile(Comment comment, app_auth.AuthProvider auth, {required bool isReply, Comment? root}) {
+    final isOwner = auth.userId == comment.userId;
+    final isFocused = widget.focusCommentId == comment.id;
+    final key = _keyFor(comment.id);
 
     return Padding(
+      key: key,
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Avatar clickable -> perfil del usuario
           GestureDetector(
             onTap: () => Navigator.push(
               context,
@@ -319,7 +422,7 @@ class _CommentsSectionState extends State<CommentsSection> {
                 ),
               ),
             ),
-            child: _buildAvatar(comment.userPhotoUrl, comment.userDisplayName, radius: 16),
+            child: _avatar(comment.userPhotoUrl, comment.userDisplayName),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -327,11 +430,8 @@ class _CommentsSectionState extends State<CommentsSection> {
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: AppTheme.cardColor,
-                borderRadius: const BorderRadius.only(
-                  topRight: Radius.circular(16),
-                  bottomLeft: Radius.circular(16),
-                  bottomRight: Radius.circular(16),
-                ),
+                borderRadius: BorderRadius.circular(16),
+                border: isFocused ? Border.all(color: AppTheme.accentColor, width: 2) : null,
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -339,46 +439,59 @@ class _CommentsSectionState extends State<CommentsSection> {
                   Row(
                     children: [
                       Expanded(
-                        child: GestureDetector(
-                          onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => UserProfileScreen(
-                                userId: comment.userId,
-                                displayName: comment.userDisplayName,
-                                photoUrl: comment.userPhotoUrl,
-                              ),
-                            ),
-                          ),
-                          child: Text(
-                            comment.userDisplayName,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13,
-                              color: AppTheme.primaryColor,
-                              decoration: TextDecoration.underline,
-                              decorationColor: AppTheme.primaryColor,
-                            ),
-                          ),
+                        child: Text(
+                          comment.userDisplayName,
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.primaryColor),
                         ),
                       ),
-                      Text(
-                        timeAgo,
-                        style: const TextStyle(fontSize: 10, color: AppTheme.textSecondary),
+                      Text(_timeAgo(comment.createdAt), style: const TextStyle(fontSize: 10, color: AppTheme.textSecondary)),
+                      if (comment.wasEdited)
+                        const Text(' · editado', style: TextStyle(fontSize: 10, color: AppTheme.textSecondary)),
+                    ],
+                  ),
+                  if (isReply && comment.replyToUserName != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Text(
+                        '→ ${comment.replyToUserName}',
+                        style: const TextStyle(fontSize: 11, color: AppTheme.accentColor),
+                      ),
+                    ),
+                  if (comment.text.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Text(comment.text, style: const TextStyle(fontSize: 14, color: AppTheme.textPrimary, height: 1.4)),
+                  ],
+                  if (comment.imageUrl != null && comment.imageUrl!.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: CachedNetworkImage(
+                        imageUrl: comment.imageUrl!,
+                        fit: BoxFit.cover,
+                        placeholder: (_, __) => const SizedBox(height: 120, child: Center(child: CircularProgressIndicator())),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      TextButton(
+                        onPressed: auth.isLoggedIn
+                            ? () => _startReply(comment, isReply ? root : comment)
+                            : null,
+                        child: const Text('Responder', style: TextStyle(fontSize: 12)),
                       ),
                       if (isOwner) ...[
-                        const SizedBox(width: 4),
-                        GestureDetector(
-                          onTap: () => _deleteComment(comment.id, comment.userId, authProvider),
-                          child: const Icon(Icons.delete_outline, size: 16, color: AppTheme.dangerColor),
+                        TextButton(
+                          onPressed: () => _editComment(comment, auth),
+                          child: const Text('Editar', style: TextStyle(fontSize: 12)),
+                        ),
+                        TextButton(
+                          onPressed: () => _deleteComment(comment, auth),
+                          child: const Text('Eliminar', style: TextStyle(fontSize: 12, color: AppTheme.dangerColor)),
                         ),
                       ],
                     ],
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    comment.text,
-                    style: const TextStyle(fontSize: 14, color: AppTheme.textPrimary, height: 1.4),
                   ),
                 ],
               ),
@@ -389,127 +502,40 @@ class _CommentsSectionState extends State<CommentsSection> {
     );
   }
 
-  Widget _buildAvatar(String? photoUrl, String name, {double radius = 20}) {
-    if (photoUrl != null && photoUrl.isNotEmpty) {
+  Widget _avatar(String? photo, String name) {
+    if (photo != null && photo.isNotEmpty) {
       return ClipOval(
-        child: CachedNetworkImage(
-          imageUrl: photoUrl,
-          width: radius * 2,
-          height: radius * 2,
-          fit: BoxFit.cover,
-          errorWidget: (_, __, ___) => _buildInitialsAvatar(name, radius),
-        ),
+        child: CachedNetworkImage(imageUrl: photo, width: 32, height: 32, fit: BoxFit.cover),
       );
     }
-    return _buildInitialsAvatar(name, radius);
-  }
-
-  Widget _buildInitialsAvatar(String name, double radius) {
-    final initials = name.isNotEmpty ? name[0].toUpperCase() : '?';
-    final hue = (name.codeUnits.fold(0, (a, b) => a + b) * 137) % 360;
-    final color = HSLColor.fromAHSL(1, hue.toDouble(), 0.6, 0.4).toColor();
     return CircleAvatar(
-      radius: radius,
-      backgroundColor: color,
-      child: Text(initials, style: TextStyle(color: Colors.white, fontSize: radius * 0.7, fontWeight: FontWeight.bold)),
+      radius: 16,
+      child: Text(name.isNotEmpty ? name[0].toUpperCase() : '?', style: const TextStyle(fontSize: 12)),
     );
   }
 
-  String _formatTimeAgo(DateTime date) {
+  Widget _buildLoginPrompt(app_auth.AuthProvider auth) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: AppTheme.cardColor, borderRadius: BorderRadius.circular(16)),
+      child: Row(
+        children: [
+          const Expanded(child: Text('Inicia sesión para comentar', style: TextStyle(color: AppTheme.textSecondary))),
+          ElevatedButton(
+            onPressed: () => signInWithGoogleAndWelcome(context, auth),
+            child: const Text('Entrar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _timeAgo(DateTime date) {
     final diff = DateTime.now().difference(date);
-    if (diff.inSeconds < 60) return 'Ahora';
-    if (diff.inMinutes < 60) return 'hace ${diff.inMinutes}m';
-    if (diff.inHours < 24) return 'hace ${diff.inHours}h';
+    if (diff.inMinutes < 1) return 'Ahora';
+    if (diff.inHours < 1) return 'hace ${diff.inMinutes}m';
+    if (diff.inDays < 1) return 'hace ${diff.inHours}h';
     if (diff.inDays < 7) return 'hace ${diff.inDays}d';
     return '${date.day}/${date.month}/${date.year}';
   }
-
-  void _showLoginDialog(BuildContext context, app_auth.AuthProvider authProvider) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppTheme.cardColor,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Iniciar sesión', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'Inicia sesión con Google para comentar y guardar tus favoritos en la nube.',
-              style: TextStyle(color: AppTheme.textSecondary, fontSize: 14),
-            ),
-            const SizedBox(height: 20),
-            _buildGoogleButton(ctx, authProvider),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancelar', style: TextStyle(color: AppTheme.textSecondary)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildGoogleButton(BuildContext ctx, app_auth.AuthProvider authProvider) {
-    return ElevatedButton(
-      onPressed: () async {
-        Navigator.pop(ctx);
-        await signInWithGoogleAndWelcome(context, authProvider);
-      },
-      style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
-        minimumSize: const Size(double.infinity, 48),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          // Google "G" icon usando Canvas
-          SizedBox(
-            width: 20,
-            height: 20,
-            child: CustomPaint(painter: _GoogleGPainter()),
-          ),
-          const SizedBox(width: 12),
-          const Text('Continuar con Google', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-        ],
-      ),
-    );
-  }
-}
-
-/// Pinta la "G" de Google con sus colores oficiales.
-class _GoogleGPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final rect = Rect.fromLTWH(0, 0, size.width, size.height);
-    const sweepAngle = math.pi * 2 * 0.75;
-    const startAngle = -math.pi / 4;
-
-    // Rojo
-    canvas.drawArc(rect, startAngle, sweepAngle / 4, false, Paint()..color = const Color(0xFFEA4335)..style = PaintingStyle.stroke..strokeWidth = size.width * 0.2);
-    // Amarillo
-    canvas.drawArc(rect, startAngle + sweepAngle / 4, sweepAngle / 4, false, Paint()..color = const Color(0xFFFBBC05)..style = PaintingStyle.stroke..strokeWidth = size.width * 0.2);
-    // Verde
-    canvas.drawArc(rect, startAngle + sweepAngle / 2, sweepAngle / 4, false, Paint()..color = const Color(0xFF34A853)..style = PaintingStyle.stroke..strokeWidth = size.width * 0.2);
-    // Azul (el arco más largo)
-    canvas.drawArc(rect, startAngle + sweepAngle * 0.75, math.pi * 2 * 0.25 + math.pi * 0.25, false, Paint()..color = const Color(0xFF4285F4)..style = PaintingStyle.stroke..strokeWidth = size.width * 0.2);
-
-    // Línea horizontal del "G"
-    final paint = Paint()
-      ..color = const Color(0xFF4285F4)
-      ..strokeWidth = size.width * 0.2
-      ..strokeCap = StrokeCap.round;
-    canvas.drawLine(
-      Offset(size.width * 0.5, size.height * 0.5),
-      Offset(size.width, size.height * 0.5),
-      paint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
