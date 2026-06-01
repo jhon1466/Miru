@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import '../services/user_service.dart';
 
 class AuthProvider with ChangeNotifier {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -23,7 +24,7 @@ class AuthProvider with ChangeNotifier {
     });
   }
 
-  /// Inicia sesión con Google y registra/actualiza el usuario en Firebase Auth.
+  /// Inicia sesión con Google y registra/actualiza el usuario en Firebase Auth y Firestore.
   Future<bool> signInWithGoogle() async {
     try {
       // Forzar selector de cuenta de Google
@@ -38,6 +39,17 @@ class AuthProvider with ChangeNotifier {
 
       final userCredential = await _auth.signInWithCredential(credential);
       _user = userCredential.user;
+
+      // Crear o actualizar perfil en Firestore
+      if (_user != null) {
+        await UserService.createOrUpdateProfile(
+          uid: _user!.uid,
+          displayName: _user!.displayName ?? 'Usuario',
+          photoUrl: _user!.photoURL,
+          email: _user!.email,
+        );
+      }
+
       notifyListeners();
       return true;
     } catch (e) {
@@ -54,3 +66,4 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
   }
 }
+

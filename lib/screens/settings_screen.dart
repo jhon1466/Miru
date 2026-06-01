@@ -4,7 +4,9 @@ import '../core/api_client.dart';
 import '../core/theme.dart';
 import '../providers/auth_provider.dart' as app_auth;
 import '../providers/history_provider.dart';
+import '../services/user_service.dart';
 import 'splash_screen.dart';
+import 'user_profile_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   final bool showBackButton;
@@ -19,6 +21,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _isTesting = false;
   bool? _testResult;
   String _testResultMessage = '';
+  bool _notificationsEnabled = true;
+  bool _autoplayNextEpisode = false;
 
   @override
   void initState() {
@@ -112,6 +116,37 @@ class _SettingsScreenState extends State<SettingsScreen> {
           children: [
             // ─── Sección de Cuenta ───────────────────────────────────────
             _buildAccountSection(context, authProvider),
+            if (authProvider.isLoggedIn) ...[
+              const SizedBox(height: 24),
+              _buildProfileOptionsSection(context, authProvider),
+            ],
+            const SizedBox(height: 32),
+
+            const Text(
+              'Preferencias',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 8),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Notificaciones de actualizaciones'),
+              subtitle: const Text('Avisarte cuando haya una nueva versión de Miru'),
+              value: _notificationsEnabled,
+              activeColor: AppTheme.primaryColor,
+              onChanged: (v) => setState(() => _notificationsEnabled = v),
+            ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Reproducción automática'),
+              subtitle: const Text('Pasar al siguiente episodio al terminar (próximamente)'),
+              value: _autoplayNextEpisode,
+              activeColor: AppTheme.primaryColor,
+              onChanged: (v) => setState(() => _autoplayNextEpisode = v),
+            ),
             const SizedBox(height: 32),
 
             const Text(
@@ -237,16 +272,123 @@ class _SettingsScreenState extends State<SettingsScreen> {
               trailing: IconButton(
                 icon: const Icon(Icons.cached, color: AppTheme.accentColor),
                 onPressed: () {
-                  // Simulamos limpieza de caché de imágenes
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Caché de imágenes vaciada'), backgroundColor: AppTheme.successColor),
                   );
                 },
               ),
             ),
+            const SizedBox(height: 24),
+            const Text(
+              'Acerca de Miru',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+            const Divider(color: AppTheme.cardColor, height: 24),
+            const ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(Icons.info_outline, color: AppTheme.primaryColor),
+              title: Text('Versión de la app'),
+              subtitle: Text('1.2.0'),
+            ),
+            const ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(Icons.movie_filter_outlined, color: AppTheme.accentColor),
+              title: Text('Miru Anime'),
+              subtitle: Text('Tu biblioteca de anime en un solo lugar'),
+            ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildProfileOptionsSection(BuildContext context, app_auth.AuthProvider authProvider) {
+    return StreamBuilder<UserProfile?>(
+      stream: UserService.profileStream(authProvider.userId!),
+      builder: (context, snapshot) {
+        final profile = snapshot.data;
+        final isPublic = profile?.isPublic ?? true;
+
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppTheme.cardColor,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppTheme.accentColor.withOpacity(0.2)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Perfil y Privacidad',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Controla quién puede ver tu perfil y tus animes favoritos al tocar tu nombre en los comentarios.',
+                style: TextStyle(fontSize: 12, color: AppTheme.textSecondary, height: 1.4),
+              ),
+              const SizedBox(height: 12),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Perfil público'),
+                subtitle: Text(
+                  isPublic
+                      ? 'Cualquiera puede ver tus favoritos desde comentarios'
+                      : 'Tu perfil y favoritos están ocultos para otros usuarios',
+                  style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                ),
+                value: isPublic,
+                activeColor: AppTheme.primaryColor,
+                onChanged: (value) async {
+                  await UserService.setProfilePublic(authProvider.userId!, value);
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        value
+                            ? 'Perfil configurado como público'
+                            : 'Perfil configurado como privado',
+                      ),
+                      backgroundColor: AppTheme.successColor,
+                      duration: const Duration(seconds: 2),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => UserProfileScreen(
+                          userId: authProvider.userId!,
+                          displayName: authProvider.displayName ?? 'Usuario',
+                          photoUrl: authProvider.photoUrl,
+                        ),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.person, size: 18, color: AppTheme.primaryColor),
+                  label: const Text('Ver mi perfil', style: TextStyle(color: AppTheme.primaryColor)),
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(color: AppTheme.primaryColor.withOpacity(0.5)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -342,7 +484,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: TextButton.icon(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => UserProfileScreen(
+                        userId: authProvider.userId!,
+                        displayName: authProvider.displayName ?? 'Usuario',
+                        photoUrl: authProvider.photoUrl,
+                      ),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.account_circle_outlined, size: 18, color: AppTheme.primaryColor),
+                label: const Text('Ver mi perfil y favoritos', style: TextStyle(color: AppTheme.primaryColor)),
+              ),
+            ),
+            const SizedBox(height: 8),
             SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(

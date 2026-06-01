@@ -5,7 +5,10 @@ import 'package:url_launcher/url_launcher.dart';
 import '../core/theme.dart';
 import '../core/update_service.dart';
 import '../providers/anime_provider.dart';
+import '../providers/auth_provider.dart' as app_auth;
 import '../providers/history_provider.dart';
+import '../services/favorite_service.dart';
+import '../widgets/anime_poster_image.dart';
 import '../models/anime.dart';
 import 'detail_screen.dart';
 import 'search_screen.dart';
@@ -170,6 +173,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final animeProvider = Provider.of<AnimeProvider>(context);
     final historyProvider = Provider.of<HistoryProvider>(context);
+    final authProvider = Provider.of<app_auth.AuthProvider>(context);
 
     return Scaffold(
       appBar: AppBar(
@@ -224,8 +228,8 @@ class _HomeScreenState extends State<HomeScreen> {
             if (historyProvider.history.isNotEmpty)
               _buildContinueWatchingSection(context, historyProvider.history),
 
-            // Favoritos
-            _buildFavoritesSection(context, historyProvider.favorites),
+            // Favoritos (nube si hay sesión, local si no)
+            _buildFavoritesSection(context, historyProvider, authProvider),
             
             const SizedBox(height: 30),
           ],
@@ -571,7 +575,40 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildFavoritesSection(BuildContext context, List<AnimeSearchResult> favorites) {
+  Widget _buildFavoritesSection(
+    BuildContext context,
+    HistoryProvider historyProvider,
+    app_auth.AuthProvider authProvider,
+  ) {
+    if (authProvider.isLoggedIn && authProvider.userId != null) {
+      return StreamBuilder<List<FavoriteAnime>>(
+        stream: FavoriteService.getFavorites(authProvider.userId!),
+        builder: (context, snapshot) {
+          final cloudFavs = snapshot.data ?? [];
+          final items = cloudFavs.isNotEmpty
+              ? cloudFavs
+                  .map((f) => AnimeSearchResult(
+                        title: f.title,
+                        url: f.animeUrl,
+                        image: f.image,
+                        type: f.type,
+                        score: f.score,
+                        status: f.status,
+                      ))
+                  .toList()
+              : historyProvider.favorites;
+          return _buildFavoritesContent(context, items, isLoading: snapshot.connectionState == ConnectionState.waiting);
+        },
+      );
+    }
+    return _buildFavoritesContent(context, historyProvider.favorites);
+  }
+
+  Widget _buildFavoritesContent(
+    BuildContext context,
+    List<AnimeSearchResult> favorites, {
+    bool isLoading = false,
+  }) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20.0),
       child: Column(
@@ -584,7 +621,16 @@ class _HomeScreenState extends State<HomeScreen> {
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
             ),
           ),
-          if (favorites.isEmpty)
+          if (isLoading && favorites.isEmpty)
+            const Padding(
+              padding: EdgeInsets.all(24),
+              child: Center(
+                child: CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation(AppTheme.primaryColor),
+                ),
+              ),
+            )
+          else if (favorites.isEmpty)
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(24),
@@ -644,16 +690,11 @@ class _HomeScreenState extends State<HomeScreen> {
                           borderRadius: BorderRadius.circular(12),
                           child: Stack(
                             children: [
-                              CachedNetworkImage(
-                                imageUrl: anime.image ?? '',
+                              AnimePosterImage(
+                                imageUrl: anime.image,
                                 fit: BoxFit.cover,
                                 width: double.infinity,
                                 height: double.infinity,
-                                placeholder: (context, url) => Container(color: AppTheme.cardColor),
-                                errorWidget: (context, url, error) => Container(
-                                  color: AppTheme.cardColor,
-                                  child: const Icon(Icons.movie, color: AppTheme.textSecondary),
-                                ),
                               ),
                               if (anime.score != null)
                                 Positioned(
@@ -671,7 +712,11 @@ class _HomeScreenState extends State<HomeScreen> {
                                         const SizedBox(width: 2),
                                         Text(
                                           anime.score.toString(),
-                                          style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.white),
+                                          style: const TextStyle(
+                                            fontSize: 9,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.white,
+                                          ),
                                         ),
                                       ],
                                     ),

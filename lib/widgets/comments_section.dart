@@ -5,6 +5,7 @@ import '../core/theme.dart';
 import '../models/comment.dart';
 import '../providers/auth_provider.dart' as app_auth;
 import '../services/comment_service.dart';
+import '../screens/user_profile_screen.dart';
 import 'dart:math' as math;
 
 /// Widget reutilizable de comentarios. Funciona tanto para el anime general
@@ -305,7 +306,20 @@ class _CommentsSectionState extends State<CommentsSection> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildAvatar(comment.userPhotoUrl, comment.userDisplayName, radius: 16),
+          // Avatar clickable -> perfil del usuario
+          GestureDetector(
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => UserProfileScreen(
+                  userId: comment.userId,
+                  displayName: comment.userDisplayName,
+                  photoUrl: comment.userPhotoUrl,
+                ),
+              ),
+            ),
+            child: _buildAvatar(comment.userPhotoUrl, comment.userDisplayName, radius: 16),
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: Container(
@@ -324,12 +338,26 @@ class _CommentsSectionState extends State<CommentsSection> {
                   Row(
                     children: [
                       Expanded(
-                        child: Text(
-                          comment.userDisplayName,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
-                            color: AppTheme.primaryColor,
+                        child: GestureDetector(
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => UserProfileScreen(
+                                userId: comment.userId,
+                                displayName: comment.userDisplayName,
+                                photoUrl: comment.userPhotoUrl,
+                              ),
+                            ),
+                          ),
+                          child: Text(
+                            comment.userDisplayName,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                              color: AppTheme.primaryColor,
+                              decoration: TextDecoration.underline,
+                              decorationColor: AppTheme.primaryColor,
+                            ),
                           ),
                         ),
                       ),

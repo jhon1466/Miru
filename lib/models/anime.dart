@@ -1,3 +1,5 @@
+import '../utils/image_utils.dart';
+
 class AnimeSearchResult {
   final String? id;
   final String title;
@@ -29,8 +31,9 @@ class AnimeSearchResult {
       title: json['title'] ?? 'Sin Título',
       slug: json['slug']?.toString(),
       url: json['url'] ?? '',
-      image: json['image']?.toString(),
-      backdrop: json['backdrop']?.toString(),
+      image: pickAnimeImageUrl(json),
+      backdrop: normalizeAnimeImageUrl(json['backdrop']?.toString()) ??
+          normalizeAnimeImageUrl(json['banner']?.toString()),
       type: json['type']?.toString(),
       score: json['score'] != null ? double.tryParse(json['score'].toString()) : null,
       status: json['status']?.toString(),
@@ -158,8 +161,9 @@ class AnimeDetails {
       title: json['title'] ?? 'Sin Título',
       titleJapanese: json['titleJapanese']?.toString(),
       description: json['description'] ?? json['synopsis'],
-      image: json['image']?.toString(),
-      backdrop: json['backdrop']?.toString(),
+      image: pickAnimeImageUrl(json),
+      backdrop: normalizeAnimeImageUrl(json['backdrop']?.toString()) ??
+          normalizeAnimeImageUrl(json['banner']?.toString()),
       status: json['status']?.toString(),
       type: json['type']?.toString(),
       year: json['year']?.toString(),

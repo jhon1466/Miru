@@ -76,7 +76,12 @@ class FavoriteService {
   }
 
   /// Alterna favorito: si existe lo borra, si no existe lo agrega.
-  static Future<void> toggleFavorite(String userId, AnimeDetails details, String animeUrl) async {
+  static Future<void> toggleFavorite(
+    String userId,
+    AnimeDetails details,
+    String animeUrl, {
+    String? fallbackImage,
+  }) async {
     final docId = _urlToDocId(animeUrl);
     final ref = _favRef(userId).doc(docId);
     final doc = await ref.get();
@@ -87,7 +92,7 @@ class FavoriteService {
       final fav = FavoriteAnime(
         animeUrl: animeUrl,
         title: details.title,
-        image: details.image,
+        image: details.image ?? fallbackImage,
         type: details.type,
         status: details.status,
         score: details.score,
