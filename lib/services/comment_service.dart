@@ -1,22 +1,19 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/comment.dart';
+import 'notification_service.dart';
 
 class CommentService {
   static final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-  /// Devuelve la referencia a la subcolección de comentarios de un anime.
-  /// Si [episodeNumber] es null, trae comentarios generales del anime.
-  /// Si [episodeNumber] tiene valor, trae solo los del episodio.
   static CollectionReference _commentsRef(String animeSlug) {
     return _db.collection('comments').doc(animeSlug).collection('entries');
   }
 
-  /// Stream en tiempo real de comentarios de un anime o episodio.
   static Stream<List<Comment>> getComments(
     String animeSlug, {
     double? episodeNumber,
   }) {
-    Query query = _commentsRef(animeSlug).orderBy('createdAt', descending: true);
+    Query query = _commentsRef(animeSlug).orderBy('createdAt', descending: false);
 
     if (episodeNumber != null) {
       query = query.where('episodeNumber', isEqualTo: episodeNumber);
@@ -29,14 +26,19 @@ class CommentService {
     );
   }
 
-  /// Agrega un nuevo comentario.
-  static Future<void> addComment({
+  static Future<String> addComment({
     required String animeSlug,
+    required String animeTitle,
+    String? animeUrl,
     required String userId,
     required String userDisplayName,
     String? userPhotoUrl,
     required String text,
+    String? imageUrl,
     double? episodeNumber,
+    String? parentId,
+    String? replyToUserId,
+    String? replyToUserName,
   }) async {
     final comment = Comment(
       id: '',
@@ -44,13 +46,65 @@ class CommentService {
       userDisplayName: userDisplayName,
       userPhotoUrl: userPhotoUrl,
       text: text.trim(),
+      imageUrl: imageUrl,
       createdAt: DateTime.now(),
       episodeNumber: episodeNumber,
+      parentId: parentId,
+      replyToUserId: replyToUserId,
+      replyToUserName: replyToUserName,
     );
-    await _commentsRef(animeSlug).add(comment.toFirestore());
+
+    final doc = await _commentsRef(animeSlug).add(comment.toFirestore());
+
+    if (replyToUserId != null &&
+        replyToUserId.isNotEmpty &&
+        replyToUserId != userId) {
+      await NotificationService.notifyCommentReply(
+        targetUserId: replyToUserId,
+        fromUserId: userId,
+        fromUserName: userDisplayName,
+        animeSlug: animeSlug,
+        animeTitle: animeTitle,
+        animeUrl: animeUrl,
+        episodeNumber: episodeNumber,
+        commentId: doc.id,
+        parentCommentId: parentId,
+        preview: text.trim(),
+      );
+    }
+
+    return doc.id;
   }
 
-  /// Elimina un comentario. Solo debe llamarse si el userId coincide.
+  static Future<void> updateComment({
+    required String animeSlug,
+    required String commentId,
+    required String userId,
+    required String text,
+    String? imageUrl,
+    bool removeImage = false,
+  }) async {
+    final ref = _commentsRef(animeSlug).doc(commentId);
+    final snap = await ref.get();
+    if (!snap.exists) return;
+
+    final data = snap.data() as Map<String, dynamic>;
+    if (data['userId'] != userId) return;
+
+    final updates = <String, dynamic>{
+      'text': text.trim(),
+      'updatedAt': Timestamp.now(),
+    };
+
+    if (removeImage) {
+      updates['imageUrl'] = FieldValue.delete();
+    } else if (imageUrl != null) {
+      updates['imageUrl'] = imageUrl;
+    }
+
+    await ref.update(updates);
+  }
+
   static Future<void> deleteComment(String animeSlug, String commentId) async {
     await _commentsRef(animeSlug).doc(commentId).delete();
   }
