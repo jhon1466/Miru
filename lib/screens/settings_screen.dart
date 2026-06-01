@@ -188,7 +188,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               contentPadding: EdgeInsets.zero,
               leading: Icon(Icons.info_outline, color: AppTheme.primaryColor),
               title: Text('Versión de la app'),
-              subtitle: Text('1.4.0'),
+              subtitle: Text('1.4.1'),
             ),
             const ListTile(
               contentPadding: EdgeInsets.zero,

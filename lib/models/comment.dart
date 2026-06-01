@@ -93,6 +93,7 @@ class AppNotification {
   final String animeSlug;
   final String animeTitle;
   final String? animeUrl;
+  final String? episodeUrl;
   final String? commentId;
   final String? parentCommentId;
   final double? episodeNumber;
@@ -109,6 +110,7 @@ class AppNotification {
     required this.animeSlug,
     required this.animeTitle,
     this.animeUrl,
+    this.episodeUrl,
     this.commentId,
     this.parentCommentId,
     this.episodeNumber,
@@ -127,7 +129,8 @@ class AppNotification {
       body: data['body'] ?? '',
       animeSlug: data['animeSlug'] ?? '',
       animeTitle: data['animeTitle'] ?? 'Anime',
-      animeUrl: data['animeUrl'],
+      animeUrl: data['animeUrl']?.toString(),
+      episodeUrl: data['episodeUrl']?.toString(),
       commentId: data['commentId']?.toString(),
       parentCommentId: data['parentCommentId']?.toString(),
       episodeNumber: (data['episodeNumber'] as num?)?.toDouble(),

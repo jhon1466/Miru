@@ -16,6 +16,7 @@ class CommentsSection extends StatefulWidget {
   final String animeSlug;
   final String animeTitle;
   final String? animeUrl;
+  final String? episodeUrl;
   final double? episodeNumber;
   final String? focusCommentId;
   final GlobalKey? sectionKey;
@@ -25,6 +26,7 @@ class CommentsSection extends StatefulWidget {
     required this.animeSlug,
     required this.animeTitle,
     this.animeUrl,
+    this.episodeUrl,
     this.episodeNumber,
     this.focusCommentId,
     this.sectionKey,
@@ -36,8 +38,10 @@ class CommentsSection extends StatefulWidget {
 
 class _CommentsSectionState extends State<CommentsSection> {
   final TextEditingController _commentController = TextEditingController();
+  final FocusNode _inputFocus = FocusNode();
   final Map<String, GlobalKey> _commentKeys = {};
   bool _isSending = false;
+  bool _didScrollToFocus = false;
   XFile? _pendingImage;
   Comment? _replyTarget;
   Comment? _replyRoot;
@@ -45,16 +49,19 @@ class _CommentsSectionState extends State<CommentsSection> {
   @override
   void dispose() {
     _commentController.dispose();
+    _inputFocus.dispose();
     super.dispose();
   }
 
   GlobalKey _keyFor(String id) => _commentKeys.putIfAbsent(id, () => GlobalKey());
 
-  void _scrollToFocus(List<Comment> comments) {
+  void _scrollToFocusOnce(List<Comment> comments) {
     final id = widget.focusCommentId;
-    if (id == null || id.isEmpty) return;
+    if (_didScrollToFocus || id == null || id.isEmpty) return;
+    _didScrollToFocus = true;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       final key = _commentKeys[id];
       final ctx = key?.currentContext;
       if (ctx != null) {
@@ -62,7 +69,7 @@ class _CommentsSectionState extends State<CommentsSection> {
           ctx,
           duration: const Duration(milliseconds: 450),
           curve: Curves.easeInOut,
-          alignment: 0.2,
+          alignment: 0.25,
         );
       }
     });
@@ -93,6 +100,7 @@ class _CommentsSectionState extends State<CommentsSection> {
         text: text.isEmpty ? '📷 Imagen' : text,
         imageUrl: imageUrl,
         episodeNumber: widget.episodeNumber,
+        episodeUrl: widget.episodeUrl,
         parentId: parent?.id,
         replyToUserId: _replyTarget?.userId,
         replyToUserName: _replyTarget?.userDisplayName,
@@ -121,11 +129,14 @@ class _CommentsSectionState extends State<CommentsSection> {
   }
 
   void _startReply(Comment target, Comment? root) {
-    setState(() {
-      _replyTarget = target;
-      _replyRoot = root ?? target;
-    });
+    _replyTarget = target;
+    _replyRoot = root ?? target;
     _commentController.text = '@${target.userDisplayName} ';
+    setState(() {});
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _inputFocus.requestFocus();
+    });
   }
 
   void _cancelReply() {
@@ -268,11 +279,6 @@ class _CommentsSectionState extends State<CommentsSection> {
           ),
           const Divider(color: AppTheme.cardColor, height: 1),
           const SizedBox(height: 12),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: auth.isLoggedIn ? _buildInput(auth) : _buildLoginPrompt(auth),
-          ),
-          const SizedBox(height: 16),
           StreamBuilder<List<Comment>>(
             stream: CommentService.getComments(widget.animeSlug, episodeNumber: widget.episodeNumber),
             builder: (context, snapshot) {
@@ -290,7 +296,7 @@ class _CommentsSectionState extends State<CommentsSection> {
               }
 
               final all = snapshot.data ?? [];
-              _scrollToFocus(all);
+              _scrollToFocusOnce(all);
               final roots = _roots(all);
 
               if (roots.isEmpty) {
@@ -320,6 +326,11 @@ class _CommentsSectionState extends State<CommentsSection> {
               );
             },
           ),
+          const SizedBox(height: 16),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: auth.isLoggedIn ? _buildInput(auth) : _buildLoginPrompt(auth),
+          ),
           const SizedBox(height: 40),
         ],
       ),
@@ -337,21 +348,27 @@ class _CommentsSectionState extends State<CommentsSection> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (_replyTarget != null)
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'Respondiendo a ${_replyTarget!.userDisplayName}',
-                    style: const TextStyle(color: AppTheme.primaryColor, fontSize: 12),
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.close, size: 18, color: AppTheme.textSecondary),
-                  onPressed: _cancelReply,
-                ),
-              ],
-            ),
+          AnimatedSize(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOut,
+            alignment: Alignment.topCenter,
+            child: _replyTarget != null
+                ? Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Respondiendo a ${_replyTarget!.userDisplayName}',
+                          style: const TextStyle(color: AppTheme.primaryColor, fontSize: 12),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close, size: 18, color: AppTheme.textSecondary),
+                        onPressed: _cancelReply,
+                      ),
+                    ],
+                  )
+                : const SizedBox.shrink(),
+          ),
           if (_pendingImage != null) ...[
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
@@ -367,10 +384,16 @@ class _CommentsSectionState extends State<CommentsSection> {
           ],
           TextField(
             controller: _commentController,
+            focusNode: _inputFocus,
             style: const TextStyle(color: Colors.white, fontSize: 14),
-            maxLines: 4,
+            maxLines: 3,
             minLines: 1,
             maxLength: 500,
+            scrollPadding: const EdgeInsets.only(bottom: 120),
+            textInputAction: TextInputAction.send,
+            onSubmitted: (_) {
+              if (!_isSending) _sendComment(auth);
+            },
             decoration: const InputDecoration(
               hintText: 'Escribe tu comentario...',
               hintStyle: TextStyle(color: AppTheme.textSecondary),
