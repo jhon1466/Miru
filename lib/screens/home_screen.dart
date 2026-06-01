@@ -528,7 +528,7 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           ListTile(
             leading: const Icon(Icons.delete, color: AppTheme.dangerColor),
-            title: const Text('Eliminar del historial', style: TextStyle(color: Colors.white)),
+            title: Text('Eliminar del historial', style: TextStyle(color: context.textPrimary)),
             onTap: () {
               Navigator.pop(ctx);
               final provider = Provider.of<HistoryProvider>(context, listen: false);

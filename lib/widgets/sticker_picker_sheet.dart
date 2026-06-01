@@ -113,9 +113,9 @@ class _StickerPickerSheetState extends State<StickerPickerSheet> {
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
             child: Row(
               children: [
-                const Text(
+                Text(
                   'Stickers',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: context.textPrimary),
                 ),
                 const Spacer(),
                 TextButton.icon(
@@ -174,7 +174,7 @@ class _StickerPickerSheetState extends State<StickerPickerSheet> {
                         context: context,
                         builder: (ctx) => AlertDialog(
                           backgroundColor: context.cardColor,
-                          title: const Text('Eliminar sticker', style: TextStyle(color: Colors.white)),
+                          title: Text('Eliminar sticker', style: TextStyle(color: context.textPrimary)),
                           content: Text(
                             '¿Deseas eliminar este sticker permanentemente?',
                             style: TextStyle(color: context.textSecondary),

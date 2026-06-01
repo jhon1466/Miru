@@ -257,7 +257,7 @@ class _LoggedInBodyState extends State<_LoggedInBody> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: context.cardColor,
-        title: const Text('Editar nombre', style: TextStyle(color: Colors.white)),
+        title: Text('Editar nombre', style: TextStyle(color: context.textPrimary)),
         content: TextField(
           controller: controller,
           autofocus: true,

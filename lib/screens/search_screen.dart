@@ -209,9 +209,9 @@ class _SearchScreenState extends State<SearchScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Búsquedas Populares',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: context.textPrimary),
             ),
             const SizedBox(height: 8),
             Text(
@@ -338,7 +338,7 @@ class _SearchScreenState extends State<SearchScreen> {
                 anime.title,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.white),
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: context.textPrimary),
               ),
               if (anime.year != null || anime.status != null)
                 Text(
