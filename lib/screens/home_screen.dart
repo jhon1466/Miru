@@ -7,13 +7,13 @@ import '../widgets/update_dialog.dart';
 import '../providers/anime_provider.dart';
 import '../providers/auth_provider.dart' as app_auth;
 import '../providers/history_provider.dart';
+import '../providers/notification_provider.dart';
 import '../services/favorite_service.dart';
 import '../widgets/anime_poster_image.dart';
 import '../models/anime.dart';
 import 'detail_screen.dart';
 import 'player_screen.dart';
 import 'notifications_screen.dart';
-import '../services/notification_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -86,9 +86,6 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             _buildWelcomeBanner(context, authProvider),
 
-            // Selector de Proveedores
-            _buildProviderSelector(context, animeProvider),
-
             // Animes Destacados / Populares
             _buildPopularSection(context, animeProvider),
 
@@ -127,57 +124,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildProviderSelector(BuildContext context, AnimeProvider provider) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 20.0, vertical: 8.0),
-          child: Text(
-            'Proveedor Activo',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
-          ),
-        ),
-        SizedBox(
-          height: 50,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            itemCount: provider.providers.length,
-            itemBuilder: (context, index) {
-              final prov = provider.providers[index];
-              final isSelected = provider.selectedProviderDomain == prov['domain'];
-              return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                child: ChoiceChip(
-                  label: Text(prov['name'] ?? ''),
-                  selected: isSelected,
-                  selectedColor: AppTheme.primaryColor.withOpacity(0.2),
-                  disabledColor: Colors.transparent,
-                  labelStyle: TextStyle(
-                    color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondary,
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                  ),
-                  side: BorderSide(
-                    color: isSelected ? AppTheme.primaryColor : AppTheme.cardColor,
-                    width: 1.5,
-                  ),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  backgroundColor: AppTheme.cardColor,
-                  onSelected: (selected) {
-                    if (selected) {
-                      provider.selectProvider(prov['domain'] ?? '');
-                    }
-                  },
-                ),
-              );
-            },
-          ),
-        ),
-      ],
     );
   }
 
@@ -777,56 +723,44 @@ class _NotificationsBell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (!authProvider.isLoggedIn) {
-      return IconButton(
-        icon: const Icon(Icons.notifications_outlined, size: 26),
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const NotificationsScreen()),
-          );
-        },
-      );
-    }
+    final unread = context.watch<NotificationProvider>().unreadCount;
 
-    return StreamBuilder<int>(
-      stream: NotificationService.watchUnreadCount(authProvider.userId!),
-      builder: (context, snapshot) {
-        final unread = snapshot.data ?? 0;
-        return Stack(
-          clipBehavior: Clip.none,
-          children: [
-            IconButton(
-              icon: const Icon(Icons.notifications_outlined, size: 26),
-              tooltip: 'Notificaciones',
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const NotificationsScreen()),
-                );
-              },
-            ),
-            if (unread > 0)
-              Positioned(
-                right: 8,
-                top: 8,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                  constraints: const BoxConstraints(minWidth: 16),
-                  decoration: const BoxDecoration(
-                    color: AppTheme.accentColor,
-                    borderRadius: BorderRadius.all(Radius.circular(10)),
-                  ),
-                  child: Text(
-                    unread > 9 ? '9+' : '$unread',
-                    style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        IconButton(
+          icon: const Icon(Icons.notifications_outlined, size: 26),
+          tooltip: 'Notificaciones',
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+            ).then((_) {
+              if (authProvider.isLoggedIn) {
+                context.read<NotificationProvider>().refreshUnread();
+              }
+            });
+          },
+        ),
+        if (authProvider.isLoggedIn && unread > 0)
+          Positioned(
+            right: 8,
+            top: 8,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+              constraints: const BoxConstraints(minWidth: 16),
+              decoration: const BoxDecoration(
+                color: AppTheme.accentColor,
+                borderRadius: BorderRadius.all(Radius.circular(10)),
               ),
-          ],
-        );
-      },
+              child: Text(
+                unread > 9 ? '9+' : '$unread',
+                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

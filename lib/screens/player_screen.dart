@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -37,15 +39,55 @@ class _PlayerScreenState extends State<PlayerScreen> {
   String? _selectedServerName;
   bool _isSub = true;
   int _webViewGeneration = 0;
+  final _webViewKeepAlive = InAppWebViewKeepAlive();
 
   @override
   void initState() {
     super.initState();
-    SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+    _unlockPlayerOrientations();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadEpisodeAndAutoplay();
     });
+  }
+
+  void _unlockPlayerOrientations() {
+    unawaited(
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.portraitUp,
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]),
+    );
+  }
+
+  /// Sin setState: evita recrear el WebView y congelar la app.
+  Future<void> _onWebEnterFullscreen(InAppWebViewController controller) async {
+    await Future<void>.delayed(Duration.zero);
+    if (!mounted) return;
+    await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    await SystemChrome.setPreferredOrientations([
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
+  }
+
+  Future<void> _onWebExitFullscreen(InAppWebViewController controller) async {
+    await Future<void>.delayed(Duration.zero);
+    if (!mounted) return;
+    await SystemChrome.setEnabledSystemUIMode(
+      SystemUiMode.manual,
+      overlays: SystemUiOverlay.values,
+    );
+    _unlockPlayerOrientations();
+  }
+
+  Future<void> _restoreSystemUiAfterPlayer() async {
+    await SystemChrome.setEnabledSystemUIMode(
+      SystemUiMode.manual,
+      overlays: SystemUiOverlay.values,
+    );
+    await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   }
 
   Future<void> _loadEpisodeAndAutoplay() async {
@@ -92,7 +134,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   @override
   void dispose() {
-    SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+    unawaited(_restoreSystemUiAfterPlayer());
     super.dispose();
   }
 
@@ -210,135 +252,94 @@ class _PlayerScreenState extends State<PlayerScreen> {
     final animeProvider = Provider.of<AnimeProvider>(context);
     final links = animeProvider.episodeLinks;
 
-    return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
+    return PopScope(
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) unawaited(_restoreSystemUiAfterPlayer());
+      },
+      child: Scaffold(
         backgroundColor: Colors.black,
-        title: Column(
+        appBar: AppBar(
+          backgroundColor: Colors.black,
+          title: Column(
+            children: [
+              Text(
+                widget.animeTitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 14, color: Colors.white, fontWeight: FontWeight.bold),
+              ),
+              Text(
+                'Episodio ${widget.episodeNumber.toString().replaceAll('.0', '')}',
+                style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+              ),
+            ],
+          ),
+          actions: [
+            if (links != null)
+              IconButton(
+                icon: const Icon(Icons.tune),
+                tooltip: 'Idioma y servidores',
+                onPressed: () => _openPlaybackOptions(links),
+              ),
+          ],
+        ),
+        body: Column(
           children: [
-            Text(
-              widget.animeTitle,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 14, color: Colors.white, fontWeight: FontWeight.bold),
+            AspectRatio(
+              aspectRatio: 16 / 9,
+              child: _buildPlayerWidget(),
             ),
-            Text(
-              'Episodio ${widget.episodeNumber.toString().replaceAll('.0', '')}',
-              style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+            if (links != null) _buildQuickControlsBar(links),
+            Expanded(
+              child: SingleChildScrollView(
+                child: Column(
+                  children: [
+                    Container(
+                      color: AppTheme.darkBackground,
+                      width: double.infinity,
+                      child: animeProvider.isLoadingEpisode
+                          ? const Padding(
+                              padding: EdgeInsets.all(40),
+                              child: Column(
+                                children: [
+                                  CircularProgressIndicator(
+                                    valueColor: AlwaysStoppedAnimation(AppTheme.primaryColor),
+                                  ),
+                                  SizedBox(height: 12),
+                                  Text(
+                                    'Buscando servidores de video...',
+                                    style: TextStyle(color: AppTheme.textSecondary),
+                                  ),
+                                ],
+                              ),
+                            )
+                          : links == null
+                              ? Padding(
+                                  padding: const EdgeInsets.all(24),
+                                  child: Text(
+                                    animeProvider.episodeError ?? 'Error al cargar servidores',
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(color: AppTheme.textSecondary),
+                                  ),
+                                )
+                              : _buildServersPanel(links),
+                    ),
+                    CommentsSection(
+                      animeSlug: Uri.parse(widget.animeUrl).pathSegments.lastWhere(
+                            (s) => s.isNotEmpty,
+                            orElse: () => widget.animeUrl.hashCode.toString(),
+                          ),
+                      animeTitle: widget.animeTitle,
+                      animeUrl: widget.animeUrl,
+                      episodeNumber: widget.episodeNumber,
+                      focusCommentId: widget.focusCommentId,
+                    ),
+                  ],
+                ),
+              ),
             ),
           ],
         ),
-        actions: [
-          if (links != null)
-            IconButton(
-              icon: const Icon(Icons.tune),
-              tooltip: 'Idioma y servidores',
-              onPressed: () => _openPlaybackOptions(links),
-            ),
-        ],
-      ),
-      body: OrientationBuilder(
-        builder: (context, orientation) {
-          final isLandscape = orientation == Orientation.landscape;
-
-          if (isLandscape) {
-            return Stack(
-              fit: StackFit.expand,
-              children: [
-                _buildPlayerWidget(),
-                Positioned(
-                  top: 8,
-                  right: 8,
-                  child: Material(
-                    color: Colors.black.withValues(alpha: 0.65),
-                    borderRadius: BorderRadius.circular(12),
-                    child: IconButton(
-                      icon: const Icon(Icons.tune, color: Colors.white),
-                      tooltip: 'Idioma y servidores',
-                      onPressed: links != null ? () => _openPlaybackOptions(links) : null,
-                    ),
-                  ),
-                ),
-                if (_selectedServerName != null)
-                  Positioned(
-                    top: 8,
-                    left: 8,
-                    child: IgnorePointer(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.65),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          '${_isSub ? "SUB" : "DUB"} · $_selectedServerName',
-                          style: const TextStyle(fontSize: 11, color: Colors.white),
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            );
-          }
-
-          return Column(
-            children: [
-              AspectRatio(
-                aspectRatio: 16 / 9,
-                child: _buildPlayerWidget(),
-              ),
-              if (links != null) _buildQuickControlsBar(links),
-              Expanded(
-                child: SingleChildScrollView(
-                  child: Column(
-                    children: [
-                      Container(
-                        color: AppTheme.darkBackground,
-                        width: double.infinity,
-                        child: animeProvider.isLoadingEpisode
-                            ? const Padding(
-                                padding: EdgeInsets.all(40),
-                                child: Column(
-                                  children: [
-                                    CircularProgressIndicator(
-                                      valueColor: AlwaysStoppedAnimation(AppTheme.primaryColor),
-                                    ),
-                                    SizedBox(height: 12),
-                                    Text(
-                                      'Buscando servidores de video...',
-                                      style: TextStyle(color: AppTheme.textSecondary),
-                                    ),
-                                  ],
-                                ),
-                              )
-                            : links == null
-                                ? Padding(
-                                    padding: const EdgeInsets.all(24),
-                                    child: Text(
-                                      animeProvider.episodeError ?? 'Error al cargar servidores',
-                                      textAlign: TextAlign.center,
-                                      style: const TextStyle(color: AppTheme.textSecondary),
-                                    ),
-                                  )
-                                : _buildServersPanel(links),
-                      ),
-                      CommentsSection(
-                        animeSlug: Uri.parse(widget.animeUrl).pathSegments.lastWhere(
-                              (s) => s.isNotEmpty,
-                              orElse: () => widget.animeUrl.hashCode.toString(),
-                            ),
-                        animeTitle: widget.animeTitle,
-                        animeUrl: widget.animeUrl,
-                        episodeNumber: widget.episodeNumber,
-                        focusCommentId: widget.focusCommentId,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          );
-        },
       ),
     );
   }
@@ -423,14 +424,18 @@ class _PlayerScreenState extends State<PlayerScreen> {
       children: [
         InAppWebView(
           key: ValueKey('player-$_webViewGeneration'),
+          keepAlive: _webViewKeepAlive,
           initialUrlRequest: URLRequest(url: webUri),
           initialSettings: InAppWebViewSettings(
             javaScriptEnabled: true,
             mediaPlaybackRequiresUserGesture: false,
             allowsInlineMediaPlayback: true,
+            iframeAllowFullscreen: true,
             useShouldOverrideUrlLoading: true,
             javaScriptCanOpenWindowsAutomatically: false,
             supportMultipleWindows: false,
+            useHybridComposition: true,
+            domStorageEnabled: true,
           ),
           shouldOverrideUrlLoading: (controller, navigationAction) async {
             final uri = navigationAction.request.url;
@@ -445,19 +450,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
             }
             return NavigationActionPolicy.ALLOW;
           },
-          onEnterFullscreen: (controller) async {
-            await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-            await SystemChrome.setPreferredOrientations([
-              DeviceOrientation.landscapeLeft,
-              DeviceOrientation.landscapeRight,
-            ]);
+          onEnterFullscreen: (controller) {
+            unawaited(_onWebEnterFullscreen(controller));
           },
-          onExitFullscreen: (controller) async {
-            await SystemChrome.setEnabledSystemUIMode(
-              SystemUiMode.manual,
-              overlays: SystemUiOverlay.values,
-            );
-            await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+          onExitFullscreen: (controller) {
+            unawaited(_onWebExitFullscreen(controller));
           },
         ),
       ],

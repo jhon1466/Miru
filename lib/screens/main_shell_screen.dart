@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../core/theme.dart';
 import '../providers/auth_provider.dart' as app_auth;
 import '../providers/history_provider.dart';
+import '../providers/notification_provider.dart';
 import '../utils/auth_ui.dart';
 import 'home_screen.dart';
 import 'catalog_screen.dart';
@@ -51,6 +52,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
 
   Future<void> _syncUser(app_auth.AuthProvider auth) async {
     if (!mounted) return;
+    context.read<NotificationProvider>().bindUser(auth.userId);
     if (_boundUserId == auth.userId) {
       _tryShowWelcome(auth);
       return;
