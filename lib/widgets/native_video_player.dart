@@ -7,11 +7,13 @@ import '../core/theme.dart';
 class NativeVideoPlayer extends StatefulWidget {
   final String url;
   final String title;
+  final Map<String, String>? headers;
 
   const NativeVideoPlayer({
     super.key,
     required this.url,
     required this.title,
+    this.headers,
   });
 
   @override
@@ -50,7 +52,10 @@ class _NativeVideoPlayerState extends State<NativeVideoPlayer> {
 
     try {
       final uri = Uri.parse(widget.url);
-      _controller = VideoPlayerController.networkUrl(uri);
+      _controller = VideoPlayerController.networkUrl(
+        uri,
+        httpHeaders: widget.headers ?? const <String, String>{},
+      );
       
       await _controller!.initialize();
       _controller!.addListener(_playerListener);

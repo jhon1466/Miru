@@ -580,11 +580,11 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 20.0),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 20.0),
             child: Text(
               'Mi Biblioteca',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: context.textPrimary),
             ),
           ),
           if (isLoading && favorites.isEmpty)
@@ -604,19 +604,19 @@ class _HomeScreenState extends State<HomeScreen> {
                 color: context.cardColor,
                 borderRadius: BorderRadius.circular(16),
               ),
-              child: const Column(
+              child: Column(
                 children: [
-                  Icon(Icons.bookmark_outline, size: 40, color: AppTheme.primaryColor),
-                  SizedBox(height: 12),
+                  const Icon(Icons.bookmark_outline, size: 40, color: AppTheme.primaryColor),
+                  const SizedBox(height: 12),
                   Text(
                     'Aún no tienes favoritos',
-                    style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+                    style: TextStyle(fontWeight: FontWeight.bold, color: context.textPrimary),
                   ),
-                  SizedBox(height: 4),
+                  const SizedBox(height: 4),
                   Text(
                     'Busca animes y agrégalos a tu biblioteca para acceder rápido a ellos.',
                     textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                    style: TextStyle(fontSize: 12, color: context.textSecondary),
                   ),
                 ],
               ),

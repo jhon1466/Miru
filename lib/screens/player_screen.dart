@@ -40,7 +40,6 @@ class _PlayerScreenState extends State<PlayerScreen> {
   String? _selectedServerUrl;
   String? _selectedServerName;
   bool _isSub = true;
-  int _webViewGeneration = 0;
   final _webViewKeepAlive = InAppWebViewKeepAlive();
   InAppWebViewController? _webViewController;
 
@@ -262,20 +261,20 @@ class _PlayerScreenState extends State<PlayerScreen> {
         if (didPop) unawaited(_restoreSystemUiAfterPlayer());
       },
       child: Scaffold(
-        backgroundColor: Colors.black,
+        backgroundColor: context.backgroundColor,
         appBar: AppBar(
-          backgroundColor: Colors.black,
+          backgroundColor: context.backgroundColor,
           title: Column(
             children: [
               Text(
                 widget.animeTitle,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 14, color: Colors.white, fontWeight: FontWeight.bold),
+                style: TextStyle(fontSize: 14, color: context.textPrimary, fontWeight: FontWeight.bold),
               ),
               Text(
                 'Episodio ${widget.episodeNumber.toString().replaceAll('.0', '')}',
-                style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                style: TextStyle(fontSize: 11, color: context.textSecondary),
               ),
             ],
           ),
@@ -310,20 +309,20 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 child: Column(
                   children: [
                     Container(
-                      color: AppTheme.darkBackground,
+                      color: context.backgroundColor,
                       width: double.infinity,
                       child: animeProvider.isLoadingEpisode
-                          ? const Padding(
-                              padding: EdgeInsets.all(40),
+                          ? Padding(
+                              padding: const EdgeInsets.all(40),
                               child: Column(
                                 children: [
-                                  CircularProgressIndicator(
+                                  const CircularProgressIndicator(
                                     valueColor: AlwaysStoppedAnimation(AppTheme.primaryColor),
                                   ),
-                                  SizedBox(height: 12),
+                                  const SizedBox(height: 12),
                                   Text(
                                     'Buscando servidores de video...',
-                                    style: TextStyle(color: AppTheme.textSecondary),
+                                    style: TextStyle(color: context.textSecondary),
                                   ),
                                 ],
                               ),
@@ -334,7 +333,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                                   child: Text(
                                     animeProvider.episodeError ?? 'Error al cargar servidores',
                                     textAlign: TextAlign.center,
-                                    style: const TextStyle(color: AppTheme.textSecondary),
+                                    style: TextStyle(color: context.textSecondary),
                                   ),
                                 )
                               : _buildServersPanel(links),
@@ -365,7 +364,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     final hasDub = links.dubStream.isNotEmpty || links.dubDownload.isNotEmpty;
 
     return Material(
-      color: AppTheme.cardColor,
+      color: context.cardColor,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         child: Row(
@@ -385,7 +384,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                   overflow: TextOverflow.ellipsis,
                 ),
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.white,
+                  foregroundColor: context.textPrimary,
                   side: const BorderSide(color: AppTheme.primaryColor),
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
                 ),
@@ -405,17 +404,17 @@ class _PlayerScreenState extends State<PlayerScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
-          color: selected ? AppTheme.primaryColor.withValues(alpha: 0.25) : AppTheme.darkBackground,
+          color: selected ? AppTheme.primaryColor.withValues(alpha: 0.25) : context.cardColor,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: selected ? AppTheme.primaryColor : AppTheme.textSecondary.withValues(alpha: 0.3),
+            color: selected ? AppTheme.primaryColor : context.textSecondary.withValues(alpha: 0.3),
           ),
         ),
         child: Text(
           label,
           style: TextStyle(
             fontWeight: FontWeight.bold,
-            color: selected ? AppTheme.primaryColor : AppTheme.textSecondary,
+            color: selected ? AppTheme.primaryColor : context.textSecondary,
             fontSize: 13,
           ),
         ),
@@ -448,10 +447,30 @@ class _PlayerScreenState extends State<PlayerScreen> {
     }
 
     if (_isDirectMediaUrl(_selectedServerUrl!)) {
+      final Map<String, String> headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      };
+      
+      try {
+        final serverUri = Uri.parse(_selectedServerUrl!);
+        headers['Referer'] = '${serverUri.scheme}://${serverUri.host}/';
+        headers['Origin'] = '${serverUri.scheme}://${serverUri.host}';
+      } catch (_) {
+        if (widget.animeUrl.isNotEmpty) {
+          try {
+            final uri = Uri.parse(widget.animeUrl);
+            headers['Referer'] = '${uri.scheme}://${uri.host}/';
+          } catch (_) {
+            headers['Referer'] = widget.animeUrl;
+          }
+        }
+      }
+
       return NativeVideoPlayer(
         key: ValueKey('native-player-$_selectedServerUrl'),
         url: _selectedServerUrl!,
         title: '${widget.animeTitle} - Ep. ${widget.episodeNumber.toString().replaceAll('.0', '')}',
+        headers: headers,
       );
     }
 
@@ -530,8 +549,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
               ElevatedButton(
                 onPressed: _copyLinkToClipboard,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.darkBackground,
-                  foregroundColor: Colors.white,
+                  backgroundColor: context.cardColor,
+                  foregroundColor: context.textPrimary,
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 ),
                 child: const Icon(Icons.copy, size: 18),
@@ -539,9 +558,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
             ],
           ),
           const SizedBox(height: 20),
-          const Text(
+          Text(
             'Idioma',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: context.textPrimary),
           ),
           const SizedBox(height: 8),
           Row(
@@ -554,18 +573,18 @@ class _PlayerScreenState extends State<PlayerScreen> {
             ],
           ),
           if (!hasSub && !hasDub)
-            const Padding(
-              padding: EdgeInsets.only(top: 8),
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
               child: Text(
                 'No hay variantes de idioma disponibles.',
-                style: TextStyle(color: AppTheme.textSecondary, fontSize: 12),
+                style: TextStyle(color: context.textSecondary, fontSize: 12),
               ),
             ),
           const SizedBox(height: 24),
           if (currentStreamServers.isNotEmpty) ...[
             Text(
               'Servidores (${_isSub ? "SUB" : "DUB"})',
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: context.textPrimary),
             ),
             const SizedBox(height: 10),
             ...currentStreamServers.map((server) {
@@ -575,7 +594,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 child: Material(
                   color: isCurrent
                       ? AppTheme.primaryColor.withValues(alpha: 0.15)
-                      : AppTheme.darkBackground,
+                      : context.cardColor,
                   borderRadius: BorderRadius.circular(12),
                   child: ListTile(
                     shape: RoundedRectangleBorder(
@@ -589,7 +608,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                       server.server,
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        color: isCurrent ? AppTheme.primaryColor : Colors.white,
+                        color: isCurrent ? AppTheme.primaryColor : context.textPrimary,
                       ),
                     ),
                     subtitle: server.quality != null
@@ -597,7 +616,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                         : null,
                     trailing: isCurrent
                         ? const Icon(Icons.play_circle_fill, color: AppTheme.primaryColor)
-                        : const Icon(Icons.play_circle_outline, color: AppTheme.textSecondary),
+                        : Icon(Icons.play_circle_outline, color: context.textSecondary),
                     onTap: () {
                       _playServer(server.url, server.server, _isSub);
                       onSelected?.call();
@@ -618,9 +637,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
             const SizedBox(height: 16),
           ],
           if (currentDownloadServers.isNotEmpty) ...[
-            const Text(
+            Text(
               'Descarga directa',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: context.textPrimary),
             ),
             const SizedBox(height: 8),
             ...currentDownloadServers.map((server) {
@@ -657,10 +676,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
-          color: isSelected ? AppTheme.primaryColor.withValues(alpha: 0.2) : AppTheme.darkBackground,
+          color: isSelected ? AppTheme.primaryColor.withValues(alpha: 0.2) : context.backgroundColor,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondary.withValues(alpha: 0.3),
+            color: isSelected ? AppTheme.primaryColor : context.textSecondary.withValues(alpha: 0.3),
             width: 1.5,
           ),
         ),
@@ -669,7 +688,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
             text,
             style: TextStyle(
               fontWeight: FontWeight.bold,
-              color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondary,
+              color: isSelected ? AppTheme.primaryColor : context.textSecondary,
               fontSize: 13,
             ),
           ),

@@ -241,6 +241,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
               title: const Text('Miru Anime'),
               subtitle: const Text('Tu biblioteca de anime en un solo lugar'),
             ),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(Icons.description_outlined, color: context.primaryColor),
+              title: const Text('Términos y Condiciones de Uso'),
+              subtitle: const Text('Términos legales del servicio de Miru'),
+              onTap: () => _showTermsDialog(context),
+            ),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(Icons.privacy_tip_outlined, color: context.accentColor),
+              title: const Text('Política de Privacidad'),
+              subtitle: const Text('Protección de tus datos y privacidad en Miru'),
+              onTap: () => _showPrivacyDialog(context),
+            ),
           ],
         ),
       ),
@@ -252,6 +266,90 @@ class _SettingsScreenState extends State<SettingsScreen> {
       userId: authProvider.userId!,
       displayName: authProvider.displayName ?? 'Usuario',
       photoUrl: authProvider.photoUrl,
+    );
+  }
+
+  void _showTermsDialog(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: context.cardColor,
+          title: Text(
+            'Términos y Condiciones de Uso',
+            style: TextStyle(color: context.textPrimary, fontWeight: FontWeight.bold),
+          ),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: SingleChildScrollView(
+              child: Text(
+                'El presente documento establece los términos y condiciones de uso de la aplicación Miru. Al acceder, navegar o utilizar esta aplicación, usted acepta sin reservas estos términos, los cuales podrán ser modificados sin previo aviso.\n\n'
+                '1. Uso de la Aplicación\n'
+                'Miru es una plataforma que presenta una interfaz de usuario orientada a la visualización y gestión de contenido relacionado con el anime. Esta aplicación no aloja directamente archivos de video ni contenido protegido por derechos de autor. Toda la información y contenido disponible en esta plataforma ha sido vinculado o compartido por usuarios, terceros o proveedores externos. Miru no es responsable por el contenido compartido o transmitido a través de enlaces, iframes o reproductores incrustados. Toda la responsabilidad recae en el usuario final.\n\n'
+                '2. Responsabilidad del Usuario\n'
+                'El usuario es el único responsable por el uso que haga de la plataforma, incluyendo el acceso a contenido enlazado o compartido por terceros. Al utilizar esta aplicación, usted declara ser mayor de edad y acepta asumir toda responsabilidad legal derivada de sus acciones, incluyendo el cumplimiento de las leyes locales respecto a la visualización de contenido protegido.\n\n'
+                '3. Propiedad Intelectual\n'
+                'Miru no reclama propiedad sobre ninguna obra audiovisual. Todos los nombres, marcas, logotipos y demás elementos protegidos que aparezcan son propiedad de sus respectivos dueños. La aplicación no promueve la distribución de contenido ilegal, y cualquier reclamo será atendido sin ningún problema.\n\n'
+                '4. Publicidad y Servicios de Terceros\n'
+                'Esta aplicación utiliza servicios de terceros para ofrecer publicidad personalizada y mejorar la experiencia del usuario. Miru no controla el contenido de los anuncios, ni la información recolectada por dichos servicios. Cada empresa de publicidad es responsable por sus políticas de tratamiento de datos.\n\n'
+                '5. Modificaciones\n'
+                'Miru se reserva el derecho de modificar estos términos y condiciones en cualquier momento. Recomendamos revisar este documento de manera periódica para estar informado de posibles cambios.\n\n'
+                '6. Aceptación\n'
+                'El uso continuado de la aplicación implica la aceptación de estos términos. Si no está de acuerdo con alguna parte del contenido de este documento, por favor absténgase de utilizar la aplicación.',
+                style: TextStyle(color: context.textSecondary, fontSize: 13, height: 1.4),
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cerrar'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showPrivacyDialog(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: context.cardColor,
+          title: Text(
+            'Política de Privacidad',
+            style: TextStyle(color: context.textPrimary, fontWeight: FontWeight.bold),
+          ),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: SingleChildScrollView(
+              child: Text(
+                'En Miru nos tomamos en serio la privacidad de nuestros usuarios. Este documento detalla cómo recolectamos, utilizamos y protegemos la información de los visitantes.\n\n'
+                '1. Información Recopilada\n'
+                'Podemos recopilar automáticamente ciertos datos a través del uso de cookies y tecnologías similares, incluyendo: dirección IP, tipo de navegador, sistema operativo, páginas visitadas, duración de la visita, entre otros.\n\n'
+                '2. Uso de la Información\n'
+                'La información recolectada se utiliza para mejorar la experiencia del usuario, personalizar el contenido y publicidad, y analizar patrones de tráfico. No vendemos, compartimos ni divulgamos datos personales identificables sin consentimiento, salvo requerimientos legales.\n\n'
+                '3. Servicios de Terceros\n'
+                'Utilizamos herramientas de terceros que pueden colocar cookies en su navegador. Recomendamos revisar las políticas de privacidad de estos servicios para más información.\n\n'
+                '4. Seguridad\n'
+                'Aunque tomamos medidas para proteger la información, ningún método de transmisión por internet o almacenamiento electrónico es completamente seguro. Usar la aplicación implica aceptar estos riesgos inherentes.\n\n'
+                '5. Cambios en esta Política\n'
+                'Nos reservamos el derecho de actualizar esta política en cualquier momento. Le sugerimos revisar esta página periódicamente.\n\n'
+                '6. Contacto\n'
+                'Para cualquier duda sobre esta política puede escribir a nuestro soporte oficial.',
+                style: TextStyle(color: context.textSecondary, fontSize: 13, height: 1.4),
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cerrar'),
+            ),
+          ],
+        );
+      },
     );
   }
 
