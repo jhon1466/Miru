@@ -347,6 +347,18 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   bool _isDirectMediaUrl(String url) {
     final lower = url.toLowerCase();
+    
+    // Si contiene mp4upload, solo es directo si tiene una extensión de video al final
+    // o contiene /d/ (direct download) en la ruta.
+    if (lower.contains('mp4upload.com')) {
+      final hasVideoExtension = lower.endsWith('.mp4') || 
+                               lower.contains('.mp4?') ||
+                               lower.contains('/d/');
+      if (!hasVideoExtension) {
+        return false;
+      }
+    }
+
     if (lower.contains('.mp4') ||
         lower.contains('.mkv') ||
         lower.contains('.webm') ||
