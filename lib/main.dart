@@ -11,6 +11,7 @@ import 'providers/notification_provider.dart';
 import 'providers/download_provider.dart';
 import 'providers/settings_provider.dart';
 import 'services/push_notification_service.dart';
+import 'services/deep_link_service.dart';
 import 'screens/splash_screen.dart';
 
 void main() async {
@@ -19,6 +20,7 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
   await PushNotificationService.initialize();
+  await DeepLinkService.initialize();
   runApp(const MyApp());
 }
 

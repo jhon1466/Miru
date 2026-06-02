@@ -29,6 +29,41 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+            
+            <!-- Intent filters for supported anime providers -->
+            <intent-filter android:label="Miru Anime">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                
+                <data android:scheme="http" />
+                <data android:scheme="https" />
+                
+                <data android:host="animeav1.com" />
+                <data android:host="www.animeav1.com" />
+                <data android:host="animeflv.net" />
+                <data android:host="www.animeflv.net" />
+                <data android:host="tioanime.com" />
+                <data android:host="www.tioanime.com" />
+                <data android:host="jkanime.net" />
+                <data android:host="www.jkanime.net" />
+                <data android:host="monoschinos2.com" />
+                <data android:host="www.monoschinos2.com" />
+                <data android:host="latanime.org" />
+                <data android:host="www.latanime.org" />
+                <data android:host="hentaila.com" />
+                <data android:host="www.hentaila.com" />
+            </intent-filter>
+
+            <!-- Custom schemes: miru:// and miruapp:// -->
+            <intent-filter android:label="Miru Link">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                
+                <data android:scheme="miru" />
+                <data android:scheme="miruapp" />
+            </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
