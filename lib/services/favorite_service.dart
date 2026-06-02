@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import '../models/anime.dart';
+import 'follow_service.dart';
 
 /// Modelo ligero para representar un favorito guardado en Firestore.
 class FavoriteAnime {
@@ -107,11 +108,15 @@ class FavoriteService {
 
     if (doc.exists) {
       await ref.delete();
-      try {
-        await FirebaseMessaging.instance.unsubscribeFromTopic(topic);
-        debugPrint('Unsubscribed from FCM topic: $topic');
-      } catch (e) {
-        debugPrint('Error unsubscribing from topic $topic: $e');
+      // Solo desuscribirse del tema si tampoco se está siguiendo
+      final isFollowing = await FollowService.isFollowing(userId, animeUrl);
+      if (!isFollowing) {
+        try {
+          await FirebaseMessaging.instance.unsubscribeFromTopic(topic);
+          debugPrint('Unsubscribed from FCM topic (via unfavorite): $topic');
+        } catch (e) {
+          debugPrint('Error unsubscribing from topic $topic: $e');
+        }
       }
     } else {
       final fav = FavoriteAnime(

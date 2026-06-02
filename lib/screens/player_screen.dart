@@ -428,6 +428,26 @@ class _PlayerScreenState extends State<PlayerScreen> {
             supportMultipleWindows: true,
             useHybridComposition: true,
             domStorageEnabled: true,
+            contentBlockers: [
+              // Bloquear scripts de dominios conocidos de publicidad y redirecciones
+              ContentBlocker(
+                trigger: ContentBlockerTrigger(
+                  urlFilter: ".*(slavirappels|slavir|onclickads|exoclick|juicyads|propellerads|popads|popmyads|adsterra|monetag|fastclick|clikstars|adkey|yandex|adnxs|doubleclick|adservice|googleadservices|googlesyndication|adskeeper|mgid|taboola|outbrain|bet365|1xbet).*\\.(js|html|css|php).*",
+                ),
+                action: ContentBlockerAction(
+                  type: ContentBlockerActionType.BLOCK,
+                ),
+              ),
+              // Bloquear popups por recursos de tipo raw o script de terceros
+              ContentBlocker(
+                trigger: ContentBlockerTrigger(
+                  urlFilter: ".*\\.(pop|banner|ad|click).*\\.(js|html).*",
+                ),
+                action: ContentBlockerAction(
+                  type: ContentBlockerActionType.BLOCK,
+                ),
+              ),
+            ],
           ),
           shouldOverrideUrlLoading: (controller, navigationAction) async {
             final uri = navigationAction.request.url;
@@ -450,6 +470,45 @@ class _PlayerScreenState extends State<PlayerScreen> {
           },
           onExitFullscreen: (controller) {
             unawaited(_onWebExitFullscreen(controller));
+          },
+          onLoadStop: (controller, url) async {
+            await controller.evaluateJavascript(source: """
+              (function() {
+                var clean = function() {
+                  var video = document.querySelector('video');
+                  if (!video) return;
+                  var playerContainer = video;
+                  while (playerContainer && playerContainer.parentElement && playerContainer.parentElement.tagName !== 'BODY') {
+                    playerContainer = playerContainer.parentElement;
+                  }
+                  if (!playerContainer) return;
+                  var bodyChildren = document.body.children;
+                  for (var i = 0; i < bodyChildren.length; i++) {
+                    var child = bodyChildren[i];
+                    if (child !== playerContainer && child.tagName !== 'SCRIPT' && child.tagName !== 'STYLE') {
+                      child.style.setProperty('display', 'none', 'important');
+                      child.style.setProperty('visibility', 'hidden', 'important');
+                      child.style.setProperty('opacity', '0', 'important');
+                      child.style.setProperty('pointer-events', 'none', 'important');
+                    }
+                  }
+                  playerContainer.style.setProperty('position', 'fixed', 'important');
+                  playerContainer.style.setProperty('top', '0', 'important');
+                  playerContainer.style.setProperty('left', '0', 'important');
+                  playerContainer.style.setProperty('width', '100vw', 'important');
+                  playerContainer.style.setProperty('height', '100vh', 'important');
+                  playerContainer.style.setProperty('z-index', '999999', 'important');
+                  playerContainer.style.setProperty('display', 'block', 'important');
+                  playerContainer.style.setProperty('visibility', 'visible', 'important');
+                  playerContainer.style.setProperty('opacity', '1', 'important');
+                  
+                  video.style.setProperty('width', '100%', 'important');
+                  video.style.setProperty('height', '100%', 'important');
+                };
+                clean();
+                setInterval(clean, 300);
+              })();
+            """);
           },
         ),
       ],
