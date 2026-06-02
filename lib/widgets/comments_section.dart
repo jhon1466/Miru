@@ -340,23 +340,21 @@ class _CommentsSectionState extends State<CommentsSection> {
                 );
               }
 
-              return ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: roots.length,
-                itemBuilder: (context, i) {
-                  final root = roots[i];
+              return Column(
+                children: roots.map((root) {
                   final replies = _repliesFor(root.id, all);
                   return Column(
+                    key: ValueKey('group_${root.id}'),
                     children: [
                       _tile(root, auth, isReply: false),
                       ...replies.map((r) => Padding(
+                            key: ValueKey('padding_${r.id}'),
                             padding: const EdgeInsets.only(left: 36),
                             child: _tile(r, auth, isReply: true, root: root),
                           )),
                     ],
                   );
-                },
+                }).toList(),
               );
             },
           ),
@@ -450,7 +448,7 @@ class _CommentsSectionState extends State<CommentsSection> {
             maxLines: 3,
             minLines: 1,
             maxLength: 500,
-            scrollPadding: const EdgeInsets.only(bottom: 120),
+            scrollPadding: const EdgeInsets.only(bottom: 24),
             textInputAction: TextInputAction.send,
             onSubmitted: (_) {
               if (!_isSending) _sendComment(auth);
@@ -496,6 +494,7 @@ class _CommentsSectionState extends State<CommentsSection> {
     final key = _keyFor(comment.id);
 
     return StreamBuilder<UserProfile?>(
+      key: key,
       stream: UserService.profileStream(comment.userId),
       builder: (context, authorSnap) {
         final authorProfile = authorSnap.data;
@@ -504,7 +503,6 @@ class _CommentsSectionState extends State<CommentsSection> {
         final liveComment = comment.withAuthor(displayName: displayName, photoUrl: photoUrl);
 
         return Padding(
-          key: key,
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,

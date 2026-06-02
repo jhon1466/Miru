@@ -6,6 +6,7 @@ import 'package:video_player/video_player.dart';
 
 import '../core/theme.dart';
 import '../models/downloaded_episode.dart';
+import 'detail_screen.dart';
 
 class OfflinePlayerScreen extends StatefulWidget {
   final DownloadedEpisode episode;
@@ -63,11 +64,30 @@ class _OfflinePlayerScreenState extends State<OfflinePlayerScreen> {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              widget.episode.animeTitle,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 14, color: Colors.white),
+            GestureDetector(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => DetailScreen(
+                      animeUrl: widget.episode.animeUrl,
+                      animeTitle: widget.episode.animeTitle,
+                      animeImage: widget.episode.animeImage,
+                    ),
+                  ),
+                );
+              },
+              child: Text(
+                widget.episode.animeTitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: AppTheme.primaryColor,
+                  fontWeight: FontWeight.bold,
+                  decoration: TextDecoration.underline,
+                ),
+              ),
             ),
             Text(
               '${widget.episode.episodeLabel} · ${widget.episode.languageLabel} · Sin conexión',
