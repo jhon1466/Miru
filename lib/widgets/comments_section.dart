@@ -307,7 +307,7 @@ class _CommentsSectionState extends State<CommentsSection> {
               children: [
                 Icon(Icons.chat_bubble_outline, color: AppTheme.primaryColor, size: 20),
                 const SizedBox(width: 8),
-                Text(label, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+                Text(label, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: context.textPrimary)),
               ],
             ),
           ),
