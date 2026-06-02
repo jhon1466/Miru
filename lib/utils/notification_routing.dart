@@ -47,7 +47,7 @@ class NotificationRouting {
     );
   }
 
-  static void open({
+  static Future<void> open({
     required String animeSlug,
     required String animeTitle,
     String? animeUrl,
@@ -55,7 +55,7 @@ class NotificationRouting {
     double? episodeNumber,
     String? commentId,
     String? parentCommentId,
-  }) {
+  }) async {
     final resolvedAnimeUrl = resolveAnimeUrl(animeUrl: animeUrl, animeSlug: animeSlug);
     if (resolvedAnimeUrl.isEmpty) {
       _openNotificationsList();
@@ -63,8 +63,12 @@ class NotificationRouting {
     }
 
     final focus = focusCommentId(commentId: commentId, parentCommentId: parentCommentId);
-    final nav = AppNavigator.key.currentState;
-    if (nav == null) return;
+    final NavigatorState nav;
+    try {
+      nav = await _getNavigator();
+    } catch (_) {
+      return;
+    }
 
     if (episodeUrl != null && episodeUrl.trim().isNotEmpty) {
       nav.push(
@@ -130,7 +134,7 @@ class NotificationRouting {
     return base64Url.encode(utf8.encode(jsonEncode(map)));
   }
 
-  static void handlePayload(String payload) {
+  static Future<void> handlePayload(String payload) async {
     if (payload.isEmpty) {
       _openNotificationsList();
       return;
@@ -139,7 +143,7 @@ class NotificationRouting {
     try {
       final decoded = utf8.decode(base64Url.decode(payload));
       final map = jsonDecode(decoded) as Map<String, dynamic>;
-      open(
+      await open(
         animeSlug: map['animeSlug']?.toString() ?? '',
         animeTitle: map['animeTitle']?.toString() ?? 'Anime',
         animeUrl: map['animeUrl']?.toString(),
@@ -169,9 +173,28 @@ class NotificationRouting {
     );
   }
 
-  static void _openNotificationsList() {
-    final nav = AppNavigator.key.currentState;
-    if (nav == null) return;
+  static Future<void> _openNotificationsList() async {
+    final NavigatorState nav;
+    try {
+      nav = await _getNavigator();
+    } catch (_) {
+      return;
+    }
     nav.push(MaterialPageRoute(builder: (_) => const NotificationsScreen()));
+  }
+
+  static Future<NavigatorState> _getNavigator() async {
+    var nav = AppNavigator.key.currentState;
+    if (nav == null) {
+      for (int i = 0; i < 20; i++) {
+        await Future.delayed(const Duration(milliseconds: 150));
+        nav = AppNavigator.key.currentState;
+        if (nav != null) break;
+      }
+    }
+    if (nav == null) {
+      throw Exception("NavigatorState is not available");
+    }
+    return nav;
   }
 }
