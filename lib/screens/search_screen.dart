@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../core/theme.dart';
 import '../providers/anime_provider.dart';
 import '../widgets/anime_poster_image.dart';
+import '../widgets/provider_chips_row.dart';
 import 'detail_screen.dart';
 
 class SearchScreen extends StatefulWidget {
@@ -74,6 +75,7 @@ class _SearchScreenState extends State<SearchScreen> {
     final animeProvider = Provider.of<AnimeProvider>(context);
 
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       appBar: AppBar(
         automaticallyImplyLeading: !widget.embedded,
         titleSpacing: 0,
@@ -109,11 +111,14 @@ class _SearchScreenState extends State<SearchScreen> {
           ),
         ),
       ),
-      body: Padding(
-        padding: EdgeInsets.only(bottom: widget.embedded ? 88 : 0),
-        child: Column(
+      body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Chips de proveedor
+          ProviderChipsRow(
+            provider: animeProvider,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          ),
           if (_searchController.text.trim().isNotEmpty)
             Container(
               width: double.infinity,
@@ -124,7 +129,9 @@ class _SearchScreenState extends State<SearchScreen> {
                   const Icon(Icons.search, size: 16, color: AppTheme.primaryColor),
                   const SizedBox(width: 8),
                   Text(
-                    'Buscando en todos los proveedores',
+                    animeProvider.selectedProviderDomain.isEmpty
+                        ? 'Buscando en todos los proveedores'
+                        : 'Buscando en ${animeProvider.providers.firstWhere((p) => p["domain"] == animeProvider.selectedProviderDomain, orElse: () => {"name": animeProvider.selectedProviderDomain})["name"]}',
                     style: TextStyle(fontSize: 12, color: context.textSecondary),
                   ),
                   const Spacer(),
@@ -138,8 +145,9 @@ class _SearchScreenState extends State<SearchScreen> {
           Expanded(
             child: _buildSearchBody(animeProvider),
           ),
+          // Espacio para la barra de navegación inferior si está embebida
+          if (widget.embedded) SizedBox(height: MediaQuery.of(context).padding.bottom + 70),
         ],
-        ),
       ),
     );
   }
@@ -206,6 +214,7 @@ class _SearchScreenState extends State<SearchScreen> {
 
       return SingleChildScrollView(
         padding: const EdgeInsets.all(20.0),
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -253,6 +262,7 @@ class _SearchScreenState extends State<SearchScreen> {
 
     return GridView.builder(
       padding: const EdgeInsets.all(16),
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       itemCount: provider.searchResults.length,
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 3,

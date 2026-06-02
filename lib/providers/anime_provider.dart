@@ -98,16 +98,24 @@ class AnimeProvider extends ChangeNotifier {
     notifyListeners();
     loadPopularAnime();
     loadLatestPublishedEpisodes();
-    if (_catalogAll.isNotEmpty || _isLoadingCatalog) {
-      loadCatalog();
+    loadCatalog(); // Siempre recargar catálogo al cambiar proveedor
+    // Si hay una búsqueda activa, reejecutarla con el nuevo proveedor
+    if (_searchResults.isNotEmpty || _searchError != null) {
+      final lastQuery = _lastSearchQuery;
+      if (lastQuery != null && lastQuery.isNotEmpty) {
+        search(lastQuery, forceNetwork: true);
+      }
     }
   }
+
+  String? _lastSearchQuery;
 
   // Buscar Anime
   Future<void> search(String query, {bool forceNetwork = false}) async {
     if (query.trim().isEmpty) return;
 
     final trimmed = query.trim();
+    _lastSearchQuery = trimmed; // Guardar para re-lanzar al cambiar proveedor
     final cacheKey = 'search|${_domainCacheKey()}|${trimmed.toLowerCase()}';
 
     if (!forceNetwork) {
@@ -129,7 +137,8 @@ class AnimeProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final fresh = await ApiClient.searchAnime(trimmed, domain: null);
+      final domain = _effectiveApiDomain; // Respetar el proveedor seleccionado
+      final fresh = await ApiClient.searchAnime(trimmed, domain: domain);
       _searchResults = _filterAdultList(fresh);
       await ApiCacheService.setJsonList(
         cacheKey,
