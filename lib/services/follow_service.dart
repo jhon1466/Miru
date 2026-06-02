@@ -11,6 +11,24 @@ class FollowService {
     return _db.collection('users').doc(userId).collection('following');
   }
 
+  /// Stream en tiempo real de los animes seguidos por el usuario.
+  static Stream<List<FavoriteAnime>> getFollowing(String userId) {
+    return _followRef(userId)
+        .orderBy('followedAt', descending: true)
+        .snapshots()
+        .map((snap) => snap.docs.map((doc) {
+              final data = doc.data() as Map<String, dynamic>;
+              return FavoriteAnime(
+                animeUrl: data['animeUrl'] ?? '',
+                title: data['title'] ?? 'Sin Título',
+                image: data['image'],
+                status: data['status'],
+                genres: List<String>.from(data['genres'] ?? []),
+                addedAt: (data['followedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+              );
+            }).toList());
+  }
+
   /// Verifica si un anime se está siguiendo (Stream).
   static Stream<bool> isFollowingStream(String userId, String animeUrl) {
     final docId = _urlToDocId(animeUrl);
@@ -68,6 +86,7 @@ class FollowService {
         'title': details.title,
         'image': details.image ?? fallbackImage,
         'status': details.status,
+        'genres': details.genres.map((g) => g.name).toList(),
         'followedAt': FieldValue.serverTimestamp(),
       });
       try {

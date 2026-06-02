@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../core/theme.dart';
 import '../providers/auth_provider.dart' as app_auth;
+import '../providers/history_provider.dart';
 import '../services/user_service.dart';
 import '../services/favorite_service.dart';
+import '../services/follow_service.dart';
 import '../widgets/anime_poster_image.dart';
 import 'detail_screen.dart';
 
@@ -24,6 +26,8 @@ class UserProfileScreen extends StatefulWidget {
 }
 
 class _UserProfileScreenState extends State<UserProfileScreen> {
+  int _tabIndex = 0; // 0: Favorites, 1: Following
+
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<app_auth.AuthProvider>(context);
@@ -89,23 +93,51 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                       else if (isPrivate && isOwner)
                         const _OwnerPrivateNotice(),
 
+                      if (canViewFavorites) ...[
+                        _ProfileStatsSection(
+                          userId: widget.userId,
+                          isOwner: isOwner,
+                        ),
+                      ],
+
                       if (!canViewFavorites) ...[
                         const SizedBox(height: 8),
                         // Sin favoritos para visitantes de perfil privado
                       ] else ...[
                         if (isOwner || isPublic) ...[
                           const SizedBox(height: 8),
-                          Text(
-                            'Anime Favoritos',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: context.textPrimary,
-                            ),
+                          Row(
+                            children: [
+                              Text(
+                                _tabIndex == 0 ? 'Anime Favoritos' : 'Anime Siguiendo',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: context.textPrimary,
+                                ),
+                              ),
+                              const Spacer(),
+                              _buildTabButton(
+                                context,
+                                title: 'Favoritos',
+                                isActive: _tabIndex == 0,
+                                onTap: () => setState(() => _tabIndex = 0),
+                              ),
+                              const SizedBox(width: 8),
+                              _buildTabButton(
+                                context,
+                                title: 'Siguiendo',
+                                isActive: _tabIndex == 1,
+                                onTap: () => setState(() => _tabIndex = 1),
+                              ),
+                            ],
                           ),
                           const SizedBox(height: 12),
                         ],
-                        _FavoritesGrid(userId: widget.userId),
+                        _FavoritesGrid(
+                          userId: widget.userId,
+                          showFavorites: _tabIndex == 0,
+                        ),
                       ],
                     ],
                   ),
@@ -115,6 +147,38 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             ],
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildTabButton(
+    BuildContext context, {
+    required String title,
+    required bool isActive,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: isActive ? context.primaryColor : context.cardColor,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isActive ? context.primaryColor : context.textSecondary.withOpacity(0.3),
+            width: 1,
+          ),
+        ),
+        child: Text(
+          title,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            color: isActive ? Colors.white : context.textSecondary,
+          ),
+        ),
       ),
     );
   }
@@ -255,13 +319,19 @@ class _PrivateProfileBadge extends StatelessWidget {
 
 class _FavoritesGrid extends StatelessWidget {
   final String userId;
+  final bool showFavorites;
 
-  const _FavoritesGrid({required this.userId});
+  const _FavoritesGrid({
+    required this.userId,
+    required this.showFavorites,
+  });
 
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<FavoriteAnime>>(
-      stream: FavoriteService.getFavorites(userId),
+      stream: showFavorites
+          ? FavoriteService.getFavorites(userId)
+          : FollowService.getFollowing(userId),
       builder: (context, favsSnap) {
         if (favsSnap.connectionState == ConnectionState.waiting) {
           return const Center(
@@ -285,9 +355,16 @@ class _FavoritesGrid extends StatelessWidget {
             ),
             child: Column(
               children: [
-                Icon(Icons.bookmark_outline, size: 40, color: context.textSecondary),
+                Icon(
+                  showFavorites ? Icons.bookmark_outline : Icons.notifications_none_outlined,
+                  size: 40,
+                  color: context.textSecondary,
+                ),
                 const SizedBox(height: 10),
-                Text('Sin favoritos aún', style: TextStyle(color: context.textSecondary)),
+                Text(
+                  showFavorites ? 'Sin favoritos aún' : 'No sigue ningún anime aún',
+                  style: TextStyle(color: context.textSecondary),
+                ),
               ],
             ),
           );
@@ -348,6 +425,243 @@ class _FavoritesGrid extends StatelessWidget {
           },
         );
       },
+    );
+  }
+}
+
+class _ProfileStatsSection extends StatelessWidget {
+  final String userId;
+  final bool isOwner;
+
+  const _ProfileStatsSection({
+    required this.userId,
+    required this.isOwner,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final historyProvider = Provider.of<HistoryProvider>(context);
+
+    return StreamBuilder<List<FavoriteAnime>>(
+      stream: FavoriteService.getFavorites(userId),
+      builder: (context, favSnap) {
+        return StreamBuilder<List<FavoriteAnime>>(
+          stream: FollowService.getFollowing(userId),
+          builder: (context, followSnap) {
+            final favs = favSnap.data ?? [];
+            final following = followSnap.data ?? [];
+
+            final favsCount = favs.length;
+            final followingCount = following.length;
+            final episodesCount = isOwner ? historyProvider.recentEpisodes.length : 0;
+            final timeSpentMin = episodesCount * 23;
+            final timeSpentStr = timeSpentMin >= 60
+                ? '${(timeSpentMin / 60).floor()}h ${timeSpentMin % 60}m'
+                : '${timeSpentMin}m';
+
+            // Calcular géneros
+            final genreCounts = <String, int>{};
+            for (final fav in favs) {
+              for (final genre in fav.genres) {
+                genreCounts[genre] = (genreCounts[genre] ?? 0) + 1;
+              }
+            }
+            final sortedGenres = genreCounts.entries.toList()
+              ..sort((a, b) => b.value.compareTo(a.value));
+            final topGenres = sortedGenres.take(4).toList();
+            final maxCount = sortedGenres.isNotEmpty ? sortedGenres.first.value : 1;
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Cards Grid
+                if (isOwner) ...[
+                  GridView(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      childAspectRatio: 2.7,
+                      crossAxisSpacing: 12,
+                      mainAxisSpacing: 12,
+                    ),
+                    children: [
+                      _buildStatCard(
+                        context,
+                        label: 'Favoritos',
+                        value: '$favsCount',
+                        icon: Icons.bookmark,
+                        color: context.primaryColor,
+                      ),
+                      _buildStatCard(
+                        context,
+                        label: 'Siguiendo',
+                        value: '$followingCount',
+                        icon: Icons.notifications,
+                        color: context.accentColor,
+                      ),
+                      _buildStatCard(
+                        context,
+                        label: 'Vistos',
+                        value: '$episodesCount',
+                        icon: Icons.play_circle_fill,
+                        color: context.successColor,
+                      ),
+                      _buildStatCard(
+                        context,
+                        label: 'Tiempo',
+                        value: timeSpentStr,
+                        icon: Icons.access_time_filled,
+                        color: Colors.amber,
+                      ),
+                    ],
+                  ),
+                ] else ...[
+                  GridView(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      childAspectRatio: 2.7,
+                      crossAxisSpacing: 12,
+                      mainAxisSpacing: 12,
+                    ),
+                    children: [
+                      _buildStatCard(
+                        context,
+                        label: 'Favoritos',
+                        value: '$favsCount',
+                        icon: Icons.bookmark,
+                        color: context.primaryColor,
+                      ),
+                      _buildStatCard(
+                        context,
+                        label: 'Siguiendo',
+                        value: '$followingCount',
+                        icon: Icons.notifications,
+                        color: context.accentColor,
+                      ),
+                    ],
+                  ),
+                ],
+
+                // Géneros más vistos
+                if (topGenres.isNotEmpty) ...[
+                  const SizedBox(height: 24),
+                  Text(
+                    'Géneros Preferidos',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: context.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  ...topGenres.map((entry) {
+                    final ratio = entry.value / maxCount;
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 10.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                entry.key,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: context.textPrimary,
+                                ),
+                              ),
+                              Text(
+                                '${entry.value} ${entry.value == 1 ? 'anime' : 'animes'}',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: context.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(4),
+                            child: LinearProgressIndicator(
+                              value: ratio,
+                              minHeight: 6,
+                              backgroundColor: context.cardColor,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                ratio > 0.7 ? context.primaryColor : context.accentColor,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+                ],
+                const SizedBox(height: 24),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildStatCard(
+    BuildContext context, {
+    required String label,
+    required String value,
+    required IconData icon,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: context.cardColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.15), width: 1),
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 16,
+            backgroundColor: color.withValues(alpha: 0.15),
+            child: Icon(icon, color: color, size: 16),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: context.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 9,
+                    color: context.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

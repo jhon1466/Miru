@@ -9,6 +9,7 @@ import '../core/theme.dart';
 import '../providers/anime_provider.dart';
 import '../providers/auth_provider.dart' as app_auth;
 import '../providers/history_provider.dart';
+import '../services/anilist_service.dart';
 import '../models/anime.dart';
 import '../widgets/comments_section.dart';
 import '../widgets/episode_download_button.dart';
@@ -164,6 +165,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
             episodeUrl: widget.episodeUrl,
             userId: auth.userId,
           );
+      if (AniListService.isConnected) {
+        unawaited(AniListService.syncWatchProgress(widget.animeTitle, widget.episodeNumber));
+      }
     }
   }
 
