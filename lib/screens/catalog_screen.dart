@@ -5,6 +5,7 @@ import '../core/theme.dart';
 import '../providers/anime_provider.dart';
 import '../widgets/anime_poster_image.dart';
 import '../widgets/catalog_hentai_chip.dart';
+import '../widgets/provider_chips_row.dart';
 import 'detail_screen.dart';
 
 class CatalogScreen extends StatefulWidget {
@@ -104,6 +105,17 @@ class _CatalogScreenState extends State<CatalogScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Chips de proveedor
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: SizedBox(
+              height: 38,
+              child: ProviderChipsRow(
+                provider: provider,
+                padding: const EdgeInsets.only(right: 8),
+              ),
+            ),
+          ),
           CatalogHentaiChip(provider: provider),
           TextField(
             controller: _searchController,
