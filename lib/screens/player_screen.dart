@@ -191,34 +191,6 @@ class _PlayerScreenState extends State<PlayerScreen> {
     );
   }
 
-  void _openPlaybackOptions(EpisodeLinksResponse links) {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: AppTheme.cardColor,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (sheetContext) {
-        return DraggableScrollableSheet(
-          expand: false,
-          initialChildSize: 0.65,
-          minChildSize: 0.4,
-          maxChildSize: 0.92,
-          builder: (_, scrollController) {
-            return Padding(
-              padding: EdgeInsets.only(bottom: MediaQuery.of(sheetContext).viewInsets.bottom),
-              child: SingleChildScrollView(
-                controller: scrollController,
-                child: _buildServersPanel(links, onSelected: () => Navigator.pop(sheetContext)),
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
   Future<void> _launchExternalPlayer() async {
     if (_selectedServerUrl == null) return;
 
@@ -297,7 +269,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
               aspectRatio: 16 / 9,
               child: _buildPlayerWidget(),
             ),
-            if (links != null) _buildQuickControlsBar(links),
+
             Expanded(
               child: SingleChildScrollView(
                 child: Column(
@@ -348,69 +320,6 @@ class _PlayerScreenState extends State<PlayerScreen> {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildQuickControlsBar(EpisodeLinksResponse links) {
-    final hasSub = links.subStream.isNotEmpty || links.subDownload.isNotEmpty;
-    final hasDub = links.dubStream.isNotEmpty || links.dubDownload.isNotEmpty;
-
-    return Material(
-      color: context.cardColor,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        child: Row(
-          children: [
-            if (hasSub)
-              _miniLangChip('SUB', true, links, enabled: hasSub),
-            if (hasSub && hasDub) const SizedBox(width: 8),
-            if (hasDub)
-              _miniLangChip('DUB', false, links, enabled: hasDub),
-            const SizedBox(width: 8),
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: () => _openPlaybackOptions(links),
-                icon: const Icon(Icons.swap_horiz, size: 18),
-                label: Text(
-                  _selectedServerName ?? 'Servidor',
-                  overflow: TextOverflow.ellipsis,
-                ),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: context.textPrimary,
-                  side: const BorderSide(color: AppTheme.primaryColor),
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _miniLangChip(String label, bool subFlag, EpisodeLinksResponse links, {required bool enabled}) {
-    final selected = _isSub == subFlag;
-    return InkWell(
-      onTap: enabled ? () => _switchLanguage(subFlag, links) : null,
-      borderRadius: BorderRadius.circular(10),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(
-          color: selected ? AppTheme.primaryColor.withValues(alpha: 0.25) : context.cardColor,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: selected ? AppTheme.primaryColor : context.textSecondary.withValues(alpha: 0.3),
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: selected ? AppTheme.primaryColor : context.textSecondary,
-            fontSize: 13,
-          ),
         ),
       ),
     );
