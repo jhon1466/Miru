@@ -245,7 +245,11 @@ class _ScheduleCard extends StatelessWidget {
                         ),
                         child: Text(
                           entry.displayTime,
-                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
                         ),
                       ),
                     ),

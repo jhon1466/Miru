@@ -198,7 +198,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             children: [
                               CachedNetworkImage(
                                 imageUrl: anime.image ?? '',
-                                fit: BoxFit.contain,
+                                fit: BoxFit.cover,
                                 width: double.infinity,
                                 height: double.infinity,
                                 placeholder: (context, url) => Container(color: context.cardColor),
@@ -235,11 +235,14 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                       const SizedBox(height: 8),
-                      Text(
-                        anime.title,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: context.textPrimary),
+                      SizedBox(
+                        height: 38,
+                        child: Text(
+                          anime.title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: context.textPrimary),
+                        ),
                       ),
                     ],
                   ),
@@ -304,7 +307,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
         SizedBox(
-          height: 200,
+          height: 160,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -312,7 +315,7 @@ class _HomeScreenState extends State<HomeScreen> {
             itemBuilder: (context, index) {
               final item = episodes[index];
               return Container(
-                width: 130,
+                width: 180,
                 margin: const EdgeInsets.symmetric(horizontal: 6.0),
                 child: InkWell(
                   onTap: () {
@@ -333,7 +336,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
+                      AspectRatio(
+                        aspectRatio: 16 / 9,
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(12),
                           child: Stack(
@@ -341,7 +345,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             children: [
                               AnimePosterImage(
                                 imageUrl: item.image,
-                                fit: BoxFit.contain,
+                                fit: BoxFit.cover,
                                 width: double.infinity,
                                 height: double.infinity,
                               ),
@@ -369,14 +373,17 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                       const SizedBox(height: 6),
-                      Text(
-                        item.animeTitle,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 11,
-                          color: context.textPrimary,
+                      SizedBox(
+                        height: 34,
+                        child: Text(
+                          item.animeTitle,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 11,
+                            color: context.textPrimary,
+                          ),
                         ),
                       ),
                     ],
@@ -658,7 +665,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             children: [
                               AnimePosterImage(
                                 imageUrl: anime.image,
-                                fit: BoxFit.contain,
+                                fit: BoxFit.cover,
                                 width: double.infinity,
                                 height: double.infinity,
                               ),
@@ -693,11 +700,14 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                       const SizedBox(height: 6),
-                      Text(
-                        anime.title,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: context.textPrimary),
+                      SizedBox(
+                        height: 34,
+                        child: Text(
+                          anime.title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: context.textPrimary),
+                        ),
                       ),
                     ],
                   ),
