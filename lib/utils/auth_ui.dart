@@ -21,16 +21,16 @@ Future<void> showWelcomeDialog(BuildContext context, String name) async {
             child: const Icon(Icons.waving_hand, color: Colors.white, size: 22),
           ),
           const SizedBox(width: 12),
-          const Expanded(
+          Expanded(
             child: Text(
               '¡Bienvenido!',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              style: TextStyle(color: context.textPrimary, fontWeight: FontWeight.bold),
             ),
           ),
         ],
       ),
       content: Text(
-        'Hola, $name.\n\nTu historial y favoritos se sincronizan con tu cuenta.',
+        'Hola, $name.\n\nTu historial, cuenta y favoritos se sincronizan en la nube.',
         style: TextStyle(color: context.textSecondary, height: 1.4),
       ),
       actions: [
