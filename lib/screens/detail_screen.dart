@@ -12,6 +12,7 @@ import '../widgets/comments_section.dart';
 import '../widgets/episode_download_button.dart';
 import '../models/anime.dart';
 import '../utils/image_utils.dart';
+import '../services/follow_service.dart';
 import 'player_screen.dart';
 
 class DetailScreen extends StatefulWidget {
@@ -329,6 +330,130 @@ class _DetailScreenState extends State<DetailScreen> {
                       ),
                     ],
                   ),
+
+                  if (details.status?.toLowerCase().contains('emisi') == true) ...[
+                    const SizedBox(height: 16),
+                    authProvider.isLoggedIn
+                        ? StreamBuilder<bool>(
+                            stream: FollowService.isFollowingStream(
+                              authProvider.userId!,
+                              widget.animeUrl,
+                            ),
+                            builder: (context, snapshot) {
+                              final isFollowing = snapshot.data ?? false;
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Material(
+                                    color: Colors.transparent,
+                                    child: InkWell(
+                                      borderRadius: BorderRadius.circular(12),
+                                      onTap: () async {
+                                        await FollowService.toggleFollow(
+                                          authProvider.userId!,
+                                          details,
+                                          widget.animeUrl,
+                                          fallbackImage: widget.animeImage,
+                                        );
+                                        if (!context.mounted) return;
+                                        ScaffoldMessenger.of(context).clearSnackBars();
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(
+                                            content: Text(isFollowing ? 'Dejaste de seguir este anime' : 'Ahora sigues este anime'),
+                                            backgroundColor: isFollowing ? context.dangerColor : context.successColor,
+                                            duration: const Duration(seconds: 2),
+                                          ),
+                                        );
+                                      },
+                                      child: Ink(
+                                        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                                        decoration: BoxDecoration(
+                                          color: isFollowing 
+                                              ? context.cardColor 
+                                              : context.primaryColor,
+                                          borderRadius: BorderRadius.circular(12),
+                                          border: isFollowing 
+                                              ? Border.all(color: context.primaryColor.withValues(alpha: 0.5)) 
+                                              : null,
+                                        ),
+                                        child: Row(
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          children: [
+                                            Icon(
+                                              isFollowing ? Icons.notifications_active : Icons.notifications_none,
+                                              color: isFollowing ? context.primaryColor : Colors.white,
+                                              size: 20,
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              isFollowing ? 'Siguiendo' : 'Seguir Anime',
+                                              style: TextStyle(
+                                                color: isFollowing ? context.primaryColor : Colors.white,
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 14,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Icon(Icons.info_outline, size: 14, color: context.textSecondary),
+                                      const SizedBox(width: 6),
+                                      Expanded(
+                                        child: Text(
+                                          'Al seguir este anime, recibirás una notificación al estrenarse un nuevo capítulo en la aplicación.',
+                                          style: TextStyle(fontSize: 11, color: context.textSecondary, height: 1.3),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              );
+                            },
+                          )
+                        : Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: context.primaryColor.withValues(alpha: 0.5),
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                ),
+                                onPressed: () {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Inicia sesión con Google para seguir este anime y recibir notificaciones'),
+                                      duration: Duration(seconds: 2),
+                                    ),
+                                  );
+                                },
+                                icon: const Icon(Icons.notifications_none, color: Colors.white, size: 20),
+                                label: const Text('Seguir Anime', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                              ),
+                              const SizedBox(height: 8),
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Icon(Icons.info_outline, size: 14, color: context.textSecondary),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      'Al seguir este anime, recibirás una notificación al estrenarse un nuevo capítulo en la aplicación.',
+                                      style: TextStyle(fontSize: 11, color: context.textSecondary, height: 1.3),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                    const SizedBox(height: 16),
+                  ],
 
                   const SizedBox(height: 24),
                   // Géneros
