@@ -12,6 +12,7 @@ class AnimeSearchResult {
   final String? status;
   final String? year;
   final List<String> genres;
+  final String? relation;
 
   AnimeSearchResult({
     this.id,
@@ -25,6 +26,7 @@ class AnimeSearchResult {
     this.status,
     this.year,
     this.genres = const [],
+    this.relation,
   });
 
   factory AnimeSearchResult.fromJson(Map<String, dynamic> json) {
@@ -50,6 +52,7 @@ class AnimeSearchResult {
       status: json['status']?.toString(),
       year: json['year']?.toString(),
       genres: genresList,
+      relation: json['relation']?.toString(),
     );
   }
 
@@ -66,6 +69,7 @@ class AnimeSearchResult {
       'status': status,
       'year': year,
       'genres': genres,
+      'relation': relation,
     };
   }
 }
@@ -186,6 +190,7 @@ class AnimeDetails {
   final List<Genre> genres;
   final List<Episode> episodes;
   final String? source;
+  final List<AnimeSearchResult> relations;
 
   AnimeDetails({
     this.id,
@@ -205,6 +210,7 @@ class AnimeDetails {
     required this.genres,
     required this.episodes,
     this.source,
+    this.relations = const [],
   });
 
   factory AnimeDetails.fromJson(Map<String, dynamic> json) {
@@ -213,6 +219,10 @@ class AnimeDetails {
     
     // El orden de episodios suele venir en orden cronológico inverso o directo. Nos aseguramos de mantener el orden o poder ordenarlo.
     // Opcionalmente podemos revertirlo para que el primero de la lista sea el Episodio 1, pero es mejor mostrarlo tal cual viene y dejar que el usuario ordene si quiere, o mantener el orden recibido.
+    
+    var relationsList = (json['relations'] as List?)
+        ?.map((r) => AnimeSearchResult.fromJson(r))
+        .toList() ?? [];
     
     return AnimeDetails(
       id: json['id']?.toString(),
@@ -234,6 +244,7 @@ class AnimeDetails {
       genres: genresList,
       episodes: episodesList,
       source: json['source']?.toString(),
+      relations: relationsList,
     );
   }
 
@@ -256,6 +267,7 @@ class AnimeDetails {
       'genres': genres.map((g) => g.toJson()).toList(),
       'episodes': episodes.map((e) => e.toJson()).toList(),
       'source': source,
+      'relations': relations.map((r) => r.toJson()).toList(),
     };
   }
 }

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 import '../core/theme.dart';
 import '../providers/anime_provider.dart';
 import '../providers/auth_provider.dart' as app_auth;
@@ -171,8 +172,18 @@ class _DetailScreenState extends State<DetailScreen> {
           SliverAppBar(
             pinned: true,
             backgroundColor: context.backgroundColor,
-            automaticallyImplyLeading: true,
             actions: [
+              IconButton(
+                icon: Icon(Icons.share, color: context.textPrimary, size: 26),
+                tooltip: 'Compartir',
+                onPressed: () {
+                  SharePlus.instance.share(
+                    ShareParams(
+                      text: 'Mira ${widget.animeTitle} en la app: ${widget.animeUrl}',
+                    ),
+                  );
+                },
+              ),
               // Botón de favorito con Firestore
               authProvider.isLoggedIn
                   ? StreamBuilder<bool>(
@@ -313,10 +324,6 @@ class _DetailScreenState extends State<DetailScreen> {
                               'Episodios: ${details.episodes.length}',
                               style: TextStyle(fontSize: 13, color: context.textSecondary),
                             ),
-                            Text(
-                              'Fuente: ${details.source ?? 'Desconocido'}',
-                              style: TextStyle(fontSize: 11, color: context.accentColor, fontWeight: FontWeight.w600),
-                            ),
                           ],
                         ),
                       ),
@@ -357,6 +364,90 @@ class _DetailScreenState extends State<DetailScreen> {
                     details.description ?? 'Sin sinopsis disponible.',
                     style: TextStyle(fontSize: 14, color: context.textSecondary, height: 1.5),
                   ),
+
+                  if (details.relations.isNotEmpty) ...[
+                    const SizedBox(height: 28),
+                    Text(
+                      'Animes Relacionados',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: context.textPrimary),
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      height: 175,
+                      child: ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: details.relations.length,
+                        itemBuilder: (context, index) {
+                          final relation = details.relations[index];
+                          return GestureDetector(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => DetailScreen(
+                                    animeUrl: relation.url,
+                                    animeTitle: relation.title,
+                                    animeImage: relation.image,
+                                  ),
+                                ),
+                              );
+                            },
+                            child: Container(
+                              width: 105,
+                              margin: const EdgeInsets.only(right: 12),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Expanded(
+                                    child: Stack(
+                                      children: [
+                                        AnimePosterImage(
+                                          imageUrl: relation.image,
+                                          fit: BoxFit.cover,
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        if (relation.relation != null && relation.relation!.isNotEmpty)
+                                          Positioned(
+                                            top: 6,
+                                            left: 6,
+                                            child: Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                              decoration: BoxDecoration(
+                                                color: context.primaryColor.withOpacity(0.9),
+                                                borderRadius: BorderRadius.circular(4),
+                                              ),
+                                              child: Text(
+                                                relation.relation!,
+                                                style: const TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: 9,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    relation.title,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w500,
+                                      color: context.textPrimary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
 
                   const SizedBox(height: 32),
 
