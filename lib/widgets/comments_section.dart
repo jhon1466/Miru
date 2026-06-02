@@ -552,6 +552,43 @@ class _CommentsSectionState extends State<CommentsSection> {
                           ),
                           if (liveComment.wasEdited)
                             Text(' · editado', style: TextStyle(fontSize: 10, color: context.textSecondary)),
+                          if (isOwner) ...[
+                            const SizedBox(width: 6),
+                            PopupMenuButton<String>(
+                              icon: Icon(Icons.more_vert, size: 16, color: context.textSecondary),
+                              padding: EdgeInsets.zero,
+                              iconSize: 16,
+                              onSelected: (value) {
+                                if (value == 'edit') {
+                                  _editComment(liveComment, auth);
+                                } else if (value == 'delete') {
+                                  _deleteComment(liveComment, auth);
+                                }
+                              },
+                              itemBuilder: (context) => [
+                                PopupMenuItem(
+                                  value: 'edit',
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.edit, size: 16, color: context.textPrimary),
+                                      const SizedBox(width: 8),
+                                      const Text('Editar', style: TextStyle(fontSize: 13)),
+                                    ],
+                                  ),
+                                ),
+                                PopupMenuItem(
+                                  value: 'delete',
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.delete, size: 16, color: AppTheme.dangerColor),
+                                      const SizedBox(width: 8),
+                                      Text('Eliminar', style: TextStyle(fontSize: 13, color: AppTheme.dangerColor)),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                         ],
                       ),
                       if (isReply && liveComment.replyToUserId != null)
@@ -631,16 +668,6 @@ class _CommentsSectionState extends State<CommentsSection> {
                                 : null,
                             child: const Text('Responder', style: TextStyle(fontSize: 12)),
                           ),
-                          if (isOwner) ...[
-                            TextButton(
-                              onPressed: () => _editComment(liveComment, auth),
-                              child: const Text('Editar', style: TextStyle(fontSize: 12)),
-                            ),
-                            TextButton(
-                              onPressed: () => _deleteComment(liveComment, auth),
-                              child: Text('Eliminar', style: TextStyle(fontSize: 12, color: AppTheme.dangerColor)),
-                            ),
-                          ],
                         ],
                       ),
                     ],

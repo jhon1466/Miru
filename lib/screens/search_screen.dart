@@ -145,8 +145,6 @@ class _SearchScreenState extends State<SearchScreen> {
           Expanded(
             child: _buildSearchBody(animeProvider),
           ),
-          // Espacio para la barra de navegación inferior si está embebida
-          if (widget.embedded) SizedBox(height: MediaQuery.of(context).padding.bottom + 70),
         ],
       ),
     );
@@ -213,7 +211,16 @@ class _SearchScreenState extends State<SearchScreen> {
       }
 
       return SingleChildScrollView(
-        padding: const EdgeInsets.all(20.0),
+        padding: EdgeInsets.only(
+          left: 20.0,
+          right: 20.0,
+          top: 20.0,
+          bottom: widget.embedded
+              ? (MediaQuery.of(context).viewInsets.bottom > 0
+                  ? 20.0
+                  : MediaQuery.of(context).padding.bottom + 80.0)
+              : 20.0,
+        ),
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -261,7 +268,16 @@ class _SearchScreenState extends State<SearchScreen> {
     }
 
     return GridView.builder(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.only(
+        left: 16,
+        right: 16,
+        top: 16,
+        bottom: widget.embedded
+            ? (MediaQuery.of(context).viewInsets.bottom > 0
+                ? 16.0
+                : MediaQuery.of(context).padding.bottom + 80.0)
+            : 16.0,
+      ),
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       itemCount: provider.searchResults.length,
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
