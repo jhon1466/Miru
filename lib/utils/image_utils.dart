@@ -100,6 +100,8 @@ Map<String, String> imageHttpHeadersForUrl(String url) {
     headers['Referer'] = 'https://www3.animeflv.net/';
   } else if (host.contains('hentaila')) {
     headers['Referer'] = 'https://hentaila.com/';
+  } else if (host.contains('latanime')) {
+    headers['Referer'] = 'https://latanime.org/';
   }
 
   return headers;
