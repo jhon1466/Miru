@@ -1,6 +1,4 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:cloud_functions/cloud_functions.dart';
-import 'package:flutter/foundation.dart';
 import '../models/comment.dart';
 
 class NotificationService {
@@ -57,7 +55,7 @@ class NotificationService {
     final snippet = preview.length > 80 ? '${preview.substring(0, 80)}…' : preview;
 
     final title = '$fromUserName respondió tu comentario';
-    final doc = await _notificationsRef(targetUserId).add({
+    await _notificationsRef(targetUserId).add({
       'type': 'comment_reply',
       'title': title,
       'body': snippet,
@@ -73,53 +71,6 @@ class NotificationService {
       'read': false,
       'createdAt': FieldValue.serverTimestamp(),
     });
-
-    await _sendPushNotification(
-      targetUserId: targetUserId,
-      title: title,
-      body: snippet,
-      animeSlug: animeSlug,
-      animeTitle: animeTitle,
-      animeUrl: animeUrl,
-      episodeUrl: episodeUrl,
-      episodeNumber: episodeNumber,
-      commentId: commentId,
-      parentCommentId: parentCommentId,
-      notificationId: doc.id,
-    );
-  }
-
-  static Future<void> _sendPushNotification({
-    required String targetUserId,
-    required String title,
-    required String body,
-    required String animeSlug,
-    required String animeTitle,
-    String? animeUrl,
-    String? episodeUrl,
-    double? episodeNumber,
-    required String commentId,
-    String? parentCommentId,
-    required String notificationId,
-  }) async {
-    try {
-      final functions = FirebaseFunctions.instanceFor(region: 'us-central1');
-      await functions.httpsCallable('sendCommentReplyPush').call({
-        'targetUserId': targetUserId,
-        'title': title,
-        'body': body,
-        'animeSlug': animeSlug,
-        'animeTitle': animeTitle,
-        'animeUrl': animeUrl,
-        'episodeUrl': episodeUrl,
-        'commentId': commentId,
-        'parentCommentId': parentCommentId,
-        'episodeNumber': episodeNumber,
-        'notificationId': notificationId,
-      });
-    } catch (e) {
-      debugPrint('Push FCM: $e');
-    }
   }
 
   static Future<void> markAsRead(String userId, String notificationId) async {

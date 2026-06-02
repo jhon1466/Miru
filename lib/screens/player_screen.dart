@@ -13,6 +13,7 @@ import '../models/anime.dart';
 import '../widgets/comments_section.dart';
 import '../widgets/episode_download_button.dart';
 import '../widgets/native_video_player.dart';
+import 'detail_screen.dart';
 
 class PlayerScreen extends StatefulWidget {
   final String episodeUrl;
@@ -238,11 +239,30 @@ class _PlayerScreenState extends State<PlayerScreen> {
           backgroundColor: context.backgroundColor,
           title: Column(
             children: [
-              Text(
-                widget.animeTitle,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 14, color: context.textPrimary, fontWeight: FontWeight.bold),
+              GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => DetailScreen(
+                        animeUrl: widget.animeUrl,
+                        animeTitle: widget.animeTitle,
+                        animeImage: widget.animeImage,
+                      ),
+                    ),
+                  );
+                },
+                child: Text(
+                  widget.animeTitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: context.primaryColor,
+                    fontWeight: FontWeight.bold,
+                    decoration: TextDecoration.underline,
+                  ),
+                ),
               ),
               Text(
                 'Episodio ${widget.episodeNumber.toString().replaceAll('.0', '')}',

@@ -293,7 +293,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               IconButton(
                 icon: Icon(Icons.refresh, size: 20, color: context.textSecondary),
-                onPressed: () => provider.loadLatestPublishedEpisodes(),
+                onPressed: () => provider.loadLatestPublishedEpisodes(forceNetwork: true),
                 tooltip: 'Actualizar',
               ),
             ],
