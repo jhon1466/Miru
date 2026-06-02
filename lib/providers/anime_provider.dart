@@ -59,6 +59,7 @@ class AnimeProvider extends ChangeNotifier {
     {'name': 'AnimeFLV', 'domain': 'animeflv.net'},
     {'name': 'TioAnime', 'domain': 'tioanime.com'},
     {'name': 'MonosChinos', 'domain': 'monoschinos2.com'},
+    {'name': 'LatAnime', 'domain': 'latanime.org'},
     {'name': 'HentaiLA', 'domain': AdultContent.hentaiDomain},
   ];
 
