@@ -425,7 +425,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
             iframeAllowFullscreen: true,
             useShouldOverrideUrlLoading: true,
             javaScriptCanOpenWindowsAutomatically: false,
-            supportMultipleWindows: false,
+            supportMultipleWindows: true,
             useHybridComposition: true,
             domStorageEnabled: true,
           ),
@@ -441,6 +441,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
               }
             }
             return NavigationActionPolicy.ALLOW;
+          },
+          onCreateWindow: (controller, createWindowAction) async {
+            return false; // Bloquea la creación de nuevas ventanas (popups de publicidad)
           },
           onEnterFullscreen: (controller) {
             unawaited(_onWebEnterFullscreen(controller));
