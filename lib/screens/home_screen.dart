@@ -9,11 +9,13 @@ import '../providers/auth_provider.dart' as app_auth;
 import '../providers/history_provider.dart';
 import '../providers/notification_provider.dart';
 import '../services/favorite_service.dart';
+import '../services/follow_service.dart';
 import '../widgets/anime_poster_image.dart';
 import '../models/anime.dart';
 import 'detail_screen.dart';
 import 'player_screen.dart';
 import 'notifications_screen.dart';
+import 'public_chat_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -23,6 +25,8 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  int _libraryTabIndex = 0; // 0: Favorites, 1: Following
+
   @override
   void initState() {
     super.initState();
@@ -76,6 +80,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         actions: [
           _NotificationsBell(authProvider: authProvider),
+          _ChatIconButton(authProvider: authProvider),
           const SizedBox(width: 4),
         ],
       ),
@@ -548,38 +553,104 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget _buildLibraryTabButton(
+    BuildContext context, {
+    required String title,
+    required bool isActive,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: isActive ? context.primaryColor : context.cardColor,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isActive ? context.primaryColor : context.textSecondary.withOpacity(0.3),
+            width: 1,
+          ),
+        ),
+        child: Text(
+          title,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            color: isActive ? Colors.white : context.textSecondary,
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildFavoritesSection(
     BuildContext context,
     HistoryProvider historyProvider,
     app_auth.AuthProvider authProvider,
   ) {
     if (authProvider.isLoggedIn && authProvider.userId != null) {
-      return StreamBuilder<List<FavoriteAnime>>(
-        stream: FavoriteService.getFavorites(authProvider.userId!),
-        builder: (context, snapshot) {
-          final cloudFavs = snapshot.data ?? [];
-          final items = cloudFavs.isNotEmpty
-              ? cloudFavs
-                  .map((f) => AnimeSearchResult(
-                        title: f.title,
-                        url: f.animeUrl,
-                        image: f.image,
-                        type: f.type,
-                        score: f.score,
-                        status: f.status,
-                      ))
-                  .toList()
-              : historyProvider.favorites;
-          return _buildFavoritesContent(context, items, isLoading: snapshot.connectionState == ConnectionState.waiting);
-        },
-      );
+      if (_libraryTabIndex == 0) {
+        return StreamBuilder<List<FavoriteAnime>>(
+          stream: FavoriteService.getFavorites(authProvider.userId!),
+          builder: (context, snapshot) {
+            final cloudFavs = snapshot.data ?? [];
+            final items = cloudFavs.isNotEmpty
+                ? cloudFavs
+                    .map((f) => AnimeSearchResult(
+                          title: f.title,
+                          url: f.animeUrl,
+                          image: f.image,
+                          type: f.type,
+                          score: f.score,
+                          status: f.status,
+                        ))
+                    .toList()
+                : historyProvider.favorites;
+            return _buildLibraryContent(
+              context,
+              authProvider,
+              items,
+              isFavorites: true,
+              isLoading: snapshot.connectionState == ConnectionState.waiting,
+            );
+          },
+        );
+      } else {
+        return StreamBuilder<List<FavoriteAnime>>(
+          stream: FollowService.getFollowing(authProvider.userId!),
+          builder: (context, snapshot) {
+            final following = snapshot.data ?? [];
+            final items = following
+                .map((f) => AnimeSearchResult(
+                      title: f.title,
+                      url: f.animeUrl,
+                      image: f.image,
+                      type: f.type,
+                      score: f.score,
+                      status: f.status,
+                    ))
+                .toList();
+            return _buildLibraryContent(
+              context,
+              authProvider,
+              items,
+              isFavorites: false,
+              isLoading: snapshot.connectionState == ConnectionState.waiting,
+            );
+          },
+        );
+      }
     }
-    return _buildFavoritesContent(context, historyProvider.favorites);
+    return _buildLibraryContent(context, authProvider, historyProvider.favorites, isFavorites: true);
   }
 
-  Widget _buildFavoritesContent(
+  Widget _buildLibraryContent(
     BuildContext context,
-    List<AnimeSearchResult> favorites, {
+    app_auth.AuthProvider authProvider,
+    List<AnimeSearchResult> items, {
+    required bool isFavorites,
     bool isLoading = false,
   }) {
     return Padding(
@@ -589,12 +660,32 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 20.0),
-            child: Text(
-              'Mi Biblioteca',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: context.textPrimary),
+            child: Row(
+              children: [
+                Text(
+                  'Mi Biblioteca',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: context.textPrimary),
+                ),
+                if (authProvider.isLoggedIn && authProvider.userId != null) ...[
+                  const Spacer(),
+                  _buildLibraryTabButton(
+                    context,
+                    title: 'Favoritos',
+                    isActive: _libraryTabIndex == 0,
+                    onTap: () => setState(() => _libraryTabIndex = 0),
+                  ),
+                  const SizedBox(width: 8),
+                  _buildLibraryTabButton(
+                    context,
+                    title: 'Siguiendo',
+                    isActive: _libraryTabIndex == 1,
+                    onTap: () => setState(() => _libraryTabIndex = 1),
+                  ),
+                ],
+              ],
             ),
           ),
-          if (isLoading && favorites.isEmpty)
+          if (isLoading && items.isEmpty)
             const Padding(
               padding: EdgeInsets.all(24),
               child: Center(
@@ -603,7 +694,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
             )
-          else if (favorites.isEmpty)
+          else if (items.isEmpty)
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(24),
@@ -613,15 +704,21 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               child: Column(
                 children: [
-                  const Icon(Icons.bookmark_outline, size: 40, color: AppTheme.primaryColor),
+                  Icon(
+                    isFavorites ? Icons.bookmark_outline : Icons.notifications_none_outlined,
+                    size: 40,
+                    color: AppTheme.primaryColor,
+                  ),
                   const SizedBox(height: 12),
                   Text(
-                    'Aún no tienes favoritos',
+                    isFavorites ? 'Aún no tienes favoritos' : 'No sigues ningún anime',
                     style: TextStyle(fontWeight: FontWeight.bold, color: context.textPrimary),
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Busca animes y agrégalos a tu biblioteca para acceder rápido a ellos.',
+                    isFavorites
+                        ? 'Busca animes y agrégalos a tu biblioteca para acceder rápido a ellos.'
+                        : 'Sigue tus animes en emisión favoritos para enterarte de nuevos capítulos.',
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 12, color: context.textSecondary),
                   ),
@@ -632,7 +729,7 @@ class _HomeScreenState extends State<HomeScreen> {
             GridView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              itemCount: favorites.length,
+              itemCount: items.length,
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 3,
                 childAspectRatio: 0.62,
@@ -640,7 +737,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 mainAxisSpacing: 12,
               ),
               itemBuilder: (context, index) {
-                final anime = favorites[index];
+                final anime = items[index];
                 return InkWell(
                   onTap: () {
                     Navigator.push(
@@ -774,6 +871,35 @@ class _NotificationsBell extends StatelessWidget {
             ),
           ),
       ],
+    );
+  }
+}
+
+class _ChatIconButton extends StatelessWidget {
+  final app_auth.AuthProvider authProvider;
+
+  const _ChatIconButton({required this.authProvider});
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      icon: const Icon(Icons.chat_bubble_outline, size: 26),
+      tooltip: 'Chat Público',
+      onPressed: () {
+        if (authProvider.isLoggedIn) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const PublicChatScreen()),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Debes iniciar sesión para acceder al chat público'),
+              backgroundColor: context.dangerColor,
+            ),
+          );
+        }
+      },
     );
   }
 }

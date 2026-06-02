@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../core/theme.dart';
 import '../providers/auth_provider.dart' as app_auth;
 import '../providers/history_provider.dart';
@@ -7,6 +8,7 @@ import '../providers/settings_provider.dart';
 import '../providers/anime_provider.dart';
 import '../services/api_cache_service.dart';
 import '../services/user_service.dart';
+import '../services/anilist_service.dart';
 import 'package:flutter/painting.dart';
 import '../utils/auth_ui.dart';
 import 'user_profile_screen.dart';
@@ -20,7 +22,6 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  bool _notificationsEnabled = true;
   bool _autoplayNextEpisode = false;
 
   @override
@@ -70,14 +71,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const SizedBox(height: 8),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
-              title: const Text('Notificaciones de actualizaciones'),
-              subtitle: const Text('Avisarte cuando haya una nueva versión de Miru'),
-              value: _notificationsEnabled,
-              activeColor: context.primaryColor,
-              onChanged: (v) => setState(() => _notificationsEnabled = v),
-            ),
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
               title: const Text('Reproducción automática'),
               subtitle: const Text('Pasar al siguiente episodio al terminar (próximamente)'),
               value: _autoplayNextEpisode,
@@ -88,6 +81,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
               builder: (context, settings, _) {
                 return Column(
                   children: [
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Notificaciones de actualizaciones'),
+                      subtitle: const Text('Avisarte cuando haya una nueva versión de Miru'),
+                      value: settings.updateNotificationsEnabled,
+                      activeThumbColor: context.primaryColor,
+                      onChanged: (v) => settings.setUpdateNotificationsEnabled(v),
+                    ),
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
                       title: const Text('Contenido +18'),
@@ -165,8 +166,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 );
               },
             ),
-            const SizedBox(height: 32),
-            Text(
+             const SizedBox(height: 32),
+             _buildSincronizacionSection(context),
+             const SizedBox(height: 32),
+             Text(
               'Datos de Aplicación',
               style: TextStyle(
                 fontSize: 18,
@@ -233,7 +236,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               contentPadding: EdgeInsets.zero,
               leading: Icon(Icons.info_outline, color: context.primaryColor),
               title: const Text('Versión de la app'),
-              subtitle: const Text('1.9.5'),
+              subtitle: const Text('1.9.6'),
             ),
             ListTile(
               contentPadding: EdgeInsets.zero,
@@ -258,6 +261,190 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildSincronizacionSection(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Sincronización',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: context.textPrimary,
+          ),
+        ),
+        const SizedBox(height: 8),
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: CircleAvatar(
+            radius: 18,
+            backgroundColor: const Color(0xFF3DB4F2).withValues(alpha: 0.1),
+            child: const Icon(Icons.sync_outlined, color: Color(0xFF3DB4F2)),
+          ),
+          title: const Text('AniList'),
+          subtitle: Text(
+            AniListService.isConnected
+                ? 'Conectado como ${AniListService.username}'
+                : 'Conectar cuenta para sincronizar capítulos vistos',
+            style: TextStyle(fontSize: 12, color: context.textSecondary),
+          ),
+          trailing: AniListService.isConnected
+              ? IconButton(
+                  icon: const Icon(Icons.link_off, color: AppTheme.dangerColor),
+                  tooltip: 'Desconectar',
+                  onPressed: () async {
+                    await AniListService.disconnect();
+                    setState(() {});
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Cuenta de AniList desconectada')),
+                    );
+                  },
+                )
+              : IconButton(
+                  icon: Icon(Icons.link, color: context.primaryColor),
+                  tooltip: 'Conectar',
+                  onPressed: () => _showAniListConnectDialog(context),
+                ),
+        ),
+      ],
+    );
+  }
+
+  void _showAniListConnectDialog(BuildContext context) {
+    final controller = TextEditingController();
+    bool isLoading = false;
+    String? errorMessage;
+
+    showDialog<void>(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              backgroundColor: context.cardColor,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: Row(
+                children: [
+                  const Icon(Icons.sync, color: Color(0xFF3DB4F2)),
+                  const SizedBox(width: 10),
+                  Text(
+                    'Conectar AniList',
+                    style: TextStyle(color: context.textPrimary, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Sigue estos pasos para conectar tu cuenta:',
+                    style: TextStyle(color: context.textPrimary, fontSize: 13, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '1. Presiona el botón de abajo para autorizar a Miru en AniList.\n'
+                    '2. Copia el token o código que te muestre la página.\n'
+                    '3. Pega el token aquí abajo y dale a conectar.',
+                    style: TextStyle(color: context.textSecondary, fontSize: 12, height: 1.4),
+                  ),
+                  const SizedBox(height: 16),
+                  Center(
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF3DB4F2),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      ),
+                      onPressed: () async {
+                        final url = Uri.parse(
+                          'https://anilist.co/api/v2/oauth/authorize?client_id=23348&response_type=token',
+                        );
+                        if (await canLaunchUrl(url)) {
+                          await launchUrl(url, mode: LaunchMode.externalApplication);
+                        }
+                      },
+                      icon: const Icon(Icons.open_in_browser, size: 18),
+                      label: const Text('Autorizar en AniList', style: TextStyle(fontSize: 13)),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: controller,
+                    decoration: InputDecoration(
+                      hintText: 'Pega el token aquí...',
+                      errorText: errorMessage,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    ),
+                    style: TextStyle(color: context.textPrimary, fontSize: 13),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isLoading ? null : () => Navigator.pop(ctx),
+                  child: Text('Cancelar', style: TextStyle(color: context.textSecondary)),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: context.primaryColor,
+                  ),
+                  onPressed: isLoading
+                      ? null
+                      : () async {
+                          final token = controller.text.trim();
+                          if (token.isEmpty) {
+                            setDialogState(() {
+                              errorMessage = 'El token no puede estar vacío';
+                            });
+                            return;
+                          }
+
+                          setDialogState(() {
+                            isLoading = true;
+                            errorMessage = null;
+                          });
+
+                          final success = await AniListService.connect(token);
+
+                          if (success) {
+                            if (mounted) {
+                              setState(() {});
+                            }
+                            if (ctx.mounted) {
+                              Navigator.pop(ctx);
+                            }
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('¡Conectado como ${AniListService.username}!'),
+                                  backgroundColor: context.successColor,
+                                ),
+                              );
+                            }
+                          } else {
+                            setDialogState(() {
+                              isLoading = false;
+                              errorMessage = 'Token inválido o expirado';
+                            });
+                          }
+                        },
+                  child: isLoading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Text('Conectar'),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 

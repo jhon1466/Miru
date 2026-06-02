@@ -12,6 +12,7 @@ class FavoriteAnime {
   final String? type;
   final String? status;
   final double? score;
+  final List<String> genres;
   final DateTime addedAt;
 
   FavoriteAnime({
@@ -21,6 +22,7 @@ class FavoriteAnime {
     this.type,
     this.status,
     this.score,
+    this.genres = const [],
     required this.addedAt,
   });
 
@@ -33,6 +35,7 @@ class FavoriteAnime {
       type: data['type'],
       status: data['status'],
       score: (data['score'] as num?)?.toDouble(),
+      genres: List<String>.from(data['genres'] ?? []),
       addedAt: (data['addedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
   }
@@ -45,6 +48,7 @@ class FavoriteAnime {
       'type': type,
       'status': status,
       'score': score,
+      'genres': genres,
       'addedAt': Timestamp.fromDate(addedAt),
     };
   }
@@ -126,6 +130,7 @@ class FavoriteService {
         type: details.type,
         status: details.status,
         score: details.score,
+        genres: details.genres.map((g) => g.name).toList(),
         addedAt: DateTime.now(),
       );
       await ref.set(fav.toFirestore());
