@@ -343,11 +343,11 @@ class _CatalogScreenState extends State<CatalogScreen> {
     final itemCount = results.length + (provider.isLoadingMoreCatalog ? 1 : 0);
 
     return Padding(
-      padding: EdgeInsets.only(
+      padding: const EdgeInsets.only(
         left: 12,
         right: 12,
         top: 8,
-        bottom: widget.embedded ? 88 : 16,
+        bottom: 8,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -360,6 +360,13 @@ class _CatalogScreenState extends State<CatalogScreen> {
           Expanded(
             child: GridView.builder(
               controller: _scrollController,
+              padding: EdgeInsets.only(
+                bottom: widget.embedded
+                    ? (MediaQuery.of(context).viewInsets.bottom > 0
+                        ? 16.0
+                        : MediaQuery.of(context).padding.bottom + 80.0)
+                    : 16.0,
+              ),
               itemCount: itemCount,
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 3,
