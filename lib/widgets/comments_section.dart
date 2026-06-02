@@ -51,6 +51,29 @@ class _CommentsSectionState extends State<CommentsSection> {
   Comment? _replyTarget;
   Comment? _replyRoot;
 
+  late Stream<List<Comment>> _commentsStream;
+
+  @override
+  void initState() {
+    super.initState();
+    _commentsStream = CommentService.getComments(
+      widget.animeSlug,
+      episodeNumber: widget.episodeNumber,
+    );
+  }
+
+  @override
+  void didUpdateWidget(covariant CommentsSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.animeSlug != widget.animeSlug ||
+        oldWidget.episodeNumber != widget.episodeNumber) {
+      _commentsStream = CommentService.getComments(
+        widget.animeSlug,
+        episodeNumber: widget.episodeNumber,
+      );
+    }
+  }
+
   @override
   void dispose() {
     _commentController.dispose();
@@ -314,7 +337,7 @@ class _CommentsSectionState extends State<CommentsSection> {
           Divider(color: context.cardColor, height: 1),
           const SizedBox(height: 12),
           StreamBuilder<List<Comment>>(
-            stream: CommentService.getComments(widget.animeSlug, episodeNumber: widget.episodeNumber),
+            stream: _commentsStream,
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Padding(
