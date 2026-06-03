@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Miru - La aplicación de anime definitiva. Transmite online, descarga en segundo plano, disfruta de un reproductor premium sin barras negras y sincroniza con AniList.">
+    <title>Miru - Reproductor y Descarga de Anime Online & Offline</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Iconos Lucide (CDN) -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <!-- Hilos de Estilo -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Navbar -->
+    <header class="navbar">
+        <div class="nav-container">
+            <a href="#" class="logo">
+                <span class="logo-icon"><i data-lucide="play-circle"></i></span>
+                <span class="logo-text">Miru</span>
+            </a>
+            <nav class="nav-menu">
+                <a href="#features" class="nav-link">Características</a>
+                <a href="#demo" class="nav-link">Demostración</a>
+                <a href="#faq" class="nav-link">Preguntas Frecuentes</a>
+                <a href="https://github.com/jhon1466/Miru" target="_blank" class="nav-link github-link">
+                    <i data-lucide="github"></i> GitHub
+                </a>
+            </nav>
+            <div class="nav-actions">
+                <a href="https://github.com/jhon1466/Miru/releases/latest" data-github-download class="btn btn-secondary btn-sm">
+                    <i data-lucide="download"></i> Descargar APK
+                </a>
+            </div>
+            <button class="menu-toggle" id="menuToggle" aria-label="Abrir menú">
+                <i data-lucide="menu"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Mobile Drawer -->
+    <div class="mobile-drawer" id="mobileDrawer">
+        <button class="drawer-close" id="drawerClose"><i data-lucide="x"></i></button>
+        <nav class="drawer-nav">
+            <a href="#features" class="drawer-link">Características</a>
+            <a href="#demo" class="drawer-link">Demostración</a>
+            <a href="#faq" class="drawer-link">Preguntas Frecuentes</a>
+            <a href="https://github.com/jhon1466/Miru" target="_blank" class="drawer-link"><i data-lucide="github"></i> GitHub</a>
+            <a href="https://github.com/jhon1466/Miru/releases/latest" data-github-download class="btn btn-primary">
+                <i data-lucide="download"></i> Descargar <span data-github-version>v1.9.9</span>
+            </a>
+        </nav>
+    </div>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="container hero-container">
+            <div class="hero-content">
+                <div class="badge-container">
+                    <span class="hero-badge"><i data-lucide="sparkles"></i> ¡Nueva versión <span data-github-version>v1.9.9</span> disponible!</span>
+                </div>
+                <h1 class="hero-title">
+                    Disfruta del anime como <span class="gradient-text">nunca antes</span>
+                </h1>
+                <p class="hero-subtitle">
+                    Miru es tu portal definitivo de reproducción y descarga de anime. Transmite tus capítulos online o descárgalos con notificaciones persistentes para verlos sin conexión en un reproductor premium libre de rayas negras.
+                </p>
+                <div class="hero-actions">
+                    <a href="https://github.com/jhon1466/Miru/releases/latest" data-github-download class="btn btn-primary btn-lg btn-glow">
+                        <i data-lucide="download"></i> Descargar <span data-github-version>v1.9.9</span> APK
+                    </a>
+                    <span class="download-meta">
+                        <i data-lucide="shield-check"></i> <span data-github-size>60.8</span> MB · Android 8.0+ · Libre de anuncios molestos
+                    </span>
+                </div>
+            </div>
+            <div class="hero-media">
+                <div class="device-mockup-wrapper">
+                    <img src="assets/mockup.png" alt="Miru App Mockup" class="device-mockup">
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Stats Section -->
+    <section class="stats">
+        <div class="container stats-container">
+            <div class="stat-card">
+                <h3 class="stat-number" data-github-version>v1.9.9</h3>
+                <p class="stat-label">Último Release Estable</p>
+            </div>
+            <div class="stat-divider"></div>
+            <div class="stat-card">
+                <h3 class="stat-number">100%</h3>
+                <p class="stat-label">Libre y Código Abierto</p>
+            </div>
+            <div class="stat-divider"></div>
+            <div class="stat-card">
+                <h3 class="stat-number">Full HD</h3>
+                <p class="stat-label">Múltiples Servidores de Streaming</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section id="features" class="features section-padding">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="section-title">Diseñado para la <span class="gradient-text">mejor experiencia</span></h2>
+                <p class="section-subtitle">Hemos perfeccionado cada función para ofrecerte velocidad, control total y comodidad visual.</p>
+            </div>
+            <div class="features-grid">
+                <!-- Card 1 -->
+                <div class="feature-card scroll-reveal">
+                    <div class="feature-icon"><i data-lucide="tv"></i></div>
+                    <h3 class="feature-title">Reproductor Premium</h3>
+                    <p class="feature-text">
+                        Ajusta el aspecto en pantalla completa (`BoxFit.cover` y `fill`) para eliminar las líneas negras de una vez por todas. Incluye velocidad ajustable, bloqueo de pantalla y gestos intuitivos.
+                    </p>
+                </div>
+                <!-- Card 2 -->
+                <div class="feature-card scroll-reveal">
+                    <div class="feature-icon"><i data-lucide="download-cloud"></i></div>
+                    <h3 class="feature-title">Descarga en Segundo Plano</h3>
+                    <p class="feature-text">
+                        Servicio de primer plano (Foreground Service) nativo que evita que el sistema suspenda la descarga cuando apagas la pantalla. Visualiza la velocidad y progreso en tu barra de notificaciones.
+                    </p>
+                </div>
+                <!-- Card 3 -->
+                <div class="feature-card scroll-reveal">
+                    <div class="feature-icon"><i data-lucide="message-square"></i></div>
+                    <h3 class="feature-title">Comunidad y Stickers</h3>
+                    <p class="feature-text">
+                        Participa en comentarios de capítulos y en un chat global integrado. Diseña y comparte stickers personalizados sincronizados automáticamente en la nube (Storage y Firestore).
+                    </p>
+                </div>
+                <!-- Card 4 -->
+                <div class="feature-card scroll-reveal">
+                    <div class="feature-icon"><i data-lucide="refresh-cw"></i></div>
+                    <h3 class="feature-title">Sincronización AniList</h3>
+                    <p class="feature-text">
+                        Conecta tu cuenta de AniList y actualiza automáticamente tu progreso de capítulos en tu perfil a medida que los ves, sin pasos intermedios ni configuraciones complejas.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Interactive Demo Section -->
+    <section id="demo" class="demo section-padding">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="section-title">Explora la <span class="gradient-text">aplicación por dentro</span></h2>
+                <p class="section-subtitle">Selecciona una de las funciones para ver cómo opera en detalle.</p>
+            </div>
+            <div class="demo-wrapper">
+                <!-- Selector -->
+                <div class="demo-tabs">
+                    <button class="demo-tab active" data-target="player">
+                        <i data-lucide="play"></i>
+                        <span>Reproductor Premium</span>
+                    </button>
+                    <button class="demo-tab" data-target="downloads">
+                        <i data-lucide="download"></i>
+                        <span>Gestión de Descargas</span>
+                    </button>
+                    <button class="demo-tab" data-target="chat">
+                        <i data-lucide="message-circle"></i>
+                        <span>Chat & Stickers Cloud</span>
+                    </button>
+                    <button class="demo-tab" data-target="anilist">
+                        <i data-lucide="link"></i>
+                        <span>Seguimiento AniList</span>
+                    </button>
+                </div>
+                
+                <!-- Display Card -->
+                <div class="demo-display">
+                    <div class="demo-content-pane active" id="player">
+                        <div class="demo-pane-text">
+                            <span class="pane-badge">Control Absoluto</span>
+                            <h3>El reproductor que tú mereces</h3>
+                            <p>Hemos diseñado una interfaz que te da el control. Desliza en la mitad izquierda para ajustar el brillo, y en la derecha para el volumen. Bloquea la pantalla para evitar toques accidentales y omite intros en un solo toque (+85s).</p>
+                            <ul class="pane-list">
+                                <li><i data-lucide="check-circle-2"></i> Ajustes BoxFit: Contain, Cover (sin rayas negras) y Fill.</li>
+                                <li><i data-lucide="check-circle-2"></i> Selector de velocidad de 0.5x hasta 2.0x.</li>
+                                <li><i data-lucide="check-circle-2"></i> Controles gestuales suaves con visualizadores HUD.</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="demo-content-pane" id="downloads">
+                        <div class="demo-pane-text">
+                            <span class="pane-badge">Sin Interrupciones</span>
+                            <h3>Descargas fiables a máxima velocidad</h3>
+                            <p>El gestor de descargas integrado no sufre caídas ni cancelaciones cuando el móvil entra en suspensión. Gracias al servicio de primer plano nativo de Android, la CPU y las conexiones se mantienen estables hasta que el archivo se escribe.</p>
+                            <ul class="pane-list">
+                                <li><i data-lucide="check-circle-2"></i> Notificaciones de sistema detalladas con porcentaje y velocidad (MB/s).</li>
+                                <li><i data-lucide="check-circle-2"></i> Opciones de pausa, reanudación y descarte directo.</li>
+                                <li><i data-lucide="check-circle-2"></i> Modo offline que te redirige a tus descargas si abres la app sin internet.</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="demo-content-pane" id="chat">
+                        <div class="demo-pane-text">
+                            <span class="pane-badge">Social e Interactivo</span>
+                            <h3>Chat global, comentarios y stickers cloud</h3>
+                            <p>Comenta tus reacciones sobre cada capítulo o debate con la comunidad en el chat público. Añade stickers a tus packs locales y sincronízalos instantáneamente con la nube para que nunca pierda tu colección.</p>
+                            <ul class="pane-list">
+                                <li><i data-lucide="check-circle-2"></i> Creación y subida de stickers desde almacenamiento local.</li>
+                                <li><i data-lucide="check-circle-2"></i> Respuestas en hilos con notificaciones automáticas en pantalla.</li>
+                                <li><i data-lucide="check-circle-2"></i> Filtros de moderación y visualización multimedia en pantalla completa.</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="demo-content-pane" id="anilist">
+                        <div class="demo-pane-text">
+                            <span class="pane-badge">Progreso al Día</span>
+                            <h3>Integración nativa con AniList</h3>
+                            <p>No vuelvas a olvidar en qué capítulo te quedaste. Miru se conecta directamente con tu cuenta de AniList y sincroniza de forma automática cada episodio que terminas de reproducir, manteniendo tu perfil social actualizado.</p>
+                            <ul class="pane-list">
+                                <li><i data-lucide="check-circle-2"></i> Registro automático al terminar de reproducir un capítulo.</li>
+                                <li><i data-lucide="check-circle-2"></i> Panel integrado para ver próximos estrenos según tu lista.</li>
+                                <li><i data-lucide="check-circle-2"></i> Búsqueda avanzada y organización de listas en la app.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- FAQ Section -->
+    <section id="faq" class="faq section-padding">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="section-title">Preguntas <span class="gradient-text">Frecuentes</span></h2>
+                <p class="section-subtitle">Encuentra respuestas rápidas a dudas técnicas y de uso común.</p>
+            </div>
+            <div class="faq-grid">
+                <!-- FAQ 1 -->
+                <div class="faq-item">
+                    <button class="faq-question">
+                        <span>¿Por qué las descargas no se cortan cuando apago la pantalla?</span>
+                        <i data-lucide="chevron-down" class="faq-icon"></i>
+                    </button>
+                    <div class="faq-answer">
+                        <p>Miru utiliza un <strong>Servicio de Primer Plano nativo de Android (Foreground Service)</strong>. Al iniciar una descarga, la app levanta una tarea de alta prioridad en el sistema con una notificación visible, lo que le indica a Android que no debe suspender la CPU ni pausar la red de la aplicación para ahorrar batería. Esto asegura descargas 100% estables en segundo plano.</p>
+                    </div>
+                </div>
+                <!-- FAQ 2 -->
+                <div class="faq-item">
+                    <button class="faq-question">
+                        <span>¿Qué debo hacer si la app muestra un error al reproducir un video sin conexión?</span>
+                        <i data-lucide="chevron-down" class="faq-icon"></i>
+                    </button>
+                    <div class="faq-answer">
+                        <p>Asegúrate de que el archivo del video no haya sido borrado manualmente desde el explorador de archivos de tu dispositivo. Si el archivo existe pero no reproduce, es posible que tu dispositivo no cuente con soporte de hardware para el códec del video (por ejemplo, decodificación por hardware de AV1). Puedes reintentar descargarlo usando otro servidor alternativo desde la app.</p>
+                    </div>
+                </div>
+                <!-- FAQ 3 -->
+                <div class="faq-item">
+                    <button class="faq-question">
+                        <span>¿Es seguro instalar el archivo APK de Miru?</span>
+                        <i data-lucide="chevron-down" class="faq-icon"></i>
+                    </button>
+                    <div class="faq-answer">
+                        <p>Sí, la aplicación es totalmente segura. Dado que es un proyecto independiente de código abierto, no se distribuye por Google Play Store. Al instalar el APK por primera vez, Android te pedirá que habilites el permiso de <strong>"Instalar aplicaciones de fuentes desconocidas"</strong> para tu navegador o explorador de archivos. Todo nuestro código es auditable y libre de rastreadores.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Download Bottom CTA Section -->
+    <section class="download-cta">
+        <div class="container cta-container scroll-reveal">
+            <h2 class="cta-title">Lleva tu colección de anime en el bolsillo</h2>
+            <p class="cta-desc">Disfruta de la mejor calidad de streaming, descargas imparables y comparte tus opiniones con miles de fans en tiempo real. ¡Pruébala hoy mismo!</p>
+            <div class="cta-actions">
+                <a href="https://github.com/jhon1466/Miru/releases/latest" data-github-download class="btn btn-primary btn-lg btn-glow">
+                    <i data-lucide="download"></i> Descargar APK <span data-github-version>v1.9.9</span>
+                </a>
+            </div>
+            <p class="cta-footer-text">Completamente gratuita y de código abierto</p>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container footer-container">
+            <div class="footer-brand">
+                <div class="logo">
+                    <span class="logo-icon"><i data-lucide="play-circle"></i></span>
+                    <span class="logo-text">Miru</span>
+                </div>
+                <p class="footer-desc">El reproductor de anime definitivo, diseñado para fans, por fans.</p>
+            </div>
+            <div class="footer-links">
+                <h4>Enlaces</h4>
+                <a href="#features">Características</a>
+                <a href="#demo">Demostración</a>
+                <a href="#faq">Preguntas Frecuentes</a>
+                <a href="https://github.com/jhon1466/Miru" target="_blank"><i data-lucide="github" style="width: 14px; display: inline; vertical-align: middle;"></i> GitHub Repo</a>
+            </div>
+            <div class="footer-copyright">
+                <p>&copy; 2026 Miru App. Todos los derechos reservados. Desarrollado con pasión para la comunidad otaku.</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Scripts de interactividad -->
+    <script src="app.js"></script>
+</body>
+</html>
