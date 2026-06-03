@@ -27,11 +27,156 @@ class EpisodeDownloadService {
   static bool isLikelyDirectFile(String url) {
     final lower = url.toLowerCase();
     if (lower.contains('.m3u8') || lower.contains('master.m3u')) return false;
-    if (lower.contains('/embed') || lower.contains('blogger.com')) return false;
+    if (lower.contains('/embed') &&
+        !lower.contains('mp4upload.com') &&
+        !lower.contains('pixeldrain.com') &&
+        !lower.contains('streamtape.com')) {
+      return false;
+    }
+    if (lower.contains('blogger.com')) return false;
     if (RegExp(r'\.(mp4|mkv|webm|avi|mov)(\?|$)', caseSensitive: false).hasMatch(lower)) {
       return true;
     }
+    if (lower.contains('pixeldrain.com') ||
+        lower.contains('mp4upload.com') ||
+        lower.contains('streamtape.com')) {
+      return true;
+    }
     return false;
+  }
+
+  static Future<ResolvedDownloadLink> resolveDirectUrl(
+    String url, {
+    String? serverName,
+    required String animeUrl,
+  }) async {
+    final lower = url.toLowerCase();
+    final defaultHeaders = {
+      'User-Agent': _userAgent,
+      'Accept': '*/*',
+      'Referer': animeUrl,
+    };
+    
+    // 1. Pixeldrain
+    if (lower.contains('pixeldrain.com')) {
+      final uri = Uri.tryParse(url);
+      if (uri != null) {
+        final segments = uri.pathSegments;
+        String? fileId;
+        final uIndex = segments.indexOf('u');
+        if (uIndex != -1 && uIndex < segments.length - 1) {
+          fileId = segments[uIndex + 1];
+        } else {
+          final fileIndex = segments.indexOf('file');
+          if (fileIndex != -1 && fileIndex < segments.length - 1) {
+            fileId = segments[fileIndex + 1];
+          }
+        }
+        if (fileId == null && segments.isNotEmpty) {
+          fileId = segments.last;
+        }
+        if (fileId != null) {
+          fileId = fileId.split('?').first;
+          final directUrl = 'https://pixeldrain.com/api/file/$fileId';
+          return ResolvedDownloadLink(
+            url: directUrl,
+            headers: {
+              'User-Agent': _userAgent,
+              'Accept': '*/*',
+              'Referer': 'https://pixeldrain.com/',
+            },
+          );
+        }
+      }
+    }
+
+    // 2. MP4Upload
+    if (lower.contains('mp4upload.com')) {
+      String embedUrl = url;
+      final match = RegExp(r'mp4upload\.com/(?:embed-)?([a-zA-Z0-9]+)').firstMatch(url);
+      if (match != null) {
+        final id = match.group(1);
+        embedUrl = 'https://www.mp4upload.com/embed-$id.html';
+      }
+      
+      try {
+        final client = http.Client();
+        final request = http.Request('GET', Uri.parse(embedUrl));
+        request.headers['User-Agent'] = _userAgent;
+        final response = await client.send(request).timeout(const Duration(seconds: 15));
+        if (response.statusCode == 200) {
+          final html = await response.stream.bytesToString();
+          final srcMatch = RegExp(r"""player\.src\(\{\s*type:\s*["']video/mp4["']\s*,\s*src:\s*["'](https://[^"']+)["']""").firstMatch(html) ??
+                           RegExp(r"""src:\s*["'](https://[^"']+\.mp4[^"']*)["']""").firstMatch(html);
+          if (srcMatch != null) {
+            final directUrl = srcMatch.group(1)!;
+            final resolvedUri = Uri.tryParse(directUrl);
+            return ResolvedDownloadLink(
+              url: directUrl,
+              headers: {
+                'User-Agent': _userAgent,
+                'Accept': '*/*',
+                'Referer': 'https://www.mp4upload.com/',
+                if (resolvedUri != null) 'Origin': '${resolvedUri.scheme}://${resolvedUri.host}',
+              },
+            );
+          }
+        }
+      } catch (e) {
+        // Fallback silently
+      }
+    }
+    
+    // 3. StreamTape
+    if (lower.contains('streamtape.com')) {
+      try {
+        String embedUrl = url;
+        if (url.contains('/v/')) {
+          embedUrl = url.replaceAll('/v/', '/e/');
+        }
+        final client = http.Client();
+        final request = http.Request('GET', Uri.parse(embedUrl));
+        request.headers['User-Agent'] = _userAgent;
+        final response = await client.send(request).timeout(const Duration(seconds: 15));
+        if (response.statusCode == 200) {
+          final html = await response.stream.bytesToString();
+          
+          final mainMatch = RegExp(r"innerHTML\s*=\s*'([^']+)'\s*\+\s*\('([^']+)'\)").firstMatch(html) ??
+                            RegExp(r'innerHTML\s*=\s*"([^"]+)"\s*\+\s*\("([^"]+)"\)').firstMatch(html);
+          if (mainMatch != null) {
+            final prefix = mainMatch.group(1)!;
+            var tokenPart = mainMatch.group(2)!;
+            
+            final idx = html.indexOf(mainMatch.group(0)!);
+            final jsSnippet = html.substring(idx + mainMatch.group(0)!.length);
+            final endOfStatement = jsSnippet.indexOf(';');
+            if (endOfStatement != -1) {
+              final stmt = jsSnippet.substring(0, endOfStatement);
+              final subMatches = RegExp(r'\.substring\((\d+)\)').allMatches(stmt);
+              for (final m in subMatches) {
+                final val = int.tryParse(m.group(1) ?? '') ?? 0;
+                if (val > 0 && val <= tokenPart.length) {
+                  tokenPart = tokenPart.substring(val);
+                }
+              }
+            }
+            final directUrl = 'https:$prefix$tokenPart';
+            return ResolvedDownloadLink(
+              url: directUrl,
+              headers: {
+                'User-Agent': _userAgent,
+                'Accept': '*/*',
+                'Referer': 'https://streamtape.com/',
+              },
+            );
+          }
+        }
+      } catch (e) {
+        // Fallback silently
+      }
+    }
+
+    return ResolvedDownloadLink(url: url, headers: defaultHeaders);
   }
 
   /// Solo enlaces de descarga directa (nunca streaming / m3u8).
@@ -111,6 +256,10 @@ class EpisodeDownloadService {
     return '.mp4';
   }
 
+  static String _safeFilename(String id) {
+    return id.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
+  }
+
   static Future<DownloadedEpisode> downloadEpisode({
     required String sourceUrl,
     required String serverName,
@@ -127,8 +276,12 @@ class EpisodeDownloadService {
   }) async {
     final id = episodeId(episodeUrl, isSub);
     final root = await _downloadsRoot();
-    final ext = _extensionFromUrl(sourceUrl);
-    final filePath = '${root.path}/$id$ext';
+    
+    // Resolver la URL real del archivo si es un hosting de terceros
+    final resolved = await resolveDirectUrl(sourceUrl, serverName: serverName, animeUrl: animeUrl);
+    
+    final ext = _extensionFromUrl(resolved.url);
+    final filePath = '${root.path}/${_safeFilename(id)}$ext';
     final file = File(filePath);
 
     int startBytes = 0;
@@ -138,10 +291,8 @@ class EpisodeDownloadService {
 
     final client = http.Client();
     try {
-      final request = http.Request('GET', Uri.parse(sourceUrl));
-      request.headers['User-Agent'] = _userAgent;
-      request.headers['Accept'] = '*/*';
-      request.headers['Referer'] = animeUrl;
+      final request = http.Request('GET', Uri.parse(resolved.url));
+      request.headers.addAll(resolved.headers);
 
       if (startBytes > 0) {
         request.headers['Range'] = 'bytes=$startBytes-';
@@ -265,4 +416,11 @@ class DownloadCancelledException implements Exception {
 class DownloadPausedException implements Exception {
   @override
   String toString() => 'Descarga pausada';
+}
+
+class ResolvedDownloadLink {
+  final String url;
+  final Map<String, String> headers;
+  
+  ResolvedDownloadLink({required this.url, required this.headers});
 }

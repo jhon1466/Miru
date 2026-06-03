@@ -103,19 +103,6 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                         style: TextStyle(color: Colors.amber, fontSize: 13),
                       ),
                     ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        const Spacer(),
-                        Text(
-                          'Hora local: $timeLabel',
-                          style: TextStyle(
-                            color: context.textSecondary,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ],
-                    ),
                     const SizedBox(height: 8),
                     SizedBox(
                       height: 40,

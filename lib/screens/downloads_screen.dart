@@ -320,6 +320,8 @@ class _AnimeDownloadGroup extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: ExpansionTile(
+        shape: const Border(),
+        collapsedShape: const Border(),
         leading: ClipRRect(
           borderRadius: BorderRadius.circular(8),
           child: AnimePosterImage(

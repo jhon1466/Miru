@@ -38,8 +38,12 @@ class _StickerPickerSheetState extends State<StickerPickerSheet> {
   }
 
   Future<void> _load() async {
-    final customPacks = await StickerService.loadPacks();
     final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid != null) {
+      await StickerService.syncStickersWithCloud(uid);
+    }
+    
+    final customPacks = await StickerService.loadPacks();
     if (uid != null) {
       final userPackId = StickerService.userPackId(uid);
       if (!customPacks.any((p) => p.id == userPackId)) {

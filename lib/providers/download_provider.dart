@@ -1,17 +1,42 @@
+import 'dart:async';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../core/api_client.dart';
 import '../models/anime.dart';
 import '../models/downloaded_episode.dart';
 import '../services/episode_download_service.dart';
+import '../services/download_notification_service.dart';
 
 class DownloadProvider extends ChangeNotifier {
+  static const _channel = MethodChannel('com.anime1v.app/foreground_service');
+
   final Map<String, ActiveDownloadTask> _active = {};
   final List<ActiveDownloadTask> _failed = [];
   List<DownloadedEpisode> _library = [];
   bool _loaded = false;
   final Set<String> _cancelled = {};
   final Set<String> _paused = {};
+
+  Future<void> _updateForegroundService() async {
+    if (Platform.isAndroid) {
+      try {
+        final hasActive = _active.values.any((t) =>
+            t.status == DownloadTaskStatus.downloading ||
+            t.status == DownloadTaskStatus.queued);
+        if (hasActive) {
+          await _channel.invokeMethod('startService');
+        } else {
+          await _channel.invokeMethod('stopService');
+        }
+      } catch (e) {
+        debugPrint('Error updating foreground service: $e');
+      }
+    }
+  }
 
   List<ActiveDownloadTask> get activeTasks => _active.values.toList();
   List<ActiveDownloadTask> get failedTasks => List.unmodifiable(_failed);
@@ -92,6 +117,11 @@ class DownloadProvider extends ChangeNotifier {
       _active[id] = task;
     }
     notifyListeners();
+    _updateForegroundService();
+
+    final notificationId = id.hashCode & 0x7FFFFFFF;
+    final prefs = await SharedPreferences.getInstance();
+    final bgDownloadsEnabled = prefs.getBool('settings_background_downloads_enabled') ?? true;
 
     try {
       task.statusMessage = 'Buscando servidor de descarga…';
@@ -112,6 +142,7 @@ class DownloadProvider extends ChangeNotifier {
       task.status = DownloadTaskStatus.downloading;
       task.statusMessage = 'Descargando…';
       notifyListeners();
+      _updateForegroundService();
 
       Object? lastError;
       for (var i = 0; i < candidates.length; i++) {
@@ -123,7 +154,16 @@ class DownloadProvider extends ChangeNotifier {
             : 'Descargando…';
         notifyListeners();
 
+        int lastNotifiedPct = -1;
         try {
+          if (bgDownloadsEnabled) {
+            unawaited(DownloadNotificationService.showProgress(
+              notificationId,
+              animeTitle,
+              task.episodeTitle,
+              0.0,
+            ));
+          }
           await EpisodeDownloadService.downloadEpisode(
             sourceUrl: link.url,
             serverName: link.server,
@@ -164,6 +204,20 @@ class DownloadProvider extends ChangeNotifier {
                 task.statusMessage = 'Descargando ${mb.toStringAsFixed(1)} MB…';
               }
               notifyListeners();
+
+              if (bgDownloadsEnabled) {
+                final pct = p >= 0 ? (p * 100).round() : -1;
+                if (pct != lastNotifiedPct) {
+                  lastNotifiedPct = pct;
+                  unawaited(DownloadNotificationService.showProgress(
+                    notificationId,
+                    animeTitle,
+                    task.episodeTitle,
+                    p,
+                    speed: speed > 0 ? '${speed.toStringAsFixed(1)} MB/s' : null,
+                  ));
+                }
+              }
             },
             isCancelled: () => _cancelled.contains(id),
             isPaused: () => _paused.contains(id),
@@ -177,6 +231,15 @@ class DownloadProvider extends ChangeNotifier {
           _active.remove(id);
           await loadLibrary();
           notifyListeners();
+          _updateForegroundService();
+          
+          if (bgDownloadsEnabled) {
+            unawaited(DownloadNotificationService.showComplete(
+              notificationId,
+              animeTitle,
+              task.episodeTitle,
+            ));
+          }
           return true;
         } catch (e) {
           if (e is DownloadCancelledException || e is DownloadPausedException) rethrow;
@@ -188,6 +251,10 @@ class DownloadProvider extends ChangeNotifier {
     } on DownloadCancelledException {
       _active.remove(id);
       notifyListeners();
+      _updateForegroundService();
+      if (bgDownloadsEnabled) {
+        unawaited(DownloadNotificationService.cancel(notificationId));
+      }
       return false;
     } on DownloadPausedException {
       task.status = DownloadTaskStatus.paused;
@@ -195,8 +262,29 @@ class DownloadProvider extends ChangeNotifier {
       task.eta = '';
       task.statusMessage = 'Pausado';
       notifyListeners();
+      _updateForegroundService();
+      if (bgDownloadsEnabled) {
+        unawaited(DownloadNotificationService.cancel(notificationId));
+      }
       return false;
-    } catch (e) {
+    } catch (e, stack) {
+      debugPrint('ERROR EN DESCARGA DE EPISODIO: $e');
+      debugPrint('STACK TRACE: $stack');
+      try {
+        getApplicationDocumentsDirectory().then((docDir) async {
+          final logFile = File('${docDir.path}/last_error.txt');
+          await logFile.writeAsString('ERROR: $e\nSTACK:\n$stack');
+        });
+        getExternalStorageDirectory().then((extDir) async {
+          if (extDir != null) {
+            final logFile = File('${extDir.path}/last_error.txt');
+            await logFile.writeAsString('ERROR: $e\nSTACK:\n$stack');
+          }
+        });
+      } catch (logErr) {
+        debugPrint('Failed to write log file: $logErr');
+      }
+
       task.status = DownloadTaskStatus.failed;
       task.error = e.toString().replaceFirst('Exception: ', '');
       task.statusMessage = 'Error';
@@ -206,6 +294,15 @@ class DownloadProvider extends ChangeNotifier {
       _failed.removeWhere((t) => t.id == id);
       _failed.insert(0, task);
       notifyListeners();
+      _updateForegroundService();
+      if (bgDownloadsEnabled) {
+        unawaited(DownloadNotificationService.showFailed(
+          notificationId,
+          animeTitle,
+          task.episodeTitle,
+          task.error ?? 'Error desconocido',
+        ));
+      }
       return false;
     }
   }
@@ -220,7 +317,16 @@ class DownloadProvider extends ChangeNotifier {
       task.eta = '';
       task.statusMessage = 'Pausado';
       notifyListeners();
+      _updateForegroundService();
     }
+
+    final notificationId = id.hashCode & 0x7FFFFFFF;
+    SharedPreferences.getInstance().then((prefs) {
+      final bg = prefs.getBool('settings_background_downloads_enabled') ?? true;
+      if (bg) {
+        unawaited(DownloadNotificationService.cancel(notificationId));
+      }
+    });
   }
 
   void resumeDownload({
@@ -264,7 +370,16 @@ class DownloadProvider extends ChangeNotifier {
         task.statusMessage = 'Cancelando…';
       }
       notifyListeners();
+      _updateForegroundService();
     }
+
+    final notificationId = id.hashCode & 0x7FFFFFFF;
+    SharedPreferences.getInstance().then((prefs) {
+      final bg = prefs.getBool('settings_background_downloads_enabled') ?? true;
+      if (bg) {
+        unawaited(DownloadNotificationService.cancel(notificationId));
+      }
+    });
   }
 
   Future<void> deleteDownload(DownloadedEpisode item) async {
