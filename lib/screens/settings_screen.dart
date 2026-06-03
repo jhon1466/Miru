@@ -22,7 +22,6 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  bool _autoplayNextEpisode = false;
 
   @override
   void initState() {
@@ -69,18 +68,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
             const SizedBox(height: 8),
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('Reproducción automática'),
-              subtitle: const Text('Pasar al siguiente episodio al terminar (próximamente)'),
-              value: _autoplayNextEpisode,
-              activeColor: context.primaryColor,
-              onChanged: (v) => setState(() => _autoplayNextEpisode = v),
-            ),
             Consumer<SettingsProvider>(
               builder: (context, settings, _) {
                 return Column(
                   children: [
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Reproducción automática'),
+                      subtitle: const Text('Pasar al siguiente episodio al terminar'),
+                      value: settings.autoplayNextEpisode,
+                      activeThumbColor: context.primaryColor,
+                      onChanged: (v) => settings.setAutoplayNextEpisode(v),
+                    ),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Descargas en segundo plano'),
+                      subtitle: const Text('Mostrar notificaciones del progreso de descargas'),
+                      value: settings.backgroundDownloadsEnabled,
+                      activeThumbColor: context.primaryColor,
+                      onChanged: (v) => settings.setBackgroundDownloadsEnabled(v),
+                    ),
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
                       title: const Text('Notificaciones de actualizaciones'),
@@ -236,7 +243,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               contentPadding: EdgeInsets.zero,
               leading: Icon(Icons.info_outline, color: context.primaryColor),
               title: const Text('Versión de la app'),
-              subtitle: const Text('1.9.8'),
+              subtitle: const Text('1.9.9'),
             ),
             ListTile(
               contentPadding: EdgeInsets.zero,

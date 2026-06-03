@@ -42,6 +42,7 @@ class AppTheme {
       ),
       appBarTheme: AppBarTheme(
         backgroundColor: Colors.transparent,
+        scrolledUnderElevation: 0,
         elevation: 0,
         centerTitle: true,
         systemOverlayStyle: SystemUiOverlayStyle.light,
@@ -140,6 +141,7 @@ class AppTheme {
       ),
       appBarTheme: AppBarTheme(
         backgroundColor: Colors.transparent,
+        scrolledUnderElevation: 0,
         elevation: 0,
         centerTitle: true,
         systemOverlayStyle: SystemUiOverlayStyle.dark,

@@ -9,6 +9,7 @@ import '../core/theme.dart';
 import '../providers/anime_provider.dart';
 import '../providers/auth_provider.dart' as app_auth;
 import '../providers/history_provider.dart';
+import '../providers/settings_provider.dart';
 import '../services/anilist_service.dart';
 import '../models/anime.dart';
 import '../widgets/comments_section.dart';
@@ -96,6 +97,12 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   Future<void> _loadEpisodeAndAutoplay() async {
     final provider = context.read<AnimeProvider>();
+    
+    // Cargar detalles del anime en segundo plano para conocer la lista de episodios
+    if (provider.selectedAnime == null || provider.selectedAnime!.title != widget.animeTitle) {
+      unawaited(provider.loadAnimeDetails(widget.animeUrl));
+    }
+
     await provider.loadEpisodeLinks(widget.episodeUrl);
     if (!mounted) return;
 
@@ -232,6 +239,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
   Widget build(BuildContext context) {
     final animeProvider = Provider.of<AnimeProvider>(context);
     final links = animeProvider.episodeLinks;
+    final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
 
     return PopScope(
       onPopInvokedWithResult: (didPop, _) {
@@ -239,112 +247,115 @@ class _PlayerScreenState extends State<PlayerScreen> {
       },
       child: Scaffold(
         backgroundColor: context.backgroundColor,
-        appBar: AppBar(
-          backgroundColor: context.backgroundColor,
-          title: Column(
-            children: [
-              GestureDetector(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => DetailScreen(
-                        animeUrl: widget.animeUrl,
-                        animeTitle: widget.animeTitle,
-                        animeImage: widget.animeImage,
+        appBar: isLandscape
+            ? null
+            : AppBar(
+                backgroundColor: context.backgroundColor,
+                title: Column(
+                  children: [
+                    GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => DetailScreen(
+                              animeUrl: widget.animeUrl,
+                              animeTitle: widget.animeTitle,
+                              animeImage: widget.animeImage,
+                            ),
+                          ),
+                        );
+                      },
+                      child: Text(
+                        widget.animeTitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: context.primaryColor,
+                          fontWeight: FontWeight.bold,
+                          decoration: TextDecoration.underline,
+                        ),
                       ),
                     ),
-                  );
-                },
-                child: Text(
-                  widget.animeTitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: context.primaryColor,
-                    fontWeight: FontWeight.bold,
-                    decoration: TextDecoration.underline,
-                  ),
-                ),
-              ),
-              Text(
-                'Episodio ${widget.episodeNumber.toString().replaceAll('.0', '')}',
-                style: TextStyle(fontSize: 11, color: context.textSecondary),
-              ),
-            ],
-          ),
-          actions: [
-            if (links != null)
-              EpisodeDownloadButton(
-                episodeUrl: widget.episodeUrl,
-                episodeNumber: widget.episodeNumber,
-                animeTitle: widget.animeTitle,
-                animeUrl: widget.animeUrl,
-                animeImage: widget.animeImage,
-                preferSub: _isSub,
-                links: links,
-              ),
-          ],
-        ),
-        body: Column(
-          children: [
-            AspectRatio(
-              aspectRatio: 16 / 9,
-              child: _buildPlayerWidget(),
-            ),
-
-            Expanded(
-              child: SingleChildScrollView(
-                child: Column(
-                  children: [
-                    Container(
-                      color: context.backgroundColor,
-                      width: double.infinity,
-                      child: animeProvider.isLoadingEpisode
-                          ? Padding(
-                              padding: const EdgeInsets.all(40),
-                              child: Column(
-                                children: [
-                                  const CircularProgressIndicator(
-                                    valueColor: AlwaysStoppedAnimation(AppTheme.primaryColor),
-                                  ),
-                                  const SizedBox(height: 12),
-                                  Text(
-                                    'Buscando servidores de video...',
-                                    style: TextStyle(color: context.textSecondary),
-                                  ),
-                                ],
-                              ),
-                            )
-                          : links == null
-                              ? Padding(
-                                  padding: const EdgeInsets.all(24),
-                                  child: Text(
-                                    animeProvider.episodeError ?? 'Error al cargar servidores',
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(color: context.textSecondary),
-                                  ),
-                                )
-                              : _buildServersPanel(links),
-                    ),
-                    CommentsSection(
-                      animeSlug: Uri.parse(widget.animeUrl).pathSegments.lastWhere(
-                            (s) => s.isNotEmpty,
-                            orElse: () => widget.animeUrl.hashCode.toString(),
-                          ),
-                      animeTitle: widget.animeTitle,
-                      animeUrl: widget.animeUrl,
-                      episodeUrl: widget.episodeUrl,
-                      episodeNumber: widget.episodeNumber,
-                      focusCommentId: widget.focusCommentId,
+                    Text(
+                      'Episodio ${widget.episodeNumber.toString().replaceAll('.0', '')}',
+                      style: TextStyle(fontSize: 11, color: context.textSecondary),
                     ),
                   ],
                 ),
+                actions: [
+                  if (links != null)
+                    EpisodeDownloadButton(
+                      episodeUrl: widget.episodeUrl,
+                      episodeNumber: widget.episodeNumber,
+                      animeTitle: widget.animeTitle,
+                      animeUrl: widget.animeUrl,
+                      animeImage: widget.animeImage,
+                      preferSub: _isSub,
+                      links: links,
+                    ),
+                ],
               ),
-            ),
-          ],
-        ),
+        body: isLandscape
+            ? _buildPlayerWidget()
+            : Column(
+                children: [
+                  AspectRatio(
+                    aspectRatio: 16 / 9,
+                    child: _buildPlayerWidget(),
+                  ),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      child: Column(
+                        children: [
+                          Container(
+                            color: context.backgroundColor,
+                            width: double.infinity,
+                            child: animeProvider.isLoadingEpisode
+                                ? Padding(
+                                    padding: const EdgeInsets.all(40),
+                                    child: Column(
+                                      children: [
+                                        const CircularProgressIndicator(
+                                          valueColor: AlwaysStoppedAnimation(AppTheme.primaryColor),
+                                        ),
+                                        const SizedBox(height: 12),
+                                        Text(
+                                          'Buscando servidores de video...',
+                                          style: TextStyle(color: context.textSecondary),
+                                        ),
+                                      ],
+                                    ),
+                                  )
+                                : links == null
+                                    ? Padding(
+                                        padding: const EdgeInsets.all(24),
+                                        child: Text(
+                                          animeProvider.episodeError ?? 'Error al cargar servidores',
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(color: context.textSecondary),
+                                        ),
+                                      )
+                                    : _buildServersPanel(links),
+                          ),
+                          CommentsSection(
+                            animeSlug: Uri.parse(widget.animeUrl).pathSegments.lastWhere(
+                                  (s) => s.isNotEmpty,
+                                  orElse: () => widget.animeUrl.hashCode.toString(),
+                                ),
+                            animeTitle: widget.animeTitle,
+                            animeUrl: widget.animeUrl,
+                            episodeUrl: widget.episodeUrl,
+                            episodeNumber: widget.episodeNumber,
+                            focusCommentId: widget.focusCommentId,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
       ),
     );
   }
@@ -407,6 +418,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
         url: _selectedServerUrl!,
         title: '${widget.animeTitle} - Ep. ${widget.episodeNumber.toString().replaceAll('.0', '')}',
         headers: headers,
+        onVideoEnded: _handleVideoEnded,
       );
     }
 
@@ -690,6 +702,111 @@ class _PlayerScreenState extends State<PlayerScreen> {
               fontSize: 13,
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  void _handleVideoEnded() {
+    final settings = context.read<SettingsProvider>();
+    if (!settings.autoplayNextEpisode) return;
+
+    final animeProvider = context.read<AnimeProvider>();
+    final details = animeProvider.selectedAnime;
+    if (details == null || details.episodes.isEmpty) return;
+
+    final currentEpNum = widget.episodeNumber;
+    Episode? nextEp;
+
+    // Asegurarse de ordenar los episodios por número ascendentemente
+    final sortedEpisodes = List<Episode>.from(details.episodes)
+      ..sort((a, b) => a.number.compareTo(b.number));
+
+    final currentIndex = sortedEpisodes.indexWhere((ep) => ep.number == currentEpNum);
+    if (currentIndex != -1 && currentIndex < sortedEpisodes.length - 1) {
+      nextEp = sortedEpisodes[currentIndex + 1];
+    }
+
+    if (nextEp != null) {
+      _showAutoplayDialog(nextEp);
+    }
+  }
+
+  void _showAutoplayDialog(Episode nextEp) {
+    int countdown = 5;
+    Timer? timer;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setStateDialog) {
+            timer ??= Timer.periodic(const Duration(seconds: 1), (t) {
+              if (countdown > 1) {
+                setStateDialog(() {
+                  countdown--;
+                });
+              } else {
+                t.cancel();
+                Navigator.pop(dialogContext); // Cerrar diálogo
+                _playNextEpisode(nextEp); // Cargar siguiente episodio
+              }
+            });
+
+            return AlertDialog(
+              backgroundColor: context.cardColor,
+              title: Text('Siguiente episodio', style: TextStyle(color: context.textPrimary)),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Reproduciendo ${nextEp.title} en $countdown segundos...',
+                    style: TextStyle(color: context.textSecondary),
+                  ),
+                  const SizedBox(height: 16),
+                  LinearProgressIndicator(
+                    value: countdown / 5.0,
+                    color: AppTheme.primaryColor,
+                    backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.15),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    timer?.cancel();
+                    Navigator.pop(dialogContext); // Cancelar reproducción automática
+                  },
+                  child: const Text('Cancelar', style: TextStyle(color: AppTheme.dangerColor)),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    timer?.cancel();
+                    Navigator.pop(dialogContext); // Reproducir de inmediato
+                    _playNextEpisode(nextEp);
+                  },
+                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor),
+                  child: const Text('Reproducir ahora'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _playNextEpisode(Episode nextEp) {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PlayerScreen(
+          episodeUrl: nextEp.url,
+          episodeNumber: nextEp.number,
+          animeTitle: widget.animeTitle,
+          animeUrl: widget.animeUrl,
+          animeImage: widget.animeImage,
         ),
       ),
     );

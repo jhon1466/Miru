@@ -1,6 +1,7 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
+    // Fotos de perfil: lectura pública, escritura solo del dueño autenticado
     match /users/{userId}/{fileName} {
       allow read: if true;
       allow create, update: if request.auth != null
@@ -11,6 +12,30 @@ service firebase.storage {
           || request.resource.contentType.matches('image/.*')
         );
       allow delete: if request.auth != null && request.auth.uid == userId;
+    }
+
+    match /comment_images/{animeSlug}/{fileName} {
+      allow read: if true;
+      allow create: if request.auth != null
+        && request.resource.size < 2 * 1024 * 1024
+        && request.resource.contentType == 'image/jpeg';
+      allow delete: if request.auth != null;
+    }
+
+    match /comment_stickers/{animeSlug}/{fileName} {
+      allow read: if true;
+      allow create: if request.auth != null
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+      allow delete: if request.auth != null;
+    }
+
+    match /public_chat/{fileName} {
+      allow read: if true;
+      allow create: if request.auth != null
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+      allow delete: if request.auth != null;
     }
   }
 }

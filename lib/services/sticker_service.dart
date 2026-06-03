@@ -1,8 +1,10 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
@@ -59,6 +61,10 @@ class StickerService {
     return _picker.pickImage(source: ImageSource.gallery, imageQuality: 92);
   }
 
+  static CollectionReference _stickersRef(String userId) {
+    return FirebaseFirestore.instance.collection('users').doc(userId).collection('stickers');
+  }
+
   /// Guarda sticker en el pack del usuario.
   static Future<StickerItem?> saveToPack({
     required String packId,
@@ -99,6 +105,29 @@ class StickerService {
     }
     pack.stickers.add(StickerItem(id: id, filePath: outPath, label: label));
     await _savePacks(packs);
+
+    // Subir a la nube inmediatamente si tiene sesión activa
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null && packId == userPackId(user.uid)) {
+      try {
+        final storagePath = 'users/${user.uid}/sticker_$id.$ext';
+        final ref = _storage.ref(storagePath);
+        final file = File(outPath);
+        final bytes = await file.readAsBytes();
+        final mimeType = ext == 'gif' ? 'image/gif' : (ext == 'webp' ? 'image/webp' : 'image/png');
+        await ref.putData(bytes, SettableMetadata(contentType: mimeType));
+        final downloadUrl = await ref.getDownloadURL();
+
+        await _stickersRef(user.uid).doc(id).set({
+          'url': downloadUrl,
+          'label': label,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      } catch (e) {
+        debugPrint('Error uploading newly created sticker to cloud: $e');
+      }
+    }
+
     return pack.stickers.last;
   }
 
@@ -108,11 +137,96 @@ class StickerService {
       if (pack.id != packId) continue;
       final item = pack.stickers.where((s) => s.id == stickerId).firstOrNull;
       if (item != null) {
-        await File(item.filePath).delete();
+        if (!item.filePath.startsWith('http')) {
+          final file = File(item.filePath);
+          if (await file.exists()) {
+            await file.delete();
+          }
+        }
         pack.stickers.removeWhere((s) => s.id == stickerId);
+
+        // Eliminar de la nube si tiene sesión activa
+        final user = FirebaseAuth.instance.currentUser;
+        if (user != null && packId == userPackId(user.uid)) {
+          try {
+            await _stickersRef(user.uid).doc(stickerId).delete();
+            final ext = item.filePath.startsWith('http') 
+                ? (item.filePath.contains('.gif') ? 'gif' : (item.filePath.contains('.webp') ? 'webp' : 'png'))
+                : item.filePath.split('.').last;
+            final storagePath = 'users/${user.uid}/sticker_$stickerId.$ext';
+            await _storage.ref(storagePath).delete();
+          } catch (e) {
+            debugPrint('Error deleting sticker from cloud: $e');
+          }
+        }
       }
     }
     await _savePacks(packs);
+  }
+
+  static Future<void> syncStickersWithCloud(String uid) async {
+    try {
+      final packs = await loadPacks();
+      final userPackIdVal = userPackId(uid);
+      var userPack = packs.where((p) => p.id == userPackIdVal).firstOrNull;
+      if (userPack == null) {
+        userPack = StickerPack(id: userPackIdVal, name: 'Mis stickers', stickers: []);
+        packs.add(userPack);
+      }
+
+      // 1. Obtener stickers de la nube (Firestore)
+      final snap = await _stickersRef(uid).get();
+      final cloudStickers = snap.docs.map((doc) {
+        final data = doc.data() as Map<String, dynamic>;
+        return StickerItem(
+          id: doc.id,
+          filePath: data['url'] ?? '',
+          label: data['label'],
+        );
+      }).toList();
+
+      bool hasChanges = false;
+
+      // 2. Sincronizar de la nube al local: agregar los que no están en local
+      for (final cloudItem in cloudStickers) {
+        final localItem = userPack.stickers.where((s) => s.id == cloudItem.id).firstOrNull;
+        if (localItem == null) {
+          userPack.stickers.add(cloudItem);
+          hasChanges = true;
+        }
+      }
+
+      // 3. Sincronizar de local a la nube: subir los que están localmente pero no en la nube
+      for (final localItem in List<StickerItem>.from(userPack.stickers)) {
+        final inCloud = cloudStickers.any((s) => s.id == localItem.id);
+        if (!inCloud && !localItem.filePath.startsWith('http')) {
+          final file = File(localItem.filePath);
+          if (await file.exists()) {
+            final ext = localItem.filePath.split('.').last;
+            final storagePath = 'users/$uid/sticker_${localItem.id}.$ext';
+            final ref = _storage.ref(storagePath);
+            
+            final bytes = await file.readAsBytes();
+            final mimeType = ext == 'gif' ? 'image/gif' : (ext == 'webp' ? 'image/webp' : 'image/png');
+            await ref.putData(bytes, SettableMetadata(contentType: mimeType));
+            final downloadUrl = await ref.getDownloadURL();
+
+            await _stickersRef(uid).doc(localItem.id).set({
+              'url': downloadUrl,
+              'label': localItem.label,
+              'createdAt': FieldValue.serverTimestamp(),
+            });
+            hasChanges = true;
+          }
+        }
+      }
+
+      if (hasChanges) {
+        await _savePacks(packs);
+      }
+    } catch (e) {
+      debugPrint('Error syncing stickers with cloud: $e');
+    }
   }
 
   static Future<String?> uploadForComment({
