@@ -13,6 +13,7 @@ class NativeVideoPlayer extends StatefulWidget {
   final String title;
   final Map<String, String>? headers;
   final VoidCallback? onVideoEnded;
+  final VoidCallback? onErrorFallback;
 
   const NativeVideoPlayer({
     super.key,
@@ -20,6 +21,7 @@ class NativeVideoPlayer extends StatefulWidget {
     required this.title,
     this.headers,
     this.onVideoEnded,
+    this.onErrorFallback,
   });
 
   @override
@@ -82,9 +84,16 @@ class _NativeVideoPlayerState extends State<NativeVideoPlayer> {
     try {
       if (widget.url.startsWith('http://') || widget.url.startsWith('https://')) {
         final uri = Uri.parse(widget.url);
+        // Detectar HLS aunque la URL no tenga extensión .m3u8
+        // (ej: /m3u8/hash, /hls/hash en CDNs como zilla-networks)
+        final lower = widget.url.toLowerCase();
+        final isHls = lower.contains('.m3u8') ||
+            lower.contains('/m3u8/') ||
+            lower.contains('/hls/');
         _controller = VideoPlayerController.networkUrl(
           uri,
           httpHeaders: widget.headers ?? const <String, String>{},
+          formatHint: isHls ? VideoFormat.hls : VideoFormat.other,
         );
       } else {
         final path = widget.url.startsWith('file://')
@@ -108,16 +117,34 @@ class _NativeVideoPlayerState extends State<NativeVideoPlayer> {
           _hasError = true;
           _errorMessage = e.toString().replaceFirst('Exception: ', '');
         });
+        // Auto-fallback al WebView si el reproductor nativo falla al inicializar
+        if (widget.onErrorFallback != null) {
+          Future.delayed(const Duration(milliseconds: 1500), () {
+            if (mounted && _hasError) {
+              widget.onErrorFallback!();
+            }
+          });
+        }
       }
     }
   }
 
   void _playerListener() {
     if (_controller != null && _controller!.value.hasError) {
-      setState(() {
-        _hasError = true;
-        _errorMessage = _controller!.value.errorDescription ?? 'Error de reproducción';
-      });
+      if (!_hasError) {
+        setState(() {
+          _hasError = true;
+          _errorMessage = _controller!.value.errorDescription ?? 'Error de reproducción';
+        });
+        // Auto-fallback al WebView si el reproductor falla durante la reproducción
+        if (widget.onErrorFallback != null) {
+          Future.delayed(const Duration(milliseconds: 1500), () {
+            if (mounted && _hasError) {
+              widget.onErrorFallback!();
+            }
+          });
+        }
+      }
     } else if (_controller != null) {
       final value = _controller!.value;
       if (_isInitialized && 
@@ -135,7 +162,7 @@ class _NativeVideoPlayerState extends State<NativeVideoPlayer> {
 
   void _startControlsTimer() {
     _controlsTimer?.cancel();
-    _controlsTimer = Timer(const Duration(seconds: 4), () {
+    _controlsTimer = Timer(const Duration(seconds: 2), () {
       if (mounted && _controller != null && _controller!.value.isPlaying) {
         setState(() {
           _showControls = false;
@@ -145,13 +172,16 @@ class _NativeVideoPlayerState extends State<NativeVideoPlayer> {
   }
 
   void _toggleControls() {
-    setState(() {
-      _showControls = !_showControls;
-    });
     if (_showControls) {
+      // Si ya están visibles → ocultar inmediatamente
+      _controlsTimer?.cancel();
+      setState(() => _showControls = false);
+    } else {
+      // Si están ocultos → mostrar y arrancar timer
+      setState(() => _showControls = true);
       if (_isLocked) {
         _controlsTimer?.cancel();
-        _controlsTimer = Timer(const Duration(seconds: 3), () {
+        _controlsTimer = Timer(const Duration(seconds: 2), () {
           if (mounted) setState(() => _showControls = false);
         });
       } else {
@@ -194,22 +224,29 @@ class _NativeVideoPlayerState extends State<NativeVideoPlayer> {
   }
 
   Future<void> _toggleFullscreen() async {
+    final newFullscreen = !_isFullscreen;
     setState(() {
-      _isFullscreen = !_isFullscreen;
+      _isFullscreen = newFullscreen;
       _showControls = true;
     });
     _startControlsTimer();
 
-    if (_isFullscreen) {
+    if (newFullscreen) {
       await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
       await SystemChrome.setPreferredOrientations([
         DeviceOrientation.landscapeLeft,
         DeviceOrientation.landscapeRight,
       ]);
     } else {
-      await SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, overlays: SystemUiOverlay.values);
+      await SystemChrome.setEnabledSystemUIMode(
+        SystemUiMode.manual,
+        overlays: SystemUiOverlay.values,
+      );
+      // Permitir tanto portrait como landscape al salir de fullscreen
       await SystemChrome.setPreferredOrientations([
         DeviceOrientation.portraitUp,
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
       ]);
     }
   }
@@ -237,7 +274,11 @@ class _NativeVideoPlayerState extends State<NativeVideoPlayer> {
     } catch (_) {}
     if (_isFullscreen) {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, overlays: SystemUiOverlay.values);
-      SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.portraitUp,
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
     }
     super.dispose();
   }
@@ -271,11 +312,24 @@ class _NativeVideoPlayerState extends State<NativeVideoPlayer> {
                   style: const TextStyle(color: Colors.white70, fontSize: 13),
                 ),
                 const SizedBox(height: 16),
-                ElevatedButton.icon(
-                  onPressed: _initializePlayer,
-                  icon: const Icon(Icons.refresh),
-                  label: const Text('Reintentar'),
-                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    ElevatedButton.icon(
+                      onPressed: _initializePlayer,
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Reintentar'),
+                      style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor),
+                    ),
+                    if (widget.onErrorFallback != null) ...[
+                      const SizedBox(width: 12),
+                      TextButton.icon(
+                        onPressed: widget.onErrorFallback,
+                        icon: const Icon(Icons.web, color: AppTheme.accentColor),
+                        label: const Text('Usar Web Player', style: TextStyle(color: AppTheme.accentColor)),
+                      ),
+                    ],
+                  ],
                 ),
               ],
             ),
@@ -604,10 +658,51 @@ class _NativeVideoPlayerState extends State<NativeVideoPlayer> {
     }
 
     return Positioned.fill(
-      child: Container(
-        color: Colors.transparent,
-        child: Column(
-          children: [
+      child: Stack(
+        children: [
+          // Skip Intro Button - posicionado absolutamente para no afectar el layout de la Column
+          if (dur.inMinutes >= 3)
+            Positioned(
+              right: 24,
+              bottom: 110, // encima de la barra inferior
+              child: Material(
+                color: AppTheme.primaryColor.withValues(alpha: 0.85),
+                borderRadius: BorderRadius.circular(20),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(20),
+                  onTap: () {
+                    if (_controller == null || !_isInitialized) return;
+                    final target = _controller!.value.position + const Duration(seconds: 85);
+                    final max = _controller!.value.duration;
+                    _controller!.seekTo(target > max ? max : target);
+                    _startControlsTimer();
+                  },
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.skip_next, color: Colors.white, size: 16),
+                        SizedBox(width: 6),
+                        Text(
+                          'Omitir Intro (+85s)',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          // Columna principal de controles
+          Container(
+            color: Colors.transparent,
+            child: Column(
+              children: [
             // Top Controls Bar (Back + Title + Options) - Glassmorphism Floating
             SafeArea(
               bottom: false,
@@ -761,47 +856,6 @@ class _NativeVideoPlayerState extends State<NativeVideoPlayer> {
 
             const Spacer(),
 
-            // Skip Intro Button (+85s)
-            if (dur.inMinutes >= 3)
-              Align(
-                alignment: Alignment.bottomRight,
-                child: Padding(
-                  padding: const EdgeInsets.only(right: 24, bottom: 8),
-                  child: Material(
-                    color: AppTheme.primaryColor.withValues(alpha: 0.85),
-                    borderRadius: BorderRadius.circular(20),
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(20),
-                      onTap: () {
-                        if (_controller == null || !_isInitialized) return;
-                        final target = _controller!.value.position + const Duration(seconds: 85);
-                        final max = _controller!.value.duration;
-                        _controller!.seekTo(target > max ? max : target);
-                        _startControlsTimer();
-                      },
-                      child: const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.skip_next, color: Colors.white, size: 16),
-                            SizedBox(width: 6),
-                            Text(
-                              'Omitir Intro (+85s)',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-
             // Lower Controls Bar (Slider + Duration + Fullscreen) - Glassmorphism Floating
             SafeArea(
               top: false,
@@ -832,7 +886,7 @@ class _NativeVideoPlayerState extends State<NativeVideoPlayer> {
                                 activeTrackColor: AppTheme.primaryColor,
                                 inactiveTrackColor: Colors.white30,
                                 thumbColor: AppTheme.primaryColor,
-                                overlayColor: AppTheme.primaryColor.withOpacity(0.3),
+                                overlayColor: AppTheme.primaryColor.withValues(alpha: 0.3),
                               ),
                               child: Slider(
                                 value: pos.inSeconds.toDouble().clamp(0.0, dur.inSeconds.toDouble()),
@@ -874,7 +928,9 @@ class _NativeVideoPlayerState extends State<NativeVideoPlayer> {
               ),
             ),
           ],
-        ),
+            ),
+          ),
+        ],
       ),
     );
   }

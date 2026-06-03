@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -41,9 +42,9 @@ class SettingsProvider extends ChangeNotifier {
     // Sincronizar subscripción a app_updates en base a esta preferencia
     try {
       if (_updateNotificationsEnabled) {
-        await FirebaseMessaging.instance.subscribeToTopic('app_updates');
+        unawaited(FirebaseMessaging.instance.subscribeToTopic('app_updates'));
       } else {
-        await FirebaseMessaging.instance.unsubscribeFromTopic('app_updates');
+        unawaited(FirebaseMessaging.instance.unsubscribeFromTopic('app_updates'));
       }
     } catch (e) {
       debugPrint('Error syncing app_updates topic subscription: $e');

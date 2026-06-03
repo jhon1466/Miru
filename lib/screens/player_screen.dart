@@ -15,6 +15,7 @@ import '../models/anime.dart';
 import '../widgets/comments_section.dart';
 import '../widgets/episode_download_button.dart';
 import '../widgets/native_video_player.dart';
+import '../providers/connectivity_provider.dart';
 import 'detail_screen.dart';
 
 class PlayerScreen extends StatefulWidget {
@@ -45,6 +46,13 @@ class _PlayerScreenState extends State<PlayerScreen> {
   bool _isSub = true;
   final _webViewKeepAlive = InAppWebViewKeepAlive();
   InAppWebViewController? _webViewController;
+
+  // Resolutor de enlaces directos en segundo plano
+  String? _originalEmbedUrl;
+  bool _isResolvingUrl = false;
+  bool _useWebViewFallback = false;
+  Timer? _resolverTimeoutTimer;
+  Timer? _jsExtractionTimer;
 
   @override
   void initState() {
@@ -145,6 +153,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   @override
   void dispose() {
+    _resolverTimeoutTimer?.cancel();
+    _jsExtractionTimer?.cancel();
     _webViewController = null;
     unawaited(_restoreSystemUiAfterPlayer());
     super.dispose();
@@ -153,13 +163,38 @@ class _PlayerScreenState extends State<PlayerScreen> {
   void _playServer(String url, String name, bool isSub, {bool logHistory = true}) {
     if (url.isEmpty) return;
 
+    _resolverTimeoutTimer?.cancel();
+    _jsExtractionTimer?.cancel();
+
+    final isDirect = _isDirectMediaUrl(url);
+
     setState(() {
+      _originalEmbedUrl = url;
       _selectedServerUrl = url;
       _selectedServerName = name;
       _isSub = isSub;
+      _useWebViewFallback = false;
+      _isResolvingUrl = !isDirect;
     });
 
-    _webViewController?.loadUrl(urlRequest: URLRequest(url: WebUri(url)));
+    if (!isDirect) {
+      _resolverTimeoutTimer = Timer(const Duration(seconds: 8), () {
+        if (mounted && _isResolvingUrl) {
+          setState(() {
+            _isResolvingUrl = false;
+            _useWebViewFallback = true;
+          });
+          // Inyectar JS de limpieza ahora que el WebView es visible
+          Future.delayed(const Duration(milliseconds: 400), () {
+            if (mounted && _webViewController != null) {
+              _injectPlayerCleanupJs(_webViewController!);
+            }
+          });
+        }
+      });
+      // Cargar el URL en el webview persistente
+      _webViewController?.loadUrl(urlRequest: URLRequest(url: WebUri(url)));
+    }
 
     if (logHistory) {
       final auth = context.read<app_auth.AuthProvider>();
@@ -176,6 +211,114 @@ class _PlayerScreenState extends State<PlayerScreen> {
         unawaited(AniListService.syncWatchProgress(widget.animeTitle, widget.episodeNumber));
       }
     }
+  }
+
+  void _onUrlResolved(String resolvedUrl) {
+    _resolverTimeoutTimer?.cancel();
+    _jsExtractionTimer?.cancel();
+    if (!mounted) return;
+    setState(() {
+      _selectedServerUrl = resolvedUrl;
+      _isResolvingUrl = false;
+      _useWebViewFallback = false;
+    });
+  }
+
+  void _extractVideoUrl(InAppWebViewController controller) {
+    _jsExtractionTimer?.cancel();
+    _jsExtractionTimer = Timer.periodic(const Duration(milliseconds: 500), (timer) async {
+      if (!mounted || !_isResolvingUrl) {
+        timer.cancel();
+        return;
+      }
+      try {
+        final videoSrc = await controller.evaluateJavascript(source: """
+          (function() {
+            var video = document.querySelector('video');
+            if (video && video.src && !video.src.startsWith('blob:') && !video.src.startsWith('about:')) return video.src;
+            var source = document.querySelector('source');
+            if (source && source.src && !source.src.startsWith('blob:') && !source.src.startsWith('about:')) return source.src;
+            return '';
+          })()
+        """);
+        if (videoSrc != null && videoSrc.toString().isNotEmpty) {
+          final srcStr = videoSrc.toString().trim();
+          if (_isDirectMediaUrl(srcStr)) {
+            timer.cancel();
+            _onUrlResolved(srcStr);
+          }
+        }
+      } catch (_) {}
+    });
+  }
+
+  /// Inyecta JS para limpiar anuncios y expandir el reproductor a pantalla completa en el WebView.
+  /// Usa setTimeout escalonados en vez de setInterval para no interferir continuamente con el DOM.
+  void _injectPlayerCleanupJs(InAppWebViewController controller) {
+    const js = """
+      (function() {
+        function clean() {
+          var video = document.querySelector('video');
+          if (!video) return;
+          var pc = video;
+          while (pc && pc.parentElement && pc.parentElement.tagName !== 'BODY') {
+            pc = pc.parentElement;
+          }
+          if (!pc) return;
+          var ch = document.body.children;
+          for (var i = 0; i < ch.length; i++) {
+            var c = ch[i];
+            var t = c.tagName;
+            if (c !== pc && t !== 'SCRIPT' && t !== 'STYLE' && t !== 'LINK') {
+              c.style.setProperty('display','none','important');
+              c.style.setProperty('visibility','hidden','important');
+              c.style.setProperty('pointer-events','none','important');
+            }
+          }
+          pc.style.setProperty('position','fixed','important');
+          pc.style.setProperty('top','0','important');
+          pc.style.setProperty('left','0','important');
+          pc.style.setProperty('width','100vw','important');
+          pc.style.setProperty('height','100vh','important');
+          pc.style.setProperty('z-index','999999','important');
+          pc.style.setProperty('display','block','important');
+          pc.style.setProperty('visibility','visible','important');
+          video.style.setProperty('width','100%','important');
+          video.style.setProperty('height','100%','important');
+          video.style.setProperty('object-fit','contain','important');
+        }
+        // Intentar en varios momentos para cuando el player cargue tarde
+        clean();
+        setTimeout(clean, 500);
+        setTimeout(clean, 1500);
+        setTimeout(clean, 3000);
+        setTimeout(clean, 6000);
+      })();
+    """;
+    controller.evaluateJavascript(source: js);
+  }
+
+  Map<String, String> _buildHeaders() {
+    final Map<String, String> headers = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    };
+    
+    try {
+      final refererUrl = _originalEmbedUrl ?? _selectedServerUrl!;
+      final refererUri = Uri.parse(refererUrl);
+      headers['Referer'] = '${refererUri.scheme}://${refererUri.host}/';
+      headers['Origin'] = '${refererUri.scheme}://${refererUri.host}';
+    } catch (_) {
+      if (widget.animeUrl.isNotEmpty) {
+        try {
+          final uri = Uri.parse(widget.animeUrl);
+          headers['Referer'] = '${uri.scheme}://${uri.host}/';
+        } catch (_) {
+          headers['Referer'] = widget.animeUrl;
+        }
+      }
+    }
+    return headers;
   }
 
   void _switchLanguage(bool subFlag, EpisodeLinksResponse links) {
@@ -237,9 +380,13 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final connectivity = Provider.of<ConnectivityProvider>(context);
     final animeProvider = Provider.of<AnimeProvider>(context);
     final links = animeProvider.episodeLinks;
     final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+    final screenSize = MediaQuery.of(context).size;
+    // playerHeight fijo en el árbol: evita que NativeVideoPlayer se descarte al rotar
+    final playerHeight = isLandscape ? screenSize.height : screenSize.width * 9 / 16;
 
     return PopScope(
       onPopInvokedWithResult: (didPop, _) {
@@ -297,74 +444,108 @@ class _PlayerScreenState extends State<PlayerScreen> {
                     ),
                 ],
               ),
-        body: isLandscape
-            ? _buildPlayerWidget()
-            : Column(
-                children: [
-                  AspectRatio(
-                    aspectRatio: 16 / 9,
-                    child: _buildPlayerWidget(),
-                  ),
-                  Expanded(
-                    child: SingleChildScrollView(
-                      child: Column(
-                        children: [
-                          Container(
-                            color: context.backgroundColor,
-                            width: double.infinity,
-                            child: animeProvider.isLoadingEpisode
-                                ? Padding(
-                                    padding: const EdgeInsets.all(40),
-                                    child: Column(
-                                      children: [
-                                        const CircularProgressIndicator(
-                                          valueColor: AlwaysStoppedAnimation(AppTheme.primaryColor),
-                                        ),
-                                        const SizedBox(height: 12),
-                                        Text(
-                                          'Buscando servidores de video...',
-                                          style: TextStyle(color: context.textSecondary),
-                                        ),
-                                      ],
-                                    ),
-                                  )
-                                : links == null
-                                    ? Padding(
-                                        padding: const EdgeInsets.all(24),
-                                        child: Text(
-                                          animeProvider.episodeError ?? 'Error al cargar servidores',
-                                          textAlign: TextAlign.center,
-                                          style: TextStyle(color: context.textSecondary),
-                                        ),
-                                      )
-                                    : _buildServersPanel(links),
-                          ),
-                          CommentsSection(
-                            animeSlug: Uri.parse(widget.animeUrl).pathSegments.lastWhere(
-                                  (s) => s.isNotEmpty,
-                                  orElse: () => widget.animeUrl.hashCode.toString(),
-                                ),
-                            animeTitle: widget.animeTitle,
-                            animeUrl: widget.animeUrl,
-                            episodeUrl: widget.episodeUrl,
-                            episodeNumber: widget.episodeNumber,
-                            focusCommentId: widget.focusCommentId,
-                          ),
-                        ],
+        // Player SIEMPRE como primer hijo de Column>SizedBox para preservar estado al rotar
+        body: Column(
+          children: [
+            if (!isLandscape && !connectivity.isConnected)
+              Container(
+                width: double.infinity,
+                color: AppTheme.dangerColor,
+                padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 16),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.wifi_off_rounded, color: Colors.white, size: 12),
+                    SizedBox(width: 8),
+                    Text(
+                      'Sin conexión a internet',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
+            SizedBox(
+              height: playerHeight,
+              child: _buildPlayerWidget(),
+            ),
+            if (!isLandscape)
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Column(
+                    children: [
+                      Container(
+                        color: context.backgroundColor,
+                        width: double.infinity,
+                        child: animeProvider.isLoadingEpisode
+                            ? Padding(
+                                padding: const EdgeInsets.all(40),
+                                child: Column(
+                                  children: [
+                                    const CircularProgressIndicator(
+                                      valueColor: AlwaysStoppedAnimation(AppTheme.primaryColor),
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Text(
+                                      'Buscando servidores de video...',
+                                      style: TextStyle(color: context.textSecondary),
+                                    ),
+                                  ],
+                                ),
+                              )
+                            : links == null
+                                ? Padding(
+                                    padding: const EdgeInsets.all(24),
+                                    child: Text(
+                                      animeProvider.episodeError ?? 'Error al cargar servidores',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(color: context.textSecondary),
+                                    ),
+                                  )
+                                : _buildServersPanel(links),
+                      ),
+                      CommentsSection(
+                        animeSlug: Uri.parse(widget.animeUrl).pathSegments.lastWhere(
+                              (s) => s.isNotEmpty,
+                              orElse: () => widget.animeUrl.hashCode.toString(),
+                            ),
+                        animeTitle: widget.animeTitle,
+                        animeUrl: widget.animeUrl,
+                        episodeUrl: widget.episodeUrl,
+                        episodeNumber: widget.episodeNumber,
+                        focusCommentId: widget.focusCommentId,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
 
   bool _isDirectMediaUrl(String url) {
-    final lower = url.toLowerCase();
-    
-    // Si contiene mp4upload, solo es directo si tiene una extensión de video al final
-    // o contiene /d/ (direct download) en la ruta.
+    final lower = url.toLowerCase().trim();
+    if (lower.isEmpty) return false;
+
+    // Ignorar urls de embed/iframe conocidas para que pasen por el resolutor
+    if (lower.contains('/embed-') ||
+        lower.contains('/embed/') ||
+        lower.endsWith('.html') ||
+        lower.contains('.html?') ||
+        lower.contains('/e/') || // streamtape / streamwish / voe
+        lower.contains('/v/') ||
+        lower.contains('doodstream.com/e/') ||
+        lower.contains('streamwish.to/e/') ||
+        lower.contains('voe.sx/e/')) {
+      return false;
+    }
+
+    // Si contiene mp4upload, solo es directo si tiene extensión de video o es descarga directa /d/
     if (lower.contains('mp4upload.com')) {
       final hasVideoExtension = lower.endsWith('.mp4') || 
                                lower.contains('.mp4?') ||
@@ -375,12 +556,23 @@ class _PlayerScreenState extends State<PlayerScreen> {
     }
 
     if (lower.contains('.mp4') ||
+        lower.contains('.m3u8') ||
+        lower.contains('/m3u8/') ||    // CDN paths like /m3u8/hash (ej: zilla-networks)
         lower.contains('.mkv') ||
         lower.contains('.webm') ||
+        lower.contains('/get_video?') ||
         lower.contains('googleusercontent.com')) {
       return true;
     }
     return false;
+  }
+
+  String _getRootDomain(String host) {
+    final parts = host.split('.');
+    if (parts.length >= 2) {
+      return '${parts[parts.length - 2]}.${parts[parts.length - 1]}';
+    }
+    return host;
   }
 
   Widget _buildPlayerWidget() {
@@ -393,140 +585,192 @@ class _PlayerScreenState extends State<PlayerScreen> {
       );
     }
 
-    if (_isDirectMediaUrl(_selectedServerUrl!)) {
-      final Map<String, String> headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      };
-      
-      try {
-        final serverUri = Uri.parse(_selectedServerUrl!);
-        headers['Referer'] = '${serverUri.scheme}://${serverUri.host}/';
-        headers['Origin'] = '${serverUri.scheme}://${serverUri.host}';
-      } catch (_) {
-        if (widget.animeUrl.isNotEmpty) {
-          try {
-            final uri = Uri.parse(widget.animeUrl);
-            headers['Referer'] = '${uri.scheme}://${uri.host}/';
-          } catch (_) {
-            headers['Referer'] = widget.animeUrl;
-          }
-        }
-      }
-
-      return NativeVideoPlayer(
-        key: ValueKey('native-player-$_selectedServerUrl'),
-        url: _selectedServerUrl!,
-        title: '${widget.animeTitle} - Ep. ${widget.episodeNumber.toString().replaceAll('.0', '')}',
-        headers: headers,
-        onVideoEnded: _handleVideoEnded,
-      );
-    }
-
-    final webUri = WebUri(_selectedServerUrl!);
-    final originalHost = Uri.parse(_selectedServerUrl!).host;
+    final isDirect = _isDirectMediaUrl(_selectedServerUrl!);
 
     return Stack(
       children: [
-        InAppWebView(
-          key: const ValueKey('player-webview'),
-          keepAlive: _webViewKeepAlive,
-          initialUrlRequest: URLRequest(url: webUri),
-          onWebViewCreated: (controller) {
-            _webViewController = controller;
-          },
-          initialSettings: InAppWebViewSettings(
-            javaScriptEnabled: true,
-            mediaPlaybackRequiresUserGesture: false,
-            allowsInlineMediaPlayback: true,
-            iframeAllowFullscreen: true,
-            useShouldOverrideUrlLoading: true,
-            javaScriptCanOpenWindowsAutomatically: false,
-            supportMultipleWindows: true,
-            useHybridComposition: true,
-            domStorageEnabled: true,
-            contentBlockers: [
-              // Bloquear scripts de dominios conocidos de publicidad y redirecciones
-              ContentBlocker(
-                trigger: ContentBlockerTrigger(
-                  urlFilter: ".*(slavirappels|slavir|onclickads|exoclick|juicyads|propellerads|popads|popmyads|adsterra|monetag|fastclick|clikstars|adkey|yandex|adnxs|doubleclick|adservice|googleadservices|googlesyndication|adskeeper|mgid|taboola|outbrain|bet365|1xbet).*\\.(js|html|css|php).*",
+        // 1. El WebView (siempre en el árbol para evitar recrear la vista de plataforma y perder keepAlive)
+        Positioned(
+          left: _useWebViewFallback ? 0 : -2000,
+          top: _useWebViewFallback ? 0 : -2000,
+          right: _useWebViewFallback ? 0 : null,
+          bottom: _useWebViewFallback ? 0 : null,
+          width: _useWebViewFallback ? null : 1,
+          height: _useWebViewFallback ? null : 1,
+          child: InAppWebView(
+            key: const ValueKey('player-webview'),
+            keepAlive: _webViewKeepAlive,
+            initialUrlRequest: URLRequest(url: WebUri(_originalEmbedUrl ?? _selectedServerUrl!)),
+            onWebViewCreated: (controller) {
+              _webViewController = controller;
+            },
+            initialSettings: InAppWebViewSettings(
+              javaScriptEnabled: true,
+              mediaPlaybackRequiresUserGesture: false,
+              allowsInlineMediaPlayback: true,
+              iframeAllowFullscreen: true,
+              useShouldOverrideUrlLoading: true,
+              javaScriptCanOpenWindowsAutomatically: false,
+              supportMultipleWindows: true,
+              useHybridComposition: true,
+              domStorageEnabled: true,
+              contentBlockers: [
+                // Bloquear scripts de dominios conocidos de publicidad y redirecciones
+                ContentBlocker(
+                  trigger: ContentBlockerTrigger(
+                    urlFilter: ".*(slavirappels|slavir|onclickads|exoclick|juicyads|propellerads|popads|popmyads|adsterra|monetag|fastclick|clikstars|adkey|yandex|adnxs|doubleclick|adservice|googleadservices|googlesyndication|adskeeper|mgid|taboola|outbrain|bet365|1xbet).*\\.(js|html|css|php).*",
+                  ),
+                  action: ContentBlockerAction(
+                    type: ContentBlockerActionType.BLOCK,
+                  ),
                 ),
-                action: ContentBlockerAction(
-                  type: ContentBlockerActionType.BLOCK,
+                // Bloquear popups por recursos de tipo raw o script de terceros
+                ContentBlocker(
+                  trigger: ContentBlockerTrigger(
+                    urlFilter: ".*\\.(pop|banner|ad|click).*\\.(js|html).*",
+                  ),
+                  action: ContentBlockerAction(
+                    type: ContentBlockerActionType.BLOCK,
+                  ),
                 ),
-              ),
-              // Bloquear popups por recursos de tipo raw o script de terceros
-              ContentBlocker(
-                trigger: ContentBlockerTrigger(
-                  urlFilter: ".*\\.(pop|banner|ad|click).*\\.(js|html).*",
-                ),
-                action: ContentBlockerAction(
-                  type: ContentBlockerActionType.BLOCK,
-                ),
-              ),
-            ],
-          ),
-          shouldOverrideUrlLoading: (controller, navigationAction) async {
-            final uri = navigationAction.request.url;
-            if (uri != null) {
-              final newHost = uri.host;
-              if (newHost != originalHost &&
-                  !newHost.contains('google') &&
-                  !newHost.contains('recaptcha') &&
-                  !newHost.contains('jwplayer')) {
+              ],
+            ),
+            shouldOverrideUrlLoading: (controller, navigationAction) async {
+              // En modo fallback (el usuario ve el WebView), permitir TODA navegación
+              // para no bloquear redirecciones que los reproductores necesitan
+              if (_useWebViewFallback) return NavigationActionPolicy.ALLOW;
+              final uri = navigationAction.request.url;
+              if (uri != null) {
+                final newHost = uri.host;
+                final embedUrl = _originalEmbedUrl ?? _selectedServerUrl!;
+                try {
+                  final originalHost = Uri.parse(embedUrl).host;
+                  final newRoot = _getRootDomain(newHost);
+                  final originalRoot = _getRootDomain(originalHost);
+                  if (newRoot == originalRoot ||
+                      newHost.contains('google') ||
+                      newHost.contains('recaptcha') ||
+                      newHost.contains('jwplayer')) {
+                    return NavigationActionPolicy.ALLOW;
+                  }
+                } catch (_) {
+                  return NavigationActionPolicy.ALLOW;
+                }
                 return NavigationActionPolicy.CANCEL;
               }
-            }
-            return NavigationActionPolicy.ALLOW;
-          },
-          onCreateWindow: (controller, createWindowAction) async {
-            return false; // Bloquea la creación de nuevas ventanas (popups de publicidad)
-          },
-          onEnterFullscreen: (controller) {
-            unawaited(_onWebEnterFullscreen(controller));
-          },
-          onExitFullscreen: (controller) {
-            unawaited(_onWebExitFullscreen(controller));
-          },
-          onLoadStop: (controller, url) async {
-            await controller.evaluateJavascript(source: """
-              (function() {
-                var clean = function() {
-                  var video = document.querySelector('video');
-                  if (!video) return;
-                  var playerContainer = video;
-                  while (playerContainer && playerContainer.parentElement && playerContainer.parentElement.tagName !== 'BODY') {
-                    playerContainer = playerContainer.parentElement;
-                  }
-                  if (!playerContainer) return;
-                  var bodyChildren = document.body.children;
-                  for (var i = 0; i < bodyChildren.length; i++) {
-                    var child = bodyChildren[i];
-                    if (child !== playerContainer && child.tagName !== 'SCRIPT' && child.tagName !== 'STYLE') {
-                      child.style.setProperty('display', 'none', 'important');
-                      child.style.setProperty('visibility', 'hidden', 'important');
-                      child.style.setProperty('opacity', '0', 'important');
-                      child.style.setProperty('pointer-events', 'none', 'important');
-                    }
-                  }
-                  playerContainer.style.setProperty('position', 'fixed', 'important');
-                  playerContainer.style.setProperty('top', '0', 'important');
-                  playerContainer.style.setProperty('left', '0', 'important');
-                  playerContainer.style.setProperty('width', '100vw', 'important');
-                  playerContainer.style.setProperty('height', '100vh', 'important');
-                  playerContainer.style.setProperty('z-index', '999999', 'important');
-                  playerContainer.style.setProperty('display', 'block', 'important');
-                  playerContainer.style.setProperty('visibility', 'visible', 'important');
-                  playerContainer.style.setProperty('opacity', '1', 'important');
-                  
-                  video.style.setProperty('width', '100%', 'important');
-                  video.style.setProperty('height', '100%', 'important');
-                };
-                clean();
-                setInterval(clean, 300);
-              })();
-            """);
-          },
+              return NavigationActionPolicy.ALLOW;
+            },
+            onCreateWindow: (controller, createWindowAction) async {
+              return false; // Bloquea la creación de nuevas ventanas (popups de publicidad)
+            },
+            onConsoleMessage: (controller, consoleMessage) {
+              debugPrint('WebView Console: ${consoleMessage.message}');
+            },
+            onReceivedError: (controller, request, error) {
+              debugPrint('WebView Error: ${error.description} for ${request.url}');
+            },
+            onReceivedHttpError: (controller, request, errorResponse) {
+              debugPrint('WebView HTTP Error: ${errorResponse.statusCode} for ${request.url}');
+            },
+            onLoadStart: (controller, url) {
+              debugPrint('WebView Load Start: $url');
+            },
+            onEnterFullscreen: (controller) {
+              unawaited(_onWebEnterFullscreen(controller));
+            },
+            onExitFullscreen: (controller) {
+              unawaited(_onWebExitFullscreen(controller));
+            },
+            onLoadStop: (controller, url) async {
+              debugPrint('WebView Load Stop: $url');
+              if (_isResolvingUrl && !_useWebViewFallback) {
+                _extractVideoUrl(controller);
+              }
+              // Solo aplicar limpieza cuando el WebView es visible al usuario
+              if (_useWebViewFallback) {
+                _injectPlayerCleanupJs(controller);
+              }
+            },
+            onLoadResource: (controller, resource) {
+              final resUrl = resource.url?.toString();
+              if (resUrl != null) {
+                debugPrint('WebView Resource Loaded: $resUrl');
+                if (_isResolvingUrl && !_useWebViewFallback && _isDirectMediaUrl(resUrl)) {
+                  _onUrlResolved(resUrl);
+                }
+              }
+            },
+          ),
         ),
+
+        // 2. El reproductor nativo (se dibuja encima si se tiene la URL directa resuelta)
+        if (isDirect && !_useWebViewFallback)
+          Positioned.fill(
+            child: NativeVideoPlayer(
+              key: ValueKey('native-player-$_selectedServerUrl'),
+              url: _selectedServerUrl!,
+              title: '${widget.animeTitle} - Ep. ${widget.episodeNumber.toString().replaceAll('.0', '')}',
+              headers: _buildHeaders(),
+              onVideoEnded: _handleVideoEnded,
+              onErrorFallback: () {
+                if (mounted) {
+                  setState(() {
+                    _isResolvingUrl = false;
+                    _useWebViewFallback = true;
+                  });
+                  Future.delayed(const Duration(milliseconds: 400), () {
+                    if (mounted && _webViewController != null) {
+                      _injectPlayerCleanupJs(_webViewController!);
+                    }
+                  });
+                }
+              },
+            ),
+          ),
+
+        // 3. El overlay de resolviendo (se dibuja encima mientras resuelve)
+        if (_isResolvingUrl && !_useWebViewFallback)
+          Positioned.fill(
+            child: Container(
+              color: Colors.black,
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation(AppTheme.primaryColor),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Resolviendo enlace nativo en $_selectedServerName...',
+                      style: const TextStyle(color: Colors.white70, fontSize: 13),
+                    ),
+                    const SizedBox(height: 8),
+                    TextButton.icon(
+                      onPressed: () {
+                        if (mounted) {
+                          setState(() {
+                            _isResolvingUrl = false;
+                            _useWebViewFallback = true;
+                          });
+                          Future.delayed(const Duration(milliseconds: 400), () {
+                            if (mounted && _webViewController != null) {
+                              _injectPlayerCleanupJs(_webViewController!);
+                            }
+                          });
+                        }
+                      },
+                      icon: const Icon(Icons.web, color: AppTheme.accentColor, size: 16),
+                      label: const Text(
+                        'Usar Web Player',
+                        style: TextStyle(color: AppTheme.accentColor, fontSize: 12),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
       ],
     );
   }

@@ -4,6 +4,7 @@ import '../core/theme.dart';
 import '../providers/auth_provider.dart' as app_auth;
 import '../providers/history_provider.dart';
 import '../providers/notification_provider.dart';
+import '../providers/connectivity_provider.dart';
 import '../utils/auth_ui.dart';
 import 'home_screen.dart';
 import 'catalog_screen.dart';
@@ -77,17 +78,49 @@ class _MainShellScreenState extends State<MainShellScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final connectivity = Provider.of<ConnectivityProvider>(context);
+
     return Scaffold(
       resizeToAvoidBottomInset: false,
       extendBody: true,
-      body: IndexedStack(
-        index: _currentIndex,
-        children: const [
-          HomeScreen(),
-          CatalogScreen(embedded: true),
-          ScheduleScreen(embedded: true),
-          SearchScreen(embedded: true),
-          ProfileTabScreen(),
+      body: Column(
+        children: [
+          if (!connectivity.isConnected)
+            SafeArea(
+              bottom: false,
+              child: Container(
+                width: double.infinity,
+                color: AppTheme.dangerColor,
+                padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 16),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.wifi_off_rounded, color: Colors.white, size: 14),
+                    SizedBox(width: 8),
+                    Text(
+                      'Sin conexión a internet',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          Expanded(
+            child: IndexedStack(
+              index: _currentIndex,
+              children: const [
+                HomeScreen(),
+                CatalogScreen(embedded: true),
+                ScheduleScreen(embedded: true),
+                SearchScreen(embedded: true),
+                ProfileTabScreen(),
+              ],
+            ),
+          ),
         ],
       ),
       bottomNavigationBar: SafeArea(

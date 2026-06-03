@@ -140,7 +140,7 @@ class PushNotificationService {
 
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
-      await registerTokenForUser(user.uid);
+      unawaited(registerTokenForUser(user.uid));
       unawaited(FavoriteService.syncFavoriteTopics(user.uid));
     }
 

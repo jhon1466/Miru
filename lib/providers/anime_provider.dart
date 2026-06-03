@@ -95,10 +95,15 @@ class AnimeProvider extends ChangeNotifier {
   void selectProvider(String domain) {
     if (!_adultContentEnabled && AdultContent.isAdultDomain(domain)) return;
     _selectedProviderDomain = domain;
+    
+    // Limpiar listas anteriores para evitar ver datos cruzados de otros proveedores
+    _popularAnime = [];
+    _latestPublishedEpisodes = [];
+    
     notifyListeners();
-    loadPopularAnime();
-    loadLatestPublishedEpisodes();
-    loadCatalog(); // Siempre recargar catálogo al cambiar proveedor
+    loadPopularAnime(forceNetwork: true);
+    loadLatestPublishedEpisodes(forceNetwork: true);
+    loadCatalog(forceNetwork: true); // Siempre recargar catálogo al cambiar proveedor
     // Si hay una búsqueda activa, reejecutarla con el nuevo proveedor
     if (_searchResults.isNotEmpty || _searchError != null) {
       final lastQuery = _lastSearchQuery;
