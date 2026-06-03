@@ -40,9 +40,9 @@ class ApiClient {
         url = url.substring(0, url.length - 1);
       }
       // Usamos el endpoint /health que retorna {status: "ok"}
-      // Cloud Functions puede tener cold start, damos 12s de timeout
+      // Cloud Functions puede tener cold start, damos 5s de timeout
       final uri = Uri.parse('$url/api/health');
-      final response = await http.get(uri).timeout(const Duration(seconds: 12));
+      final response = await http.get(uri).timeout(const Duration(seconds: 5));
       return response.statusCode == 200;
     } catch (_) {
       return false;

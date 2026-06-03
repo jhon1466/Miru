@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -11,6 +12,7 @@ import 'providers/notification_provider.dart';
 import 'providers/chat_provider.dart';
 import 'providers/download_provider.dart';
 import 'providers/settings_provider.dart';
+import 'providers/connectivity_provider.dart';
 import 'services/push_notification_service.dart';
 import 'services/deep_link_service.dart';
 import 'services/anilist_service.dart';
@@ -22,10 +24,10 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  await PushNotificationService.initialize();
-  await DownloadNotificationService.initialize();
-  await DeepLinkService.initialize();
-  await AniListService.init();
+  unawaited(PushNotificationService.initialize());
+  unawaited(DownloadNotificationService.initialize());
+  unawaited(DeepLinkService.initialize());
+  unawaited(AniListService.init());
   runApp(const MyApp());
 }
 
@@ -36,6 +38,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
+        ChangeNotifierProvider(create: (_) => ConnectivityProvider()),
         ChangeNotifierProvider(create: (_) => AnimeProvider()),
         ChangeNotifierProvider(create: (_) => SettingsProvider()..load()),
         ChangeNotifierProvider(create: (_) => HistoryProvider()),

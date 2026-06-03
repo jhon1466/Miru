@@ -47,6 +47,9 @@ class _FullscreenImageViewerState extends State<FullscreenImageViewer>
   bool _showControls = true;
   TapDownDetails? _doubleTapDetails;
 
+  ImageStreamListener? _listener;
+  double? _aspectRatio;
+
   @override
   void initState() {
     super.initState();
@@ -59,12 +62,34 @@ class _FullscreenImageViewerState extends State<FullscreenImageViewer>
           _transformController.value = _animation!.value;
         }
       });
+    _resolveImage();
+  }
+
+  void _resolveImage() {
+    try {
+      final provider = CachedNetworkImageProvider(widget.imageUrl);
+      final stream = provider.resolve(ImageConfiguration.empty);
+      _listener = ImageStreamListener((ImageInfo info, bool _) {
+        if (mounted) {
+          setState(() {
+            _aspectRatio = info.image.width / info.image.height;
+          });
+        }
+      });
+      stream.addListener(_listener!);
+    } catch (_) {}
   }
 
   @override
   void dispose() {
     _transformController.dispose();
     _animController.dispose();
+    if (_listener != null) {
+      try {
+        final provider = CachedNetworkImageProvider(widget.imageUrl);
+        provider.resolve(ImageConfiguration.empty).removeListener(_listener!);
+      } catch (_) {}
+    }
     super.dispose();
   }
 
@@ -111,51 +136,53 @@ class _FullscreenImageViewerState extends State<FullscreenImageViewer>
       extendBodyBehindAppBar: true,
       appBar: _showControls
           ? AppBar(
-              backgroundColor: Colors.black.withValues(alpha: 0.55),
+              backgroundColor: Colors.black.withOpacity(0.55),
               elevation: 0,
               leading: IconButton(
                 icon: const Icon(Icons.close, color: Colors.white),
                 onPressed: () => Navigator.of(context).pop(),
               ),
-              actions: [
-                IconButton(
-                  icon: const Icon(Icons.zoom_out_map, color: Colors.white),
-                  tooltip: 'Restablecer zoom',
-                  onPressed: () {
-                    _animController.stop();
-                    _animation = Matrix4Tween(
-                      begin: _transformController.value,
-                      end: Matrix4.identity(),
-                    ).animate(CurvedAnimation(
-                        parent: _animController, curve: Curves.easeOut));
-                    _animController.forward(from: 0);
-                  },
-                ),
-              ],
             )
           : null,
       body: GestureDetector(
         onTap: _toggleControls,
         onDoubleTapDown: _onDoubleTapDown,
         onDoubleTap: _onDoubleTap,
-        child: Center(
-          child: Hero(
-            tag: tag,
-            child: InteractiveViewer(
-              transformationController: _transformController,
-              minScale: 0.5,
-              maxScale: 6.0,
-              child: CachedNetworkImage(
-                imageUrl: widget.imageUrl,
-                fit: BoxFit.contain,
-                fadeInDuration: const Duration(milliseconds: 200),
-                placeholder: (context, url) => const Center(
-                  child: CircularProgressIndicator(color: Colors.white),
-                ),
-                errorWidget: (context, url, error) => const Center(
-                  child: Icon(Icons.broken_image, color: Colors.white54, size: 64),
-                ),
-              ),
+        child: SizedBox.expand(
+          child: InteractiveViewer(
+            transformationController: _transformController,
+            minScale: 0.5,
+            maxScale: 6.0,
+            child: Hero(
+              tag: tag,
+              child: _aspectRatio == null
+                  ? SizedBox.expand(
+                      child: CachedNetworkImage(
+                        imageUrl: widget.imageUrl,
+                        fit: BoxFit.contain,
+                        fadeInDuration: const Duration(milliseconds: 200),
+                        placeholder: (context, url) => const Center(
+                          child: CircularProgressIndicator(color: Colors.white),
+                        ),
+                        errorWidget: (context, url, error) => const Center(
+                          child: Icon(Icons.broken_image, color: Colors.white54, size: 64),
+                        ),
+                      ),
+                    )
+                  : AspectRatio(
+                      aspectRatio: _aspectRatio!,
+                      child: CachedNetworkImage(
+                        imageUrl: widget.imageUrl,
+                        fit: BoxFit.contain,
+                        fadeInDuration: const Duration(milliseconds: 200),
+                        placeholder: (context, url) => const Center(
+                          child: CircularProgressIndicator(color: Colors.white),
+                        ),
+                        errorWidget: (context, url, error) => const Center(
+                          child: Icon(Icons.broken_image, color: Colors.white54, size: 64),
+                        ),
+                      ),
+                    ),
             ),
           ),
         ),

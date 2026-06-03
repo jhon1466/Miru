@@ -93,7 +93,7 @@ class _SplashScreenState extends State<SplashScreen>
     } else {
       setState(() {
         _connectionFailed = true;
-        _statusMessage = 'No se pudo conectar al servidor.\nURL: $baseUrl';
+        _statusMessage = 'No se pudo conectar al servidor.';
       });
     }
   }
