@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 import '../core/theme.dart';
 import '../providers/auth_provider.dart' as app_auth;
 import '../widgets/sticker_picker_sheet.dart';
+import '../widgets/fullscreen_image_viewer.dart';
 import 'user_profile_screen.dart';
 
 class PublicChatScreen extends StatefulWidget {
@@ -262,21 +263,12 @@ class _PublicChatScreenState extends State<PublicChatScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           if (msg.fileUrl != null && msg.fileUrl!.isNotEmpty) ...[
-                            ClipRRect(
+                            TappableNetworkImage(
+                              imageUrl: msg.fileUrl!,
+                              heroTag: 'chat_img_${msg.id}',
+                              width: isSticker ? 100 : 200,
+                              fit: BoxFit.contain,
                               borderRadius: BorderRadius.circular(10),
-                              child: CachedNetworkImage(
-                                imageUrl: msg.fileUrl!,
-                                width: isSticker ? 100 : 200,
-                                fit: BoxFit.contain,
-                                placeholder: (context, url) => const SizedBox(
-                                  width: 100,
-                                  height: 100,
-                                  child: Center(
-                                    child: CircularProgressIndicator(strokeWidth: 2),
-                                  ),
-                                ),
-                                errorWidget: (context, url, error) => const Icon(Icons.broken_image),
-                              ),
                             ),
                             if (msg.text.isNotEmpty) const SizedBox(height: 6),
                           ],
