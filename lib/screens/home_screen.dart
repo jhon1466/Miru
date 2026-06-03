@@ -16,6 +16,7 @@ import 'detail_screen.dart';
 import 'player_screen.dart';
 import 'notifications_screen.dart';
 import 'public_chat_screen.dart';
+import '../providers/chat_provider.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -882,24 +883,46 @@ class _ChatIconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return IconButton(
-      icon: const Icon(Icons.chat_bubble_outline, size: 26),
-      tooltip: 'Chat Público',
-      onPressed: () {
-        if (authProvider.isLoggedIn) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const PublicChatScreen()),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('Debes iniciar sesión para acceder al chat público'),
-              backgroundColor: context.dangerColor,
+    final hasUnread = context.watch<ChatProvider>().hasUnread;
+
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        IconButton(
+          icon: const Icon(Icons.chat_bubble_outline, size: 26),
+          tooltip: 'Chat Público',
+          onPressed: () {
+            if (authProvider.isLoggedIn) {
+              // Marcar como leído al abrir
+              context.read<ChatProvider>().markSeen();
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const PublicChatScreen()),
+              );
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: const Text('Debes iniciar sesión para acceder al chat público'),
+                  backgroundColor: context.dangerColor,
+                ),
+              );
+            }
+          },
+        ),
+        if (hasUnread)
+          Positioned(
+            right: 8,
+            top: 8,
+            child: Container(
+              width: 10,
+              height: 10,
+              decoration: const BoxDecoration(
+                color: Colors.red,
+                shape: BoxShape.circle,
+              ),
             ),
-          );
-        }
-      },
+          ),
+      ],
     );
   }
 }
