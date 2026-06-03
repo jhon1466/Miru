@@ -15,6 +15,7 @@ import '../services/user_service.dart';
 import 'sticker_picker_sheet.dart';
 import '../screens/user_profile_screen.dart';
 import '../utils/auth_ui.dart';
+import 'fullscreen_image_viewer.dart';
 
 class CommentsSection extends StatefulWidget {
   final String animeSlug;
@@ -644,27 +645,21 @@ class _CommentsSectionState extends State<CommentsSection> {
                       ],
                       if (liveComment.hasSticker) ...[
                         const SizedBox(height: 8),
-                        SizedBox(
-                          height: 120,
+                        TappableNetworkImage(
+                          imageUrl: liveComment.stickerUrl!,
+                          heroTag: 'comment_sticker_${liveComment.id}',
                           width: 120,
-                          child: CachedNetworkImage(
-                            imageUrl: liveComment.stickerUrl!,
-                            fit: BoxFit.contain,
-                          ),
+                          height: 120,
+                          fit: BoxFit.contain,
                         ),
                       ],
                       if (liveComment.imageUrl != null && liveComment.imageUrl!.isNotEmpty) ...[
                         const SizedBox(height: 8),
-                        ClipRRect(
+                        TappableNetworkImage(
+                          imageUrl: liveComment.imageUrl!,
+                          heroTag: 'comment_img_${liveComment.id}',
+                          fit: BoxFit.cover,
                           borderRadius: BorderRadius.circular(8),
-                          child: CachedNetworkImage(
-                            imageUrl: liveComment.imageUrl!,
-                            fit: BoxFit.cover,
-                            placeholder: (_, __) => const SizedBox(
-                              height: 120,
-                              child: Center(child: CircularProgressIndicator()),
-                            ),
-                          ),
                         ),
                       ],
                       const SizedBox(height: 6),
