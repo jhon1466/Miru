@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../core/theme.dart';
 import '../providers/auth_provider.dart' as app_auth;
 import '../providers/history_provider.dart';
+import '../providers/manga_history_provider.dart';
 import '../providers/settings_provider.dart';
 import '../providers/anime_provider.dart';
 import '../services/api_cache_service.dart';
@@ -34,6 +35,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final historyProvider = Provider.of<HistoryProvider>(context);
+    final mangaHistoryProvider = Provider.of<MangaHistoryProvider>(context);
     final authProvider = Provider.of<app_auth.AuthProvider>(context);
 
     return Scaffold(
@@ -199,6 +201,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     '¿Estás seguro de que deseas vaciar tu historial de reproducción?',
                     () async {
                       await historyProvider.clearHistory(userId: authProvider.userId);
+                      await mangaHistoryProvider.clearHistory(userId: authProvider.userId);
                       if (!mounted) return;
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(content: const Text('Historial eliminado'), backgroundColor: context.successColor),
@@ -243,7 +246,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               contentPadding: EdgeInsets.zero,
               leading: Icon(Icons.info_outline, color: context.primaryColor),
               title: const Text('Versión de la app'),
-              subtitle: const Text('2.0.0'),
+              subtitle: const Text('2.0.1'),
             ),
             ListTile(
               contentPadding: EdgeInsets.zero,
