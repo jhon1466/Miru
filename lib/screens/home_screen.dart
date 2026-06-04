@@ -17,6 +17,7 @@ import 'player_screen.dart';
 import 'notifications_screen.dart';
 import 'public_chat_screen.dart';
 import '../providers/chat_provider.dart';
+import 'profile_tab_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -82,6 +83,7 @@ class _HomeScreenState extends State<HomeScreen> {
         actions: [
           _NotificationsBell(authProvider: authProvider),
           _ChatIconButton(authProvider: authProvider),
+          _ProfileIconButton(authProvider: authProvider),
           const SizedBox(width: 4),
         ],
       ),
@@ -923,6 +925,34 @@ class _ChatIconButton extends StatelessWidget {
             ),
           ),
       ],
+    );
+  }
+}
+
+class _ProfileIconButton extends StatelessWidget {
+  final app_auth.AuthProvider authProvider;
+
+  const _ProfileIconButton({required this.authProvider});
+
+  @override
+  Widget build(BuildContext context) {
+    final photoUrl = authProvider.photoUrl;
+
+    return IconButton(
+      tooltip: authProvider.isLoggedIn ? 'Mi Perfil' : 'Iniciar sesión',
+      onPressed: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const ProfileTabScreen()),
+        );
+      },
+      icon: authProvider.isLoggedIn && photoUrl != null
+          ? CircleAvatar(
+              radius: 14,
+              backgroundImage: NetworkImage(photoUrl),
+              backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.2),
+            )
+          : const Icon(Icons.person_outline_rounded, size: 26),
     );
   }
 }

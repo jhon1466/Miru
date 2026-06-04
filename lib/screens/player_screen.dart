@@ -386,7 +386,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
     final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
     final screenSize = MediaQuery.of(context).size;
     // playerHeight fijo en el árbol: evita que NativeVideoPlayer se descarte al rotar
-    final playerHeight = isLandscape ? screenSize.height : screenSize.width * 9 / 16;
+    final padding = MediaQuery.of(context).padding;
+    final playerHeight = isLandscape
+        ? (screenSize.height - padding.top - padding.bottom)
+        : screenSize.width * 9 / 16;
 
     return PopScope(
       onPopInvokedWithResult: (didPop, _) {
@@ -588,6 +591,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     final isDirect = _isDirectMediaUrl(_selectedServerUrl!);
 
     return Stack(
+      fit: StackFit.expand,
       children: [
         // 1. El WebView (siempre en el árbol para evitar recrear la vista de plataforma y perder keepAlive)
         Positioned(

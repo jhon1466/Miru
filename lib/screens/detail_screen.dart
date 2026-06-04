@@ -38,6 +38,14 @@ class DetailScreen extends StatefulWidget {
 class _DetailScreenState extends State<DetailScreen> {
   final GlobalKey _commentsKey = GlobalKey();
   bool _reverseEpisodeOrder = false;
+  final TextEditingController _episodeSearchController = TextEditingController();
+  String _episodeSearchQuery = '';
+
+  @override
+  void dispose() {
+    _episodeSearchController.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -119,10 +127,21 @@ class _DetailScreenState extends State<DetailScreen> {
       );
     }
 
-    // Listado de episodios ordenados
-    final displayedEpisodes = List<Episode>.from(details.episodes);
+    // Listado de episodios ordenados y filtrados
+    final List<Episode> displayedEpisodes;
+    if (_episodeSearchQuery.trim().isNotEmpty) {
+      final query = _episodeSearchQuery.toLowerCase().trim();
+      displayedEpisodes = details.episodes.where((ep) {
+        final numberStr = ep.number.toString().replaceAll('.0', '');
+        return ep.title.toLowerCase().contains(query) ||
+            numberStr.contains(query);
+      }).toList();
+    } else {
+      displayedEpisodes = List<Episode>.from(details.episodes);
+    }
+
     if (_reverseEpisodeOrder) {
-      // Invertir orden
+      displayedEpisodes.sort((a, b) => a.number.compareTo(b.number));
     } else {
       displayedEpisodes.sort((a, b) => b.number.compareTo(a.number));
     }
@@ -600,6 +619,34 @@ class _DetailScreenState extends State<DetailScreen> {
                     ],
                   ),
                   Divider(color: context.cardColor, height: 20),
+                  if (details.episodes.length > 100) ...[
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: TextField(
+                        controller: _episodeSearchController,
+                        onChanged: (val) {
+                          setState(() {
+                            _episodeSearchQuery = val;
+                          });
+                        },
+                        decoration: InputDecoration(
+                          hintText: 'Buscar episodio (ej: 12, Luffy...)',
+                          prefixIcon: const Icon(Icons.search),
+                          suffixIcon: _episodeSearchQuery.isNotEmpty
+                              ? IconButton(
+                                  icon: const Icon(Icons.clear),
+                                  onPressed: () {
+                                    _episodeSearchController.clear();
+                                    setState(() {
+                                      _episodeSearchQuery = '';
+                                    });
+                                  },
+                                )
+                              : null,
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -611,7 +658,12 @@ class _DetailScreenState extends State<DetailScreen> {
                   child: Center(
                     child: Padding(
                       padding: const EdgeInsets.all(40.0),
-                      child: Text('No hay episodios disponibles.', style: TextStyle(color: context.textSecondary)),
+                      child: Text(
+                        _episodeSearchQuery.trim().isNotEmpty
+                            ? 'No se encontraron episodios para "$_episodeSearchQuery"'
+                            : 'No hay episodios disponibles.',
+                        style: TextStyle(color: context.textSecondary),
+                      ),
                     ),
                   ),
                 )

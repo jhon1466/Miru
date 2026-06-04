@@ -50,6 +50,7 @@ class _LoggedInBody extends StatefulWidget {
 class _LoggedInBodyState extends State<_LoggedInBody> {
   bool _uploadingPhoto = false;
   bool? _isPublicLocal;
+  int _tabIndex = 0; // 0: Favorites, 1: Following
 
   @override
   Widget build(BuildContext context) {
@@ -199,32 +200,48 @@ class _LoggedInBodyState extends State<_LoggedInBody> {
                   ),
                 ),
               ),
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => UserProfileScreen(
-                          userId: uid,
-                          displayName: name,
-                          photoUrl: photoUrl,
-                        ),
-                      ),
-                    );
-                  },
-                  icon: Icon(Icons.collections_bookmark_outlined, color: AppTheme.primaryColor),
-                  label: Text('Ver mis favoritos', style: TextStyle(color: AppTheme.primaryColor)),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    side: BorderSide(color: AppTheme.primaryColor.withValues(alpha: 0.5)),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                ),
+              const SizedBox(height: 24),
+              if (!isPublic) ...[
+                const OwnerPrivateNotice(),
+                const SizedBox(height: 12),
+              ],
+              ProfileStatsSection(
+                userId: uid,
+                isOwner: true,
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Text(
+                    _tabIndex == 0 ? 'Anime Favoritos' : 'Anime Siguiendo',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: context.textPrimary,
+                    ),
+                  ),
+                  const Spacer(),
+                  _buildTabButton(
+                    context,
+                    title: 'Favoritos',
+                    isActive: _tabIndex == 0,
+                    onTap: () => setState(() => _tabIndex = 0),
+                  ),
+                  const SizedBox(width: 8),
+                  _buildTabButton(
+                    context,
+                    title: 'Siguiendo',
+                    isActive: _tabIndex == 1,
+                    onTap: () => setState(() => _tabIndex = 1),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              FavoritesGrid(
+                userId: uid,
+                showFavorites: _tabIndex == 0,
+              ),
+              const SizedBox(height: 28),
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
@@ -248,6 +265,38 @@ class _LoggedInBodyState extends State<_LoggedInBody> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildTabButton(
+    BuildContext context, {
+    required String title,
+    required bool isActive,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: isActive ? context.primaryColor : context.cardColor,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isActive ? context.primaryColor : context.textSecondary.withOpacity(0.3),
+            width: 1,
+          ),
+        ),
+        child: Text(
+          title,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            color: isActive ? Colors.white : context.textSecondary,
+          ),
+        ),
+      ),
     );
   }
 

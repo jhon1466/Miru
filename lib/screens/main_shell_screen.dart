@@ -12,7 +12,6 @@ import 'catalog_screen.dart';
 import 'manga_tab_screen.dart';
 import 'search_screen.dart';
 import 'schedule_screen.dart';
-import 'profile_tab_screen.dart';
 
 /// Contenedor principal con barra de navegación flotante inferior.
 class MainShellScreen extends StatefulWidget {
@@ -33,7 +32,6 @@ class _MainShellScreenState extends State<MainShellScreen> {
     _NavItem(icon: Icons.book_rounded, label: 'Manga'),
     _NavItem(icon: Icons.calendar_month_rounded, label: 'Horario'),
     _NavItem(icon: Icons.search_rounded, label: 'Buscar'),
-    _NavItem(icon: Icons.person_rounded, label: 'Perfil'),
   ];
 
   @override
@@ -122,7 +120,6 @@ class _MainShellScreenState extends State<MainShellScreen> {
                 MangaTabScreen(),
                 ScheduleScreen(embedded: true),
                 SearchScreen(embedded: true),
-                ProfileTabScreen(),
               ],
             ),
           ),
