@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -167,8 +168,10 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
                 if (_showControls) _startControlsTimer();
               },
               itemBuilder: (context, index) {
+                final isOffline = mangaProvider.isPagesOffline;
                 return _ZoomablePage(
-                  imageUrl: pages[index],
+                  imageUrl: isOffline ? '' : pages[index],
+                  localPath: isOffline ? pages[index] : null,
                   onTap: _toggleControls,
                   onZoomChanged: (isZoomed) {
                     if (_pageViewScrollEnabled == isZoomed) {
@@ -223,9 +226,27 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        Text(
-                          'Capítulo ${widget.chapterNumber}',
-                          style: const TextStyle(color: Colors.white70, fontSize: 11),
+                        Row(
+                          children: [
+                            Text(
+                              'Capítulo ${widget.chapterNumber}',
+                              style: const TextStyle(color: Colors.white70, fontSize: 11),
+                            ),
+                            if (mangaProvider.isPagesOffline) ...[
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Colors.green.withValues(alpha: 0.8),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: const Text(
+                                  'SIN CONEXIÓN',
+                                  style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                       ],
                     ),
@@ -280,11 +301,13 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
 /// Notifica al padre cuando el zoom está activo para pausar el PageView.
 class _ZoomablePage extends StatefulWidget {
   final String imageUrl;
+  final String? localPath;
   final VoidCallback onTap;
   final ValueChanged<bool> onZoomChanged;
 
   const _ZoomablePage({
     required this.imageUrl,
+    this.localPath,
     required this.onTap,
     required this.onZoomChanged,
   });
@@ -369,33 +392,49 @@ class _ZoomablePageState extends State<_ZoomablePage> {
         panEnabled: true,
         scaleEnabled: true,
         child: Center(
-          child: CachedNetworkImage(
-            imageUrl: widget.imageUrl,
-            httpHeaders: const {
-              'User-Agent': 'MiruApp/2.0.2 (Contact: support@miru.app)',
-            },
-            fit: BoxFit.contain,
-            width: double.infinity,
-            placeholder: (context, url) => const Center(
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation(Colors.white30),
-              ),
-            ),
-            errorWidget: (context, url, err) => const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.broken_image, color: Colors.white30, size: 40),
-                  SizedBox(height: 8),
-                  Text(
-                    'Error al cargar página',
-                    style: TextStyle(color: Colors.white30, fontSize: 12),
+          child: widget.localPath != null
+              ? Image.file(
+                  File(widget.localPath!),
+                  fit: BoxFit.contain,
+                  width: double.infinity,
+                  errorBuilder: (_, __, ___) => const Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.broken_image, color: Colors.white30, size: 40),
+                        SizedBox(height: 8),
+                        Text('Error al cargar página', style: TextStyle(color: Colors.white30, fontSize: 12)),
+                      ],
+                    ),
                   ),
-                ],
-              ),
-            ),
-          ),
+                )
+              : CachedNetworkImage(
+                  imageUrl: widget.imageUrl,
+                  httpHeaders: const {
+                    'User-Agent': 'MiruApp/2.0.2 (Contact: support@miru.app)',
+                  },
+                  fit: BoxFit.contain,
+                  width: double.infinity,
+                  placeholder: (context, url) => const Center(
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation(Colors.white30),
+                    ),
+                  ),
+                  errorWidget: (context, url, err) => const Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.broken_image, color: Colors.white30, size: 40),
+                        SizedBox(height: 8),
+                        Text(
+                          'Error al cargar página',
+                          style: TextStyle(color: Colors.white30, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
         ),
       ),
     );

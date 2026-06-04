@@ -40,14 +40,14 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       iconColor: AppTheme.primaryColor,
       title: '¡Bienvenido a Miru!',
       description:
-          'Tu cliente de streaming de anime multi-proveedor. Encuentra, sigue y disfruta tus series favoritas en un solo lugar.',
+          'Tu cliente de streaming de anime, lector de manga y novelas ligeras. Encuentra, sigue y disfruta tus historias favoritas en un solo lugar.',
     ),
     _OnboardPage(
       icon: Icons.search_rounded,
       iconColor: Color(0xFF0EA5E9),
       title: 'Busca y Descubre',
       description:
-          'Explora un catálogo enorme de animes. Busca por nombre, navega el horario semanal o descubre los más populares.',
+          'Explora un catálogo enorme de animes, mangas y novelas. Busca por nombre, lee capítulos o descubre las series más populares.',
     ),
     _OnboardPage(
       icon: Icons.chat_bubble_rounded,
@@ -61,14 +61,14 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       iconColor: Color(0xFFF59E0B),
       title: 'Nunca te pierdas nada',
       description:
-          'Sigue tus animes en emisión y recibe notificaciones push cuando salgan nuevos episodios o alguien responda tus mensajes.',
+          'Sigue tus animes, mangas y novelas en emisión y recibe notificaciones push cuando salgan nuevos episodios o capítulos.',
     ),
     _OnboardPage(
       icon: Icons.bar_chart_rounded,
       iconColor: Color(0xFF8B5CF6),
-      title: 'Tu Estadísticas',
+      title: 'Tus Estadísticas',
       description:
-          'Visualiza tus favoritos, animes seguidos, episodios vistos y tiempo dedicado. Conecta con AniList para sincronizar.',
+          'Visualiza tus favoritos, elementos seguidos, historial y tiempo dedicado de anime, manga y novelas.',
     ),
   ];
 
@@ -406,7 +406,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
               ),
               const SizedBox(height: 12),
               Text(
-                'Inicia sesión con Google para guardar tus favoritos, seguir animes y participar en el chat.',
+                'Inicia sesión con Google para guardar tus favoritos, seguir tus series y sincronizar tu historial de anime, manga y novelas.',
                 textAlign: TextAlign.center,
                 style: GoogleFonts.outfit(
                   fontSize: 15,

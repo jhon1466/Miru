@@ -22,15 +22,31 @@ const AndroidNotificationChannel _miruReplyChannel = AndroidNotificationChannel(
 );
 
 String _payloadFromData(Map<String, dynamic> d) {
+  final animeSlug = d['animeSlug']?.toString() ?? d['anime_slug']?.toString() ?? '';
+  final animeTitle = d['animeTitle']?.toString() ?? d['anime_title']?.toString() ?? 'Miru';
+  final animeUrl = d['animeUrl']?.toString() ?? d['anime_url']?.toString();
+  final episodeUrl = d['episodeUrl']?.toString() ?? d['episode_url']?.toString();
+  final episodeNumberStr = d['episodeNumber']?.toString() ?? d['episode_number']?.toString() ?? '';
+  final episodeNumber = double.tryParse(episodeNumberStr);
+  final commentId = d['commentId']?.toString() ?? d['comment_id']?.toString();
+  final parentCommentId = d['parentCommentId']?.toString() ?? d['parent_comment_id']?.toString();
+  final notificationId = d['notificationId']?.toString() ?? d['notification_id']?.toString();
+  final mediaType = d['mediaType']?.toString() ?? d['media_type']?.toString();
+  final mangaId = d['mangaId']?.toString() ?? d['manga_id']?.toString();
+  final novelId = d['novelId']?.toString() ?? d['novel_id']?.toString();
+
   return NotificationRouting.encodePayload(
-    animeSlug: d['animeSlug']?.toString() ?? '',
-    animeTitle: d['animeTitle']?.toString() ?? 'Miru',
-    animeUrl: d['animeUrl']?.toString(),
-    episodeUrl: d['episodeUrl']?.toString(),
-    episodeNumber: double.tryParse(d['episodeNumber']?.toString() ?? ''),
-    commentId: d['commentId']?.toString(),
-    parentCommentId: d['parentCommentId']?.toString(),
-    notificationId: d['notificationId']?.toString(),
+    animeSlug: animeSlug,
+    animeTitle: animeTitle,
+    animeUrl: animeUrl,
+    episodeUrl: episodeUrl,
+    episodeNumber: episodeNumber,
+    commentId: commentId,
+    parentCommentId: parentCommentId,
+    notificationId: notificationId,
+    mediaType: mediaType,
+    mangaId: mangaId,
+    novelId: novelId,
   );
 }
 

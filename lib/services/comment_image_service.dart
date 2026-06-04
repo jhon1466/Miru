@@ -10,10 +10,10 @@ class CommentImageService {
   static final _picker = ImagePicker();
 
   static Future<XFile?> pickImage() async {
-    return _picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
+    return _picker.pickImage(source: ImageSource.gallery);
   }
 
-  /// Comprime la imagen (máx. 1024px, JPEG ~75%) y la sube a Storage.
+  /// Comprime la imagen (máx. 1024px, JPEG ~75%) y la sube a Storage (excepto si es GIF/WebP).
   static Future<String?> uploadCompressed({
     required String animeSlug,
     required XFile file,
@@ -21,23 +21,40 @@ class CommentImageService {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return null;
 
-    final bytes = await file.readAsBytes();
-    final compressed = await FlutterImageCompress.compressWithList(
-      bytes,
-      minWidth: 1024,
-      minHeight: 1024,
-      quality: 75,
-      format: CompressFormat.jpeg,
-    );
+    final nameLower = file.name.toLowerCase();
+    final pathLower = file.path.toLowerCase();
+    final bool isGif = nameLower.endsWith('.gif') || pathLower.endsWith('.gif');
+    final bool isWebp = nameLower.endsWith('.webp') || pathLower.endsWith('.webp');
 
-    if (compressed.isEmpty) return null;
+    Uint8List dataToUpload;
+    String contentType;
+    String ext;
+
+    if (isGif || isWebp) {
+      dataToUpload = await file.readAsBytes();
+      contentType = isGif ? 'image/gif' : 'image/webp';
+      ext = isGif ? 'gif' : 'webp';
+    } else {
+      final bytes = await file.readAsBytes();
+      final compressed = await FlutterImageCompress.compressWithList(
+        bytes,
+        minWidth: 1024,
+        minHeight: 1024,
+        quality: 75,
+        format: CompressFormat.jpeg,
+      );
+      if (compressed.isEmpty) return null;
+      dataToUpload = compressed;
+      contentType = 'image/jpeg';
+      ext = 'jpg';
+    }
 
     final path =
-        'comment_images/$animeSlug/${user.uid}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+        'comment_images/$animeSlug/${user.uid}_${DateTime.now().millisecondsSinceEpoch}.$ext';
     final ref = _storage.ref(path);
     await ref.putData(
-      compressed,
-      SettableMetadata(contentType: 'image/jpeg'),
+      dataToUpload,
+      SettableMetadata(contentType: contentType),
     );
     return ref.getDownloadURL();
   }

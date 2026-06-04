@@ -4,9 +4,12 @@ import 'package:flutter/material.dart';
 
 import '../core/app_navigator.dart';
 import '../models/comment.dart';
+import '../models/novel.dart';
 import '../screens/detail_screen.dart';
 import '../screens/notifications_screen.dart';
 import '../screens/player_screen.dart';
+import '../screens/manga_detail_screen.dart';
+import '../screens/novel_detail_screen.dart';
 
 /// Abre el anime/episodio/comentario indicado por una notificación.
 class NotificationRouting {
@@ -44,6 +47,9 @@ class NotificationRouting {
       episodeNumber: n.episodeNumber,
       commentId: n.commentId,
       parentCommentId: n.parentCommentId,
+      mediaType: n.mediaType,
+      mangaId: n.mangaId,
+      novelId: n.novelId,
     );
   }
 
@@ -55,7 +61,59 @@ class NotificationRouting {
     double? episodeNumber,
     String? commentId,
     String? parentCommentId,
+    String? mediaType,
+    String? mangaId,
+    String? novelId,
+    String? novelTitle,
+    String? novelUrl,
+    String? novelCover,
+    String? novelStatus,
+    String? novelAuthor,
   }) async {
+    final NavigatorState nav;
+    try {
+      nav = await _getNavigator();
+    } catch (_) {
+      return;
+    }
+
+    final finalMediaType = mediaType?.toLowerCase();
+
+    // 1. Manga Navigation
+    if (finalMediaType == 'manga' || (mangaId != null && mangaId.isNotEmpty)) {
+      final actualMangaId = mangaId ?? animeSlug;
+      if (actualMangaId.isNotEmpty) {
+        nav.push(
+          MaterialPageRoute(
+            builder: (_) => MangaDetailScreen(mangaId: actualMangaId),
+          ),
+        );
+        return;
+      }
+    }
+
+    // 2. Novel Navigation
+    if (finalMediaType == 'novel' || finalMediaType == 'novela' || (novelId != null && novelId.isNotEmpty)) {
+      final actualNovelId = novelId ?? animeSlug;
+      if (actualNovelId.isNotEmpty) {
+        final novelObj = Novel(
+          id: actualNovelId,
+          title: novelTitle ?? animeTitle,
+          url: novelUrl ?? actualNovelId,
+          coverUrl: novelCover ?? animeUrl,
+          status: novelStatus,
+          author: novelAuthor,
+        );
+        nav.push(
+          MaterialPageRoute(
+            builder: (_) => NovelDetailScreen(novel: novelObj),
+          ),
+        );
+        return;
+      }
+    }
+
+    // 3. Anime/Default Navigation
     final resolvedAnimeUrl = resolveAnimeUrl(animeUrl: animeUrl, animeSlug: animeSlug);
     if (resolvedAnimeUrl.isEmpty) {
       _openNotificationsList();
@@ -63,12 +121,6 @@ class NotificationRouting {
     }
 
     final focus = focusCommentId(commentId: commentId, parentCommentId: parentCommentId);
-    final NavigatorState nav;
-    try {
-      nav = await _getNavigator();
-    } catch (_) {
-      return;
-    }
 
     if (episodeUrl != null && episodeUrl.trim().isNotEmpty) {
       nav.push(
@@ -120,6 +172,9 @@ class NotificationRouting {
     String? commentId,
     String? parentCommentId,
     String? notificationId,
+    String? mediaType,
+    String? mangaId,
+    String? novelId,
   }) {
     final map = <String, dynamic>{
       'animeSlug': animeSlug,
@@ -130,6 +185,9 @@ class NotificationRouting {
       'commentId': commentId ?? '',
       'parentCommentId': parentCommentId ?? '',
       'notificationId': notificationId ?? '',
+      'mediaType': mediaType ?? '',
+      'mangaId': mangaId ?? '',
+      'novelId': novelId ?? '',
     };
     return base64Url.encode(utf8.encode(jsonEncode(map)));
   }
@@ -143,14 +201,31 @@ class NotificationRouting {
     try {
       final decoded = utf8.decode(base64Url.decode(payload));
       final map = jsonDecode(decoded) as Map<String, dynamic>;
+      
+      final animeSlug = map['animeSlug']?.toString() ?? map['anime_slug']?.toString() ?? '';
+      final animeTitle = map['animeTitle']?.toString() ?? map['anime_title']?.toString() ?? 'Anime';
+      final animeUrl = map['animeUrl']?.toString() ?? map['anime_url']?.toString();
+      final episodeUrl = map['episodeUrl']?.toString() ?? map['episode_url']?.toString();
+      final episodeNumber = (map['episodeNumber'] as num?)?.toDouble() ?? 
+                            (map['episode_number'] as num?)?.toDouble() ??
+                            double.tryParse(map['episodeNumber']?.toString() ?? map['episode_number']?.toString() ?? '');
+      final commentId = map['commentId']?.toString() ?? map['comment_id']?.toString();
+      final parentCommentId = map['parentCommentId']?.toString() ?? map['parent_comment_id']?.toString();
+      final mediaType = map['mediaType']?.toString() ?? map['media_type']?.toString();
+      final mangaId = map['mangaId']?.toString() ?? map['manga_id']?.toString();
+      final novelId = map['novelId']?.toString() ?? map['novel_id']?.toString();
+
       await open(
-        animeSlug: map['animeSlug']?.toString() ?? '',
-        animeTitle: map['animeTitle']?.toString() ?? 'Anime',
-        animeUrl: map['animeUrl']?.toString(),
-        episodeUrl: map['episodeUrl']?.toString(),
-        episodeNumber: (map['episodeNumber'] as num?)?.toDouble(),
-        commentId: map['commentId']?.toString(),
-        parentCommentId: map['parentCommentId']?.toString(),
+        animeSlug: animeSlug,
+        animeTitle: animeTitle,
+        animeUrl: animeUrl,
+        episodeUrl: episodeUrl,
+        episodeNumber: episodeNumber,
+        commentId: commentId,
+        parentCommentId: parentCommentId,
+        mediaType: mediaType,
+        mangaId: mangaId,
+        novelId: novelId,
       );
       return;
     } catch (_) {

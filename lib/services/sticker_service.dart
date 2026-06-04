@@ -58,7 +58,7 @@ class StickerService {
   }
 
   static Future<XFile?> pickImageForSticker() {
-    return _picker.pickImage(source: ImageSource.gallery, imageQuality: 92);
+    return _picker.pickImage(source: ImageSource.gallery);
   }
 
   static CollectionReference _stickersRef(String userId) {

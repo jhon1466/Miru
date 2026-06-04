@@ -8,6 +8,7 @@ import '../widgets/anime_poster_image.dart';
 import '../models/manga.dart';
 import '../services/manga_favorite_service.dart';
 import '../services/manga_follow_service.dart';
+import '../services/offline_storage_service.dart';
 import 'manga_reader_screen.dart';
 
 class MangaDetailScreen extends StatefulWidget {
@@ -22,6 +23,10 @@ class MangaDetailScreen extends StatefulWidget {
 class _MangaDetailScreenState extends State<MangaDetailScreen> {
   bool _reverseChapterOrder = false;
   Map<String, String>? _readingProgress;
+  String _chapterSearchQuery = '';
+  String? _downloadingChapterId;
+  double _downloadProgress = 0.0;
+  final Set<String> _downloadedChapterIds = {};
 
   @override
   void initState() {
@@ -33,6 +38,7 @@ class _MangaDetailScreenState extends State<MangaDetailScreen> {
         provider.loadChapters(widget.mangaId);
       }
       _loadProgress();
+      _loadOfflineStatus();
     });
   }
 
@@ -42,6 +48,77 @@ class _MangaDetailScreenState extends State<MangaDetailScreen> {
       setState(() {
         _readingProgress = progress;
       });
+    }
+  }
+
+  Future<void> _loadOfflineStatus() async {
+    final provider = context.read<MangaProvider>();
+    final chapters = provider.chapters;
+    final Set<String> downloaded = {};
+    for (final ch in chapters) {
+      final isDl = await OfflineStorageService.isMangaChapterDownloaded(widget.mangaId, ch.id);
+      if (isDl) downloaded.add(ch.id);
+    }
+    if (mounted) {
+      setState(() {
+        _downloadedChapterIds.addAll(downloaded);
+      });
+    }
+  }
+
+  Future<void> _downloadChapter(MangaChapter chapter, String mangaTitle, String coverUrl) async {
+    setState(() {
+      _downloadingChapterId = chapter.id;
+      _downloadProgress = 0.0;
+    });
+    try {
+      // Fetch page URLs first
+      final pageUrls = await OfflineStorageService.fetchMangaPages(widget.mangaId, chapter.id);
+      if (pageUrls.isEmpty) throw Exception('No se encontraron páginas');
+      await OfflineStorageService.saveMangaChapter(
+        mangaId: widget.mangaId,
+        mangaTitle: mangaTitle,
+        coverUrl: coverUrl,
+        chapterId: chapter.id,
+        chapterNumber: chapter.chapterNumber,
+        pageUrls: pageUrls,
+        onProgress: (p) {
+          if (mounted) setState(() => _downloadProgress = p);
+        },
+      );
+      if (mounted) {
+        setState(() => _downloadedChapterIds.add(chapter.id));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Capítulo ${chapter.chapterNumber} descargado'),
+            backgroundColor: context.successColor,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al descargar: $e'),
+            backgroundColor: context.dangerColor,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _downloadingChapterId = null);
+    }
+  }
+
+  Future<void> _deleteChapter(MangaChapter chapter) async {
+    await OfflineStorageService.deleteMangaChapter(widget.mangaId, chapter.id);
+    if (mounted) {
+      setState(() => _downloadedChapterIds.remove(chapter.id));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Capítulo ${chapter.chapterNumber} eliminado'),
+          duration: const Duration(seconds: 1),
+        ),
+      );
     }
   }
 
@@ -103,7 +180,15 @@ class _MangaDetailScreenState extends State<MangaDetailScreen> {
     final coverCandidates = details.coverUrl != null ? [details.coverUrl!] : <String>[];
 
     // Preparar capítulos ordenados
-    final displayedChapters = List<MangaChapter>.from(mangaProvider.chapters);
+    var displayedChapters = List<MangaChapter>.from(mangaProvider.chapters);
+    if (_chapterSearchQuery.trim().isNotEmpty) {
+      final query = _chapterSearchQuery.trim().toLowerCase();
+      displayedChapters = displayedChapters.where((ch) {
+        return ch.chapterNumber.toLowerCase().contains(query) ||
+               ch.title.toLowerCase().contains(query);
+      }).toList();
+    }
+
     if (_reverseChapterOrder) {
       displayedChapters.sort((a, b) {
         final aNum = double.tryParse(a.chapterNumber) ?? 0.0;
@@ -468,7 +553,7 @@ class _MangaDetailScreenState extends State<MangaDetailScreen> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            'Capítulos (${mangaProvider.chapters.length})',
+                            'Capítulos (${displayedChapters.length})',
                             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: context.textPrimary),
                           ),
                           IconButton(
@@ -483,6 +568,27 @@ class _MangaDetailScreenState extends State<MangaDetailScreen> {
                             },
                           ),
                         ],
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        onChanged: (val) {
+                          setState(() {
+                            _chapterSearchQuery = val;
+                          });
+                        },
+                        style: TextStyle(color: context.textPrimary),
+                        decoration: InputDecoration(
+                          hintText: 'Buscar capítulo (ej. 1, 24...)',
+                          hintStyle: TextStyle(color: context.textSecondary),
+                          prefixIcon: Icon(Icons.search, color: context.textSecondary),
+                          fillColor: context.cardColor,
+                          filled: true,
+                          contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
                       ),
                       const SizedBox(height: 10),
                     ],
@@ -549,21 +655,67 @@ class _MangaDetailScreenState extends State<MangaDetailScreen> {
                                 color: context.textPrimary,
                               ),
                             ),
-                            subtitle: Text(
-                              'Leer capítulo',
-                              style: TextStyle(fontSize: 12, color: context.textSecondary),
-                            ),
+                            subtitle: _downloadingChapterId == chapter.id
+                                ? Padding(
+                                    padding: const EdgeInsets.only(top: 4.0),
+                                    child: LinearProgressIndicator(
+                                      value: _downloadProgress,
+                                      color: context.primaryColor,
+                                      backgroundColor: context.primaryColor.withValues(alpha: 0.2),
+                                      minHeight: 4,
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                  )
+                                : Text(
+                                    _downloadedChapterIds.contains(chapter.id)
+                                        ? 'Disponible sin conexión'
+                                        : 'Leer capítulo',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: _downloadedChapterIds.contains(chapter.id)
+                                          ? Colors.green
+                                          : context.textSecondary,
+                                    ),
+                                  ),
                             trailing: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 if (isChapterProgress) ...[
                                   Icon(Icons.bookmark_rounded, color: context.primaryColor, size: 18),
-                                  const SizedBox(width: 8),
+                                  const SizedBox(width: 4),
                                 ],
-                                Icon(
-                                  Icons.chrome_reader_mode_outlined,
-                                  color: context.textSecondary,
-                                ),
+                                if (_downloadingChapterId == chapter.id)
+                                  SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      value: _downloadProgress,
+                                      color: context.primaryColor,
+                                    ),
+                                  )
+                                else if (_downloadedChapterIds.contains(chapter.id))
+                                  IconButton(
+                                    icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
+                                    tooltip: 'Eliminar descarga',
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(),
+                                    onPressed: () => _deleteChapter(chapter),
+                                  )
+                                else
+                                  IconButton(
+                                    icon: Icon(Icons.download_outlined, color: context.primaryColor, size: 20),
+                                    tooltip: 'Descargar capítulo',
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(),
+                                    onPressed: _downloadingChapterId != null
+                                        ? null
+                                        : () => _downloadChapter(
+                                              chapter,
+                                              details.title,
+                                              details.coverUrl ?? '',
+                                            ),
+                                  ),
                               ],
                             ),
                           ),

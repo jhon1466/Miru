@@ -475,6 +475,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
               height: playerHeight,
               child: _buildPlayerWidget(),
             ),
+            if (!isLandscape) _buildEpisodeNavigation(context),
             if (!isLandscape)
               Expanded(
                 child: SingleChildScrollView(
@@ -1045,17 +1046,192 @@ class _PlayerScreenState extends State<PlayerScreen> {
     );
   }
 
-  void _playNextEpisode(Episode nextEp) {
+  void _playEpisode(Episode ep) {
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
         builder: (_) => PlayerScreen(
-          episodeUrl: nextEp.url,
-          episodeNumber: nextEp.number,
+          episodeUrl: ep.url,
+          episodeNumber: ep.number,
           animeTitle: widget.animeTitle,
           animeUrl: widget.animeUrl,
           animeImage: widget.animeImage,
         ),
+      ),
+    );
+  }
+
+  void _playNextEpisode(Episode nextEp) {
+    _playEpisode(nextEp);
+  }
+
+  Widget _buildEpisodeNavigation(BuildContext context) {
+    final animeProvider = Provider.of<AnimeProvider>(context);
+    final details = animeProvider.selectedAnime;
+    final isLoading = animeProvider.isLoadingDetails;
+
+    final isCorrectAnime = details != null && details.title == widget.animeTitle;
+
+    if (isLoading || !isCorrectAnime) {
+      return Container(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+        color: context.backgroundColor,
+        child: const Center(
+          child: SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              valueColor: AlwaysStoppedAnimation(AppTheme.primaryColor),
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (details.episodes.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final sortedEpisodes = List<Episode>.from(details.episodes)
+      ..sort((a, b) => a.number.compareTo(b.number));
+
+    var currentIndex = sortedEpisodes.indexWhere((ep) => ep.url == widget.episodeUrl);
+    if (currentIndex == -1) {
+      currentIndex = sortedEpisodes.indexWhere((ep) => ep.number == widget.episodeNumber);
+    }
+
+    final previousEp = (currentIndex > 0) ? sortedEpisodes[currentIndex - 1] : null;
+    final nextEp = (currentIndex != -1 && currentIndex < sortedEpisodes.length - 1)
+        ? sortedEpisodes[currentIndex + 1]
+        : null;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+      decoration: BoxDecoration(
+        color: context.backgroundColor,
+        border: Border(
+          bottom: BorderSide(
+            color: context.textSecondary.withValues(alpha: 0.1),
+            width: 1,
+          ),
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          // Botón Anterior
+          Expanded(
+            child: previousEp != null
+                ? OutlinedButton.icon(
+                    onPressed: () => _playEpisode(previousEp),
+                    icon: const Icon(Icons.skip_previous, size: 20),
+                    label: Text(
+                      'Ep. ${previousEp.number.toString().replaceAll('.0', '')}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: context.textPrimary,
+                      side: BorderSide(color: context.textSecondary.withValues(alpha: 0.3)),
+                      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  )
+                : Opacity(
+                    opacity: 0.3,
+                    child: OutlinedButton.icon(
+                      onPressed: null,
+                      icon: const Icon(Icons.skip_previous, size: 20),
+                      label: const Text('Anterior', style: TextStyle(fontSize: 13)),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ),
+          ),
+          const SizedBox(width: 12),
+          // Botón Lista / Info
+          InkWell(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => DetailScreen(
+                    animeUrl: widget.animeUrl,
+                    animeTitle: widget.animeTitle,
+                    animeImage: widget.animeImage,
+                  ),
+                ),
+              );
+            },
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+              decoration: BoxDecoration(
+                color: context.cardColor,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.list, size: 18, color: context.primaryColor),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Lista',
+                    style: TextStyle(
+                      color: context.textPrimary,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          // Botón Siguiente
+          Expanded(
+            child: nextEp != null
+                ? ElevatedButton.icon(
+                    onPressed: () => _playEpisode(nextEp),
+                    icon: const Icon(Icons.skip_next, size: 20),
+                    label: Text(
+                      'Ep. ${nextEp.number.toString().replaceAll('.0', '')}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: context.primaryColor,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  )
+                : Opacity(
+                    opacity: 0.3,
+                    child: ElevatedButton.icon(
+                      onPressed: null,
+                      icon: const Icon(Icons.skip_next, size: 20),
+                      label: const Text('Siguiente', style: TextStyle(fontSize: 13)),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ),
+          ),
+        ],
       ),
     );
   }

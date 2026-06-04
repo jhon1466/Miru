@@ -112,7 +112,30 @@ class _PublicChatScreenState extends State<PublicChatScreen> {
                   itemBuilder: (context, index) {
                     final msg = messages[index];
                     final isMe = msg.userId == currentUserId;
-                    return _buildMessageItem(context, msg, isMe, messages);
+                    return Dismissible(
+                      key: ValueKey('reply_dismiss_${msg.id}'),
+                      direction: DismissDirection.startToEnd,
+                      confirmDismiss: (direction) async {
+                        setState(() {
+                          _replyToMessage = msg;
+                        });
+                        return false; // Retorna false para que el elemento regrese a su posición original
+                      },
+                      background: Container(
+                        alignment: Alignment.centerLeft,
+                        padding: const EdgeInsets.only(left: 16),
+                        child: CircleAvatar(
+                          radius: 18,
+                          backgroundColor: context.primaryColor.withValues(alpha: 0.15),
+                          child: Icon(
+                            Icons.reply,
+                            color: context.primaryColor,
+                            size: 20,
+                          ),
+                        ),
+                      ),
+                      child: _buildMessageItem(context, msg, isMe, messages),
+                    );
                   },
                 );
               },
