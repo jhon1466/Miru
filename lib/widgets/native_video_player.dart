@@ -361,7 +361,7 @@ class _NativeVideoPlayerState extends State<NativeVideoPlayer> {
     final pos = value.position;
     final dur = value.duration;
 
-    final playerWidget = Center(
+    final playerWidget = SizedBox.expand(
       child: FittedBox(
         fit: _videoFit,
         child: SizedBox(
@@ -658,48 +658,7 @@ class _NativeVideoPlayerState extends State<NativeVideoPlayer> {
     }
 
     return Positioned.fill(
-      child: Stack(
-        children: [
-          // Skip Intro Button - posicionado absolutamente para no afectar el layout de la Column
-          if (dur.inMinutes >= 3)
-            Positioned(
-              right: 24,
-              bottom: 110, // encima de la barra inferior
-              child: Material(
-                color: AppTheme.primaryColor.withValues(alpha: 0.85),
-                borderRadius: BorderRadius.circular(20),
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(20),
-                  onTap: () {
-                    if (_controller == null || !_isInitialized) return;
-                    final target = _controller!.value.position + const Duration(seconds: 85);
-                    final max = _controller!.value.duration;
-                    _controller!.seekTo(target > max ? max : target);
-                    _startControlsTimer();
-                  },
-                  child: const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.skip_next, color: Colors.white, size: 16),
-                        SizedBox(width: 6),
-                        Text(
-                          'Omitir Intro (+85s)',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          // Columna principal de controles
-          Container(
+      child: Container(
             color: Colors.transparent,
             child: Column(
               children: [
@@ -930,8 +889,6 @@ class _NativeVideoPlayerState extends State<NativeVideoPlayer> {
           ],
             ),
           ),
-        ],
-      ),
     );
   }
 }

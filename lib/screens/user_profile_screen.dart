@@ -75,7 +75,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                       ),
                       if (isPrivate) ...[
                         const SizedBox(height: 10),
-                        _PrivateProfileBadge(isOwner: isOwner),
+                        PrivateProfileBadge(isOwner: isOwner),
                       ],
                     ],
                   ),
@@ -91,10 +91,10 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                       if (isPrivate && !isOwner)
                         const _PrivateProfileWarning()
                       else if (isPrivate && isOwner)
-                        const _OwnerPrivateNotice(),
+                        const OwnerPrivateNotice(),
 
                       if (canViewFavorites) ...[
-                        _ProfileStatsSection(
+                        ProfileStatsSection(
                           userId: widget.userId,
                           isOwner: isOwner,
                         ),
@@ -134,7 +134,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                           ),
                           const SizedBox(height: 12),
                         ],
-                        _FavoritesGrid(
+                        FavoritesGrid(
                           userId: widget.userId,
                           showFavorites: _tabIndex == 0,
                         ),
@@ -252,8 +252,8 @@ class _PrivateProfileWarning extends StatelessWidget {
 }
 
 /// Aviso para el dueño cuando su perfil es privado.
-class _OwnerPrivateNotice extends StatelessWidget {
-  const _OwnerPrivateNotice();
+class OwnerPrivateNotice extends StatelessWidget {
+  const OwnerPrivateNotice({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -284,10 +284,10 @@ class _OwnerPrivateNotice extends StatelessWidget {
   }
 }
 
-class _PrivateProfileBadge extends StatelessWidget {
+class PrivateProfileBadge extends StatelessWidget {
   final bool isOwner;
 
-  const _PrivateProfileBadge({required this.isOwner});
+  const PrivateProfileBadge({super.key, required this.isOwner});
 
   @override
   Widget build(BuildContext context) {
@@ -317,11 +317,12 @@ class _PrivateProfileBadge extends StatelessWidget {
   }
 }
 
-class _FavoritesGrid extends StatelessWidget {
+class FavoritesGrid extends StatelessWidget {
   final String userId;
   final bool showFavorites;
 
-  const _FavoritesGrid({
+  const FavoritesGrid({
+    super.key,
     required this.userId,
     required this.showFavorites,
   });
@@ -429,11 +430,12 @@ class _FavoritesGrid extends StatelessWidget {
   }
 }
 
-class _ProfileStatsSection extends StatelessWidget {
+class ProfileStatsSection extends StatelessWidget {
   final String userId;
   final bool isOwner;
 
-  const _ProfileStatsSection({
+  const ProfileStatsSection({
+    super.key,
     required this.userId,
     required this.isOwner,
   });

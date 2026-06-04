@@ -36,6 +36,9 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
   Timer? _controlsTimer;
   Axis _scrollDirection = Axis.vertical;
 
+  // Controla si el PageView puede desplazarse (false cuando hay zoom activo)
+  bool _pageViewScrollEnabled = true;
+
   @override
   void initState() {
     super.initState();
@@ -58,18 +61,12 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
   void _startControlsTimer() {
     _controlsTimer?.cancel();
     _controlsTimer = Timer(const Duration(seconds: 3), () {
-      if (mounted) {
-        setState(() {
-          _showControls = false;
-        });
-      }
+      if (mounted) setState(() => _showControls = false);
     });
   }
 
   void _toggleControls() {
-    setState(() {
-      _showControls = !_showControls;
-    });
+    setState(() => _showControls = !_showControls);
     if (_showControls) {
       _startControlsTimer();
     } else {
@@ -81,7 +78,6 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
     setState(() {
       _scrollDirection = _scrollDirection == Axis.vertical ? Axis.horizontal : Axis.vertical;
     });
-    // Volver a crear PageController para resetear posición al cambiar eje
     final current = _currentPage;
     _pageController.dispose();
     _pageController = PageController(initialPage: current);
@@ -90,14 +86,12 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
 
   void _registerProgress(int pageIndex) {
     final page = pageIndex + 1;
-    // Guardar progreso en SharedPreferences (para el botón "Continuar leyendo" en detail screen)
     context.read<MangaProvider>().saveReadingProgress(
       widget.mangaId,
       widget.chapterId,
       widget.chapterNumber,
       page,
     );
-    // Guardar en historial global (para la sección "Continuar leyendo" en el tab de Manga)
     final authProvider = context.read<app_auth.AuthProvider>();
     context.read<MangaHistoryProvider>().addToHistory(
       mangaId: widget.mangaId,
@@ -121,7 +115,7 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          // Lector de Páginas
+          // ── Lector de Páginas ──────────────────────────────────────────
           if (isLoading)
             const Center(
               child: CircularProgressIndicator(
@@ -144,9 +138,7 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
                     ),
                     const SizedBox(height: 20),
                     ElevatedButton(
-                      onPressed: () {
-                        mangaProvider.loadChapterPages(widget.chapterId, widget.mangaId);
-                      },
+                      onPressed: () => mangaProvider.loadChapterPages(widget.chapterId, widget.mangaId),
                       child: const Text('Reintentar'),
                     ),
                   ],
@@ -161,60 +153,36 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
               ),
             )
           else
-            GestureDetector(
-              onTap: _toggleControls,
-              behavior: HitTestBehavior.translucent,
-              child: PageView.builder(
-                controller: _pageController,
-                scrollDirection: _scrollDirection,
-                itemCount: pages.length,
-                onPageChanged: (index) {
-                  setState(() {
-                    _currentPage = index;
-                  });
-                  _registerProgress(index);
-                  if (_showControls) {
-                    _startControlsTimer();
-                  }
-                },
-                itemBuilder: (context, index) {
-                  return InteractiveViewer(
-                    minScale: 1.0,
-                    maxScale: 3.5,
-                    child: Center(
-                      child: CachedNetworkImage(
-                        imageUrl: pages[index],
-                        httpHeaders: const {
-                          'User-Agent': 'MiruApp/2.0.1 (Contact: support@miru.app)',
-                        },
-                        fit: BoxFit.contain,
-                        placeholder: (context, url) => const Center(
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation(Colors.white30),
-                          ),
-                        ),
-                        errorWidget: (context, url, err) => const Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.broken_image, color: Colors.white30, size: 40),
-                              SizedBox(height: 8),
-                              Text('Error al cargar página', style: TextStyle(color: Colors.white30, fontSize: 12)),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
+            PageView.builder(
+              controller: _pageController,
+              scrollDirection: _scrollDirection,
+              // Deshabilitar el scroll del PageView cuando hay zoom activo
+              physics: _pageViewScrollEnabled
+                  ? const BouncingScrollPhysics()
+                  : const NeverScrollableScrollPhysics(),
+              itemCount: pages.length,
+              onPageChanged: (index) {
+                setState(() => _currentPage = index);
+                _registerProgress(index);
+                if (_showControls) _startControlsTimer();
+              },
+              itemBuilder: (context, index) {
+                return _ZoomablePage(
+                  imageUrl: pages[index],
+                  onTap: _toggleControls,
+                  onZoomChanged: (isZoomed) {
+                    if (_pageViewScrollEnabled == isZoomed) {
+                      setState(() => _pageViewScrollEnabled = !isZoomed);
+                    }
+                  },
+                );
+              },
             ),
 
-          // Barra Superior Flotante
+          // ── Barra Superior Flotante ────────────────────────────────────
           AnimatedPositioned(
             duration: const Duration(milliseconds: 250),
-            top: _showControls ? 0 : -100,
+            top: _showControls ? 0 : -110,
             left: 0,
             right: 0,
             child: Container(
@@ -257,10 +225,7 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
                         ),
                         Text(
                           'Capítulo ${widget.chapterNumber}',
-                          style: const TextStyle(
-                            color: Colors.white70,
-                            fontSize: 11,
-                          ),
+                          style: const TextStyle(color: Colors.white70, fontSize: 11),
                         ),
                       ],
                     ),
@@ -280,7 +245,7 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
             ),
           ),
 
-          // Indicador de Progreso Inferior Flotante
+          // ── Indicador de Progreso Inferior ────────────────────────────
           AnimatedPositioned(
             duration: const Duration(milliseconds: 250),
             bottom: _showControls ? 20 : -60,
@@ -295,9 +260,7 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
                   border: Border.all(color: Colors.white10),
                 ),
                 child: Text(
-                  pages.isEmpty
-                      ? '0 / 0'
-                      : '${_currentPage + 1} / ${pages.length}',
+                  pages.isEmpty ? '0 / 0' : '${_currentPage + 1} / ${pages.length}',
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 13,
@@ -308,6 +271,132 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Widget de página individual con zoom mediante InteractiveViewer.
+/// Notifica al padre cuando el zoom está activo para pausar el PageView.
+class _ZoomablePage extends StatefulWidget {
+  final String imageUrl;
+  final VoidCallback onTap;
+  final ValueChanged<bool> onZoomChanged;
+
+  const _ZoomablePage({
+    required this.imageUrl,
+    required this.onTap,
+    required this.onZoomChanged,
+  });
+
+  @override
+  State<_ZoomablePage> createState() => _ZoomablePageState();
+}
+
+class _ZoomablePageState extends State<_ZoomablePage> {
+  final TransformationController _transformController = TransformationController();
+  bool _isZoomed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _transformController.addListener(_onTransformChanged);
+  }
+
+  @override
+  void dispose() {
+    _transformController.removeListener(_onTransformChanged);
+    _transformController.dispose();
+    super.dispose();
+  }
+
+  void _onTransformChanged() {
+    // Escala 1.0 = sin zoom. Cualquier valor mayor = zoom activo.
+    final scale = _transformController.value.getMaxScaleOnAxis();
+    final zoomed = scale > 1.05;
+    if (zoomed != _isZoomed) {
+      setState(() {
+        _isZoomed = zoomed;
+      });
+      widget.onZoomChanged(_isZoomed);
+    }
+  }
+
+  void _resetZoom() {
+    setState(() {
+      _transformController.value = Matrix4.identity();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      // Tap simple alterna controles (solo si no hay zoom activo)
+      onTap: _isZoomed ? null : widget.onTap,
+      // Doble tap: resetea el zoom si está activo, o acerca al 2x si no
+      onDoubleTapDown: (details) {
+        if (_isZoomed) {
+          _resetZoom();
+        } else {
+          // Calcular punto de doble tap y hacer zoom 2x centrado ahí
+          final renderBox = context.findRenderObject() as RenderBox?;
+          if (renderBox == null) return;
+          final local = renderBox.globalToLocal(details.globalPosition);
+          final x = local.dx;
+          final y = local.dy;
+          final w = renderBox.size.width;
+          final h = renderBox.size.height;
+
+          final tx = -(x * 2.0 - w / 2.0);
+          final ty = -(y * 2.0 - h / 2.0);
+          final matrix = Matrix4.diagonal3Values(2.0, 2.0, 1.0);
+          matrix.setTranslationRaw(tx, ty, 0);
+          setState(() {
+            _transformController.value = matrix;
+          });
+        }
+      },
+      onDoubleTap: () {}, // necesario para activar onDoubleTapDown
+      child: InteractiveViewer(
+        transformationController: _transformController,
+        minScale: 1.0,
+        maxScale: 5.0,
+        // Restringir el margen para que no flote fuera de la pantalla
+        boundaryMargin: EdgeInsets.zero,
+        // Recortar bordes para evitar superposición con otras páginas del PageView
+        clipBehavior: Clip.hardEdge,
+        // Habilitar el desplazamiento interno cuando hay zoom
+        panEnabled: true,
+        scaleEnabled: true,
+        child: Center(
+          child: CachedNetworkImage(
+            imageUrl: widget.imageUrl,
+            httpHeaders: const {
+              'User-Agent': 'MiruApp/2.0.2 (Contact: support@miru.app)',
+            },
+            fit: BoxFit.contain,
+            width: double.infinity,
+            placeholder: (context, url) => const Center(
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation(Colors.white30),
+              ),
+            ),
+            errorWidget: (context, url, err) => const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.broken_image, color: Colors.white30, size: 40),
+                  SizedBox(height: 8),
+                  Text(
+                    'Error al cargar página',
+                    style: TextStyle(color: Colors.white30, fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
