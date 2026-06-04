@@ -3,11 +3,13 @@ import 'package:provider/provider.dart';
 import '../core/theme.dart';
 import '../providers/auth_provider.dart' as app_auth;
 import '../providers/history_provider.dart';
+import '../providers/manga_history_provider.dart';
 import '../providers/notification_provider.dart';
 import '../providers/connectivity_provider.dart';
 import '../utils/auth_ui.dart';
 import 'home_screen.dart';
 import 'catalog_screen.dart';
+import 'manga_tab_screen.dart';
 import 'search_screen.dart';
 import 'schedule_screen.dart';
 import 'profile_tab_screen.dart';
@@ -28,6 +30,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
   static const _tabs = [
     _NavItem(icon: Icons.home_rounded, label: 'Inicio'),
     _NavItem(icon: Icons.grid_view_rounded, label: 'Catálogo'),
+    _NavItem(icon: Icons.book_rounded, label: 'Manga'),
     _NavItem(icon: Icons.calendar_month_rounded, label: 'Horario'),
     _NavItem(icon: Icons.search_rounded, label: 'Buscar'),
     _NavItem(icon: Icons.person_rounded, label: 'Perfil'),
@@ -62,6 +65,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
     }
     _boundUserId = auth.userId;
     await context.read<HistoryProvider>().bindCloudHistory(auth.userId);
+    await context.read<MangaHistoryProvider>().bindCloudHistory(auth.userId);
     _tryShowWelcome(auth);
   }
 
@@ -115,6 +119,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
               children: const [
                 HomeScreen(),
                 CatalogScreen(embedded: true),
+                MangaTabScreen(),
                 ScheduleScreen(embedded: true),
                 SearchScreen(embedded: true),
                 ProfileTabScreen(),

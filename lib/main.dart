@@ -6,6 +6,8 @@ import 'core/theme.dart';
 import 'core/firebase_options.dart';
 import 'core/app_navigator.dart';
 import 'providers/anime_provider.dart';
+import 'providers/manga_provider.dart';
+import 'providers/manga_history_provider.dart';
 import 'providers/auth_provider.dart';
 import 'providers/history_provider.dart';
 import 'providers/notification_provider.dart';
@@ -40,6 +42,8 @@ class MyApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => ConnectivityProvider()),
         ChangeNotifierProvider(create: (_) => AnimeProvider()),
+        ChangeNotifierProvider(create: (_) => MangaProvider()),
+        ChangeNotifierProvider(create: (_) => MangaHistoryProvider()),
         ChangeNotifierProvider(create: (_) => SettingsProvider()..load()),
         ChangeNotifierProvider(create: (_) => HistoryProvider()),
         ChangeNotifierProvider(create: (_) => AuthProvider()),
