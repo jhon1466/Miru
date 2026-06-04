@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/manga.dart';
+import '../services/offline_storage_service.dart';
 
 class MangaProvider extends ChangeNotifier {
   static const String _baseUrl = 'https://inmanga.com';
@@ -65,10 +66,12 @@ class MangaProvider extends ChangeNotifier {
   List<String> _chapterPages = [];
   bool _isLoadingPages = false;
   String? _pagesError;
+  bool _isPagesOffline = false;
 
   List<String> get chapterPages => _chapterPages;
   bool get isLoadingPages => _isLoadingPages;
   String? get pagesError => _pagesError;
+  bool get isPagesOffline => _isPagesOffline;
 
   // Popular Manga — paginado con sortby=2 (más vistos)
   Future<void> loadPopularManga({bool loadMore = false}) async {
@@ -294,9 +297,22 @@ class MangaProvider extends ChangeNotifier {
     _isLoadingPages = true;
     _pagesError = null;
     _chapterPages = [];
+    _isPagesOffline = false;
     notifyListeners();
 
     try {
+      // 1. Check offline cache first
+      final isDownloaded = await OfflineStorageService.isMangaChapterDownloaded(mangaId, chapterId);
+      if (isDownloaded) {
+        final localPages = await OfflineStorageService.getMangaChapterPages(mangaId, chapterId);
+        if (localPages.isNotEmpty) {
+          _chapterPages = localPages;
+          _isPagesOffline = true;
+          return;
+        }
+      }
+
+      // 2. Fetch from network
       final uri = Uri.parse('$_baseUrl/chapter/chapterIndexControls').replace(queryParameters: {
         'identification': chapterId,
       });

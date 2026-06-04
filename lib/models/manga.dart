@@ -67,7 +67,7 @@ class Manga {
     
     // 4. Extraer estado (solo en búsqueda)
     String? status;
-    final statusMatch = RegExp(r'label-success[^"]*">([^<]+)<\/span>').firstMatch(html);
+    final statusMatch = RegExp(r'label-(?:success|danger)[^"]*">([^<]+)<\/span>').firstMatch(html);
     if (statusMatch != null) {
       status = _decodeHtmlEntities(statusMatch.group(1) ?? '').trim();
     }
@@ -124,7 +124,7 @@ class Manga {
     
     // 4. Extraer estado
     String? status;
-    final statusMatch = RegExp(r'label-success pull-right">\s*([^<]+)</span>\s*<em[^>]*></em>\s*Estado').firstMatch(html);
+    final statusMatch = RegExp(r'label-[a-z\-]+\s+pull-right">\s*([^<]+)</span>\s*<em[^>]*></em>\s*Estado').firstMatch(html);
     if (statusMatch != null) {
       status = _decodeHtmlEntities(statusMatch.group(1) ?? '').trim();
     }

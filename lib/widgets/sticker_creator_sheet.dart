@@ -17,6 +17,35 @@ class StickerCreatorSheet extends StatefulWidget {
   static Future<bool?> open(BuildContext context) async {
     final picked = await StickerService.pickImageForSticker();
     if (picked == null || !context.mounted) return false;
+
+    final pathLower = picked.path.toLowerCase();
+    final nameLower = picked.name.toLowerCase();
+    final isAnimated = pathLower.endsWith('.gif') || pathLower.endsWith('.webp') ||
+                       nameLower.endsWith('.gif') || nameLower.endsWith('.webp');
+
+    if (isAnimated) {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Inicia sesión para crear stickers')),
+        );
+        return false;
+      }
+      final item = await StickerService.saveToPack(
+        packId: StickerService.userPackId(uid),
+        sourceFile: File(picked.path),
+      );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(item != null ? 'Sticker animado guardado' : 'Error al guardar sticker animado'),
+            backgroundColor: item != null ? AppTheme.successColor : AppTheme.dangerColor,
+          ),
+        );
+      }
+      return item != null;
+    }
+
     return showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,

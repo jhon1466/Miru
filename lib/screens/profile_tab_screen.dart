@@ -51,6 +51,56 @@ class _LoggedInBodyState extends State<_LoggedInBody> {
   bool _uploadingPhoto = false;
   bool? _isPublicLocal;
   int _tabIndex = 0; // 0: Favorites, 1: Following
+  String _mediaType = 'anime'; // 'anime' | 'manga' | 'novel'
+
+  String _getSectionTitle() {
+    final typeName = _mediaType == 'anime'
+        ? 'Anime'
+        : _mediaType == 'manga'
+            ? 'Manga'
+            : 'Novela';
+    final actionName = _tabIndex == 0 ? 'Favoritos' : 'Siguiendo';
+    return '$typeName $actionName';
+  }
+
+  Widget _buildMediaChip(
+    BuildContext context, {
+    required String title,
+    required bool isActive,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: isActive ? context.primaryColor : context.cardColor,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isActive ? context.primaryColor : context.textSecondary.withOpacity(0.15),
+            width: 1.5,
+          ),
+          boxShadow: isActive ? [
+            BoxShadow(
+              color: context.primaryColor.withOpacity(0.3),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            )
+          ] : null,
+        ),
+        child: Text(
+          title,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.bold,
+            color: isActive ? Colors.white : context.textPrimary,
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -208,12 +258,39 @@ class _LoggedInBodyState extends State<_LoggedInBody> {
               ProfileStatsSection(
                 userId: uid,
                 isOwner: true,
+                mediaType: _mediaType,
               ),
               const SizedBox(height: 8),
               Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _buildMediaChip(
+                    context,
+                    title: '🎬 Anime',
+                    isActive: _mediaType == 'anime',
+                    onTap: () => setState(() => _mediaType = 'anime'),
+                  ),
+                  const SizedBox(width: 8),
+                  _buildMediaChip(
+                    context,
+                    title: '📖 Manga',
+                    isActive: _mediaType == 'manga',
+                    onTap: () => setState(() => _mediaType = 'manga'),
+                  ),
+                  const SizedBox(width: 8),
+                  _buildMediaChip(
+                    context,
+                    title: '📚 Novelas',
+                    isActive: _mediaType == 'novel',
+                    onTap: () => setState(() => _mediaType = 'novel'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Row(
                 children: [
                   Text(
-                    _tabIndex == 0 ? 'Anime Favoritos' : 'Anime Siguiendo',
+                    _getSectionTitle(),
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -240,6 +317,7 @@ class _LoggedInBodyState extends State<_LoggedInBody> {
               FavoritesGrid(
                 userId: uid,
                 showFavorites: _tabIndex == 0,
+                mediaType: _mediaType,
               ),
               const SizedBox(height: 28),
               SizedBox(

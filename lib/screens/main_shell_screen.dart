@@ -4,6 +4,7 @@ import '../core/theme.dart';
 import '../providers/auth_provider.dart' as app_auth;
 import '../providers/history_provider.dart';
 import '../providers/manga_history_provider.dart';
+import '../providers/novel_history_provider.dart';
 import '../providers/notification_provider.dart';
 import '../providers/connectivity_provider.dart';
 import '../utils/auth_ui.dart';
@@ -12,6 +13,7 @@ import 'catalog_screen.dart';
 import 'manga_tab_screen.dart';
 import 'search_screen.dart';
 import 'schedule_screen.dart';
+import 'novel_tab_screen.dart';
 
 /// Contenedor principal con barra de navegación flotante inferior.
 class MainShellScreen extends StatefulWidget {
@@ -30,6 +32,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
     _NavItem(icon: Icons.home_rounded, label: 'Inicio'),
     _NavItem(icon: Icons.grid_view_rounded, label: 'Catálogo'),
     _NavItem(icon: Icons.book_rounded, label: 'Manga'),
+    _NavItem(icon: Icons.auto_stories_rounded, label: 'Novela'),
     _NavItem(icon: Icons.calendar_month_rounded, label: 'Horario'),
     _NavItem(icon: Icons.search_rounded, label: 'Buscar'),
   ];
@@ -64,6 +67,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
     _boundUserId = auth.userId;
     await context.read<HistoryProvider>().bindCloudHistory(auth.userId);
     await context.read<MangaHistoryProvider>().bindCloudHistory(auth.userId);
+    await context.read<NovelHistoryProvider>().bindCloudHistory(auth.userId);
     _tryShowWelcome(auth);
   }
 
@@ -118,6 +122,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
                 HomeScreen(),
                 CatalogScreen(embedded: true),
                 MangaTabScreen(),
+                NovelTabScreen(),
                 ScheduleScreen(embedded: true),
                 SearchScreen(embedded: true),
               ],

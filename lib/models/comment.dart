@@ -108,6 +108,9 @@ class AppNotification {
   final String fromUserName;
   final bool read;
   final DateTime createdAt;
+  final String? mediaType;
+  final String? mangaId;
+  final String? novelId;
 
   AppNotification({
     required this.id,
@@ -125,6 +128,9 @@ class AppNotification {
     required this.fromUserName,
     required this.read,
     required this.createdAt,
+    this.mediaType,
+    this.mangaId,
+    this.novelId,
   });
 
   factory AppNotification.fromFirestore(DocumentSnapshot doc) {
@@ -134,17 +140,22 @@ class AppNotification {
       type: data['type'] ?? 'comment_reply',
       title: data['title'] ?? 'Nueva respuesta',
       body: data['body'] ?? '',
-      animeSlug: data['animeSlug'] ?? '',
-      animeTitle: data['animeTitle'] ?? 'Anime',
-      animeUrl: data['animeUrl']?.toString(),
-      episodeUrl: data['episodeUrl']?.toString(),
-      commentId: data['commentId']?.toString(),
-      parentCommentId: data['parentCommentId']?.toString(),
-      episodeNumber: (data['episodeNumber'] as num?)?.toDouble(),
-      fromUserId: data['fromUserId'] ?? '',
-      fromUserName: data['fromUserName'] ?? 'Usuario',
+      animeSlug: data['animeSlug'] ?? data['anime_slug'] ?? '',
+      animeTitle: data['animeTitle'] ?? data['anime_title'] ?? 'Anime',
+      animeUrl: data['animeUrl']?.toString() ?? data['anime_url']?.toString(),
+      episodeUrl: data['episodeUrl']?.toString() ?? data['episode_url']?.toString(),
+      commentId: data['commentId']?.toString() ?? data['comment_id']?.toString(),
+      parentCommentId: data['parentCommentId']?.toString() ?? data['parent_comment_id']?.toString(),
+      episodeNumber: (data['episodeNumber'] as num?)?.toDouble() ??
+                     (data['episode_number'] as num?)?.toDouble() ??
+                     double.tryParse(data['episodeNumber']?.toString() ?? data['episode_number']?.toString() ?? ''),
+      fromUserId: data['fromUserId'] ?? data['from_user_id'] ?? '',
+      fromUserName: data['fromUserName'] ?? data['from_user_name'] ?? 'Usuario',
       read: data['read'] == true,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      mediaType: data['mediaType']?.toString() ?? data['media_type']?.toString(),
+      mangaId: data['mangaId']?.toString() ?? data['manga_id']?.toString(),
+      novelId: data['novelId']?.toString() ?? data['novel_id']?.toString(),
     );
   }
 }
