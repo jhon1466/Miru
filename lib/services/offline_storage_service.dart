@@ -205,47 +205,58 @@ class OfflineStorageService {
       final chapterData = bodyJson['chapter'];
       if (chapterData != null) {
         final content = chapterData['chp_content']?.toString() ?? '';
-        final pRegex = RegExp(r'<p[^>]*>([\s\S]*?)<\/p>');
-        final matches = pRegex.allMatches(content);
-        final List<String> paragraphs = [];
-        if (matches.isNotEmpty) {
-          for (final m in matches) {
-            final text = m.group(1)!
-                .replaceAll(RegExp(r'<[^>]*>'), '')
-                .replaceAll('&emsp;', ' ')
-                .replaceAll('&nbsp;', ' ')
-                .replaceAll('&amp;', '&')
-                .replaceAll('&#8211;', '—')
-                .replaceAll('&#8217;', "'")
-                .replaceAll('&#8220;', '"')
-                .replaceAll('&#8221;', '"')
-                .trim();
-            if (text.isNotEmpty && !text.contains('All rights reserved') && !text.contains('derechos reservados')) {
-              paragraphs.add(text);
-            }
-          }
-        } else {
-          final lines = content.split('\n');
-          for (var line in lines) {
-            final text = line
-                .replaceAll(RegExp(r'<[^>]*>'), '')
-                .replaceAll('&emsp;', ' ')
-                .replaceAll('&nbsp;', ' ')
-                .replaceAll('&amp;', '&')
-                .replaceAll('&#8211;', '—')
-                .replaceAll('&#8217;', "'")
-                .replaceAll('&#8220;', '"')
-                .replaceAll('&#8221;', '"')
-                .trim();
-            if (text.isNotEmpty && !text.contains('All rights reserved') && !text.contains('derechos reservados')) {
-              paragraphs.add(text);
-            }
-          }
-        }
-        return paragraphs;
+        return _parseHtmlToParagraphs(content);
       }
     }
     return [];
+  }
+
+  static List<String> _parseHtmlToParagraphs(String html) {
+    var text = html
+        .replaceAll(RegExp(r'<br\s*\/?>', caseSensitive: false), '\n')
+        .replaceAll(RegExp(r'<\/p>', caseSensitive: false), '\n\n')
+        .replaceAll(RegExp(r'<\/div>', caseSensitive: false), '\n\n')
+        .replaceAll(RegExp(r'<\/li>', caseSensitive: false), '\n\n');
+
+    text = text.replaceAll(RegExp(r'<[^>]*>'), '');
+
+    text = text
+        .replaceAll('&emsp;', ' ')
+        .replaceAll('&nbsp;', ' ')
+        .replaceAll('&amp;', '&')
+        .replaceAll('&lt;', '<')
+        .replaceAll('&gt;', '>')
+        .replaceAll('&quot;', '"')
+        .replaceAll('&apos;', "'")
+        .replaceAll('&#8211;', '—')
+        .replaceAll('&#8212;', '—')
+        .replaceAll('&#8216;', "'")
+        .replaceAll('&#8217;', "'")
+        .replaceAll('&#8220;', '"')
+        .replaceAll('&#8221;', '"')
+        .replaceAll('&ldquo;', '"')
+        .replaceAll('&rdquo;', '"')
+        .replaceAll('&lsquo;', "'")
+        .replaceAll('&rsquo;', "'")
+        .replaceAll('&ndash;', '–')
+        .replaceAll('&mdash;', '—');
+
+    text = text.replaceAll(RegExp(r'[\t\u00A0\u2000-\u200F\u202F\u205F\u3000]'), ' ');
+    text = text.replaceAll(RegExp(r' {2,}'), ' ');
+
+    final rawLines = text.split('\n');
+    final List<String> paragraphs = [];
+
+    for (var line in rawLines) {
+      final trimmed = line.trim();
+      if (trimmed.isEmpty) continue;
+      if (trimmed.contains('All rights reserved') || trimmed.contains('derechos reservados')) {
+        continue;
+      }
+      paragraphs.add(trimmed);
+    }
+
+    return paragraphs;
   }
 
   static Future<void> saveNovelChapter({

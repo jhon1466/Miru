@@ -174,10 +174,13 @@ class _NovelReaderScreenState extends State<NovelReaderScreen> {
           children: [
             Row(
               children: [
-                Text(
-                  widget.novelTitle,
-                  style: TextStyle(
-                      color: textColor.withValues(alpha: 0.6), fontSize: 11),
+                Flexible(
+                  child: Text(
+                    widget.novelTitle,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                        color: textColor.withValues(alpha: 0.6), fontSize: 11),
+                  ),
                 ),
                 if (novelProvider.isContentOffline) ...[ 
                   const SizedBox(width: 6),
