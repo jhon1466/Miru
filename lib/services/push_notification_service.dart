@@ -21,7 +21,18 @@ const AndroidNotificationChannel _miruReplyChannel = AndroidNotificationChannel(
   importance: Importance.high,
 );
 
-String _payloadFromData(Map<String, dynamic> d) {
+const AndroidNotificationChannel _miruUpdateChannel = AndroidNotificationChannel(
+  'miru_updates',
+  'Actualizaciones de la aplicación',
+  description: 'Avisos cuando hay una nueva versión de Miru',
+  importance: Importance.high,
+);
+
+String _payloadFromData(Map<String, dynamic> d, {String? fromTopic}) {
+  final isUpdate = (fromTopic != null && fromTopic.contains('app_updates')) ||
+                   d['type'] == 'app_update' ||
+                   d['type'] == 'update';
+
   final animeSlug = d['animeSlug']?.toString() ?? d['anime_slug']?.toString() ?? '';
   final animeTitle = d['animeTitle']?.toString() ?? d['anime_title']?.toString() ?? 'Miru';
   final animeUrl = d['animeUrl']?.toString() ?? d['anime_url']?.toString();
@@ -31,7 +42,7 @@ String _payloadFromData(Map<String, dynamic> d) {
   final commentId = d['commentId']?.toString() ?? d['comment_id']?.toString();
   final parentCommentId = d['parentCommentId']?.toString() ?? d['parent_comment_id']?.toString();
   final notificationId = d['notificationId']?.toString() ?? d['notification_id']?.toString();
-  final mediaType = d['mediaType']?.toString() ?? d['media_type']?.toString();
+  final mediaType = isUpdate ? 'app_update' : (d['mediaType']?.toString() ?? d['media_type']?.toString());
   final mangaId = d['mangaId']?.toString() ?? d['manga_id']?.toString();
   final novelId = d['novelId']?.toString() ?? d['novel_id']?.toString();
 
@@ -61,9 +72,9 @@ Future<void> _ensureLocalNotificationsReady(FlutterLocalNotificationsPlugin plug
       }
     },
   );
-  await plugin
-      .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
-      ?.createNotificationChannel(_miruReplyChannel);
+  final androidImpl = plugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+  await androidImpl?.createNotificationChannel(_miruReplyChannel);
+  await androidImpl?.createNotificationChannel(_miruUpdateChannel);
 }
 
 Future<void> _showMiruLocalNotification(
@@ -75,7 +86,12 @@ Future<void> _showMiruLocalNotification(
   final body = message.notification?.body ?? data['body'] ?? '';
   if (title.isEmpty && body.isEmpty) return;
 
-  final payload = _payloadFromData(data);
+  final payload = _payloadFromData(data, fromTopic: message.from);
+  
+  final isUpdate = (message.from != null && message.from!.contains('app_updates')) ||
+                   data['type'] == 'app_update' ||
+                   data['type'] == 'update';
+  final channel = isUpdate ? _miruUpdateChannel : _miruReplyChannel;
 
   await plugin.show(
     DateTime.now().millisecondsSinceEpoch.remainder(100000),
@@ -83,9 +99,9 @@ Future<void> _showMiruLocalNotification(
     body,
     NotificationDetails(
       android: AndroidNotificationDetails(
-        _miruReplyChannel.id,
-        _miruReplyChannel.name,
-        channelDescription: _miruReplyChannel.description,
+        channel.id,
+        channel.name,
+        channelDescription: channel.description,
         importance: Importance.high,
         priority: Priority.high,
         icon: '@mipmap/ic_launcher',
@@ -196,15 +212,21 @@ class PushNotificationService {
       _showMiruLocalNotification(_local, message);
     } else {
       final payload = _payloadFromMessage(message);
+      
+      final isUpdate = (message.from != null && message.from!.contains('app_updates')) ||
+                       message.data['type'] == 'app_update' ||
+                       message.data['type'] == 'update';
+      final channel = isUpdate ? _miruUpdateChannel : _miruReplyChannel;
+
       _local.show(
         DateTime.now().millisecondsSinceEpoch.remainder(100000),
         message.notification!.title ?? message.data['title'] ?? 'Miru',
         message.notification!.body ?? message.data['body'] ?? '',
         NotificationDetails(
           android: AndroidNotificationDetails(
-            _miruReplyChannel.id,
-            _miruReplyChannel.name,
-            channelDescription: _miruReplyChannel.description,
+            channel.id,
+            channel.name,
+            channelDescription: channel.description,
             importance: Importance.high,
             priority: Priority.high,
             icon: '@mipmap/ic_launcher',
@@ -227,5 +249,6 @@ class PushNotificationService {
     });
   }
 
-  static String _payloadFromMessage(RemoteMessage message) => _payloadFromData(message.data);
+  static String _payloadFromMessage(RemoteMessage message) =>
+      _payloadFromData(message.data, fromTopic: message.from);
 }

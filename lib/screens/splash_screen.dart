@@ -57,7 +57,9 @@ class _SplashScreenState extends State<SplashScreen>
     final settings = Provider.of<SettingsProvider>(context, listen: false);
     await settings.load();
     if (!mounted) return;
-    context.read<AnimeProvider>().setAdultContentEnabled(settings.adultContentEnabled);
+    final animeProvider = context.read<AnimeProvider>();
+    animeProvider.setAdultContentEnabled(settings.adultContentEnabled);
+    animeProvider.selectProvider(settings.favoriteProviderDomain);
 
     if (!mounted) return;
     setState(() => _statusMessage = 'Conectando al servidor...');
