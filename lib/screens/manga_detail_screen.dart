@@ -9,6 +9,7 @@ import '../models/manga.dart';
 import '../services/manga_favorite_service.dart';
 import '../services/manga_follow_service.dart';
 import '../services/offline_storage_service.dart';
+import '../widgets/media_rating_section.dart';
 import 'manga_reader_screen.dart';
 
 class MangaDetailScreen extends StatefulWidget {
@@ -542,6 +543,13 @@ class _MangaDetailScreenState extends State<MangaDetailScreen> {
                   Text(
                     details.description.isNotEmpty ? details.description : 'Sin sinopsis disponible.',
                     style: TextStyle(fontSize: 14, color: context.textSecondary, height: 1.5),
+                  ),
+                  const SizedBox(height: 16),
+                  MediaRatingSection(
+                    mediaId: widget.mangaId,
+                    mediaType: 'manga',
+                    title: details.title,
+                    image: details.coverUrl,
                   ),
 
                   const SizedBox(height: 28),

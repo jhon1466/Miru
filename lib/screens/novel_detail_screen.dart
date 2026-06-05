@@ -10,6 +10,7 @@ import '../services/novel_favorite_service.dart';
 import '../services/novel_follow_service.dart';
 import '../services/offline_storage_service.dart';
 import '../utils/auth_ui.dart';
+import '../widgets/media_rating_section.dart';
 import 'novel_reader_screen.dart';
 
 class NovelDetailScreen extends StatefulWidget {
@@ -426,6 +427,13 @@ class _NovelDetailScreenState extends State<NovelDetailScreen> {
                     novelProvider.selectedNovelSynopsis ?? 'Sin sinopsis disponible.',
                     style: TextStyle(
                         fontSize: 14, color: context.textSecondary, height: 1.5),
+                  ),
+                  const SizedBox(height: 16),
+                  MediaRatingSection(
+                    mediaId: details.id,
+                    mediaType: 'novel',
+                    title: details.title,
+                    image: details.coverUrl,
                   ),
                   const SizedBox(height: 24),
                   Row(

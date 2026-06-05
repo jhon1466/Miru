@@ -13,6 +13,7 @@ import '../widgets/episode_download_button.dart';
 import '../models/anime.dart';
 import '../utils/image_utils.dart';
 import '../services/follow_service.dart';
+import '../widgets/media_rating_section.dart';
 import 'player_screen.dart';
 
 class DetailScreen extends StatefulWidget {
@@ -507,6 +508,13 @@ class _DetailScreenState extends State<DetailScreen> {
                   Text(
                     details.description ?? 'Sin sinopsis disponible.',
                     style: TextStyle(fontSize: 14, color: context.textSecondary, height: 1.5),
+                  ),
+                  const SizedBox(height: 16),
+                  MediaRatingSection(
+                    mediaId: widget.animeUrl,
+                    mediaType: 'anime',
+                    title: details.title,
+                    image: details.image ?? widget.animeImage,
                   ),
 
                   if (details.relations.isNotEmpty) ...[
