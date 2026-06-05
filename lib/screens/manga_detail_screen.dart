@@ -10,6 +10,7 @@ import '../services/manga_favorite_service.dart';
 import '../services/manga_follow_service.dart';
 import '../services/offline_storage_service.dart';
 import '../widgets/media_rating_section.dart';
+import '../services/completed_service.dart';
 import 'manga_reader_screen.dart';
 
 class MangaDetailScreen extends StatefulWidget {
@@ -463,6 +464,90 @@ class _MangaDetailScreenState extends State<MangaDetailScreen> {
                           },
                           icon: Icon(Icons.bookmark_border_rounded, color: context.primaryColor),
                           label: Text('Seguir Manga', style: TextStyle(color: context.primaryColor, fontWeight: FontWeight.bold)),
+                        ),
+                  const SizedBox(height: 12),
+                  authProvider.isLoggedIn
+                      ? StreamBuilder<bool>(
+                          stream: CompletedService.isCompletedStream(
+                            authProvider.userId!,
+                            widget.mangaId,
+                          ),
+                          builder: (context, snapshot) {
+                            final isCompleted = snapshot.data ?? false;
+                            return Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(12),
+                                onTap: () async {
+                                  await CompletedService.toggleCompleted(
+                                    userId: authProvider.userId!,
+                                    mediaId: widget.mangaId,
+                                    mediaType: 'manga',
+                                    title: details.title,
+                                    image: details.coverUrl,
+                                    type: null,
+                                    status: details.status,
+                                    genres: details.genres,
+                                  );
+                                  if (!context.mounted) return;
+                                  ScaffoldMessenger.of(context).clearSnackBars();
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(isCompleted ? 'Eliminado de terminados' : 'Marcado como terminado'),
+                                      backgroundColor: isCompleted ? context.dangerColor : context.successColor,
+                                      duration: const Duration(seconds: 1),
+                                    ),
+                                  );
+                                },
+                                child: Ink(
+                                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                                  decoration: BoxDecoration(
+                                    color: isCompleted ? context.successColor : context.cardColor,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: isCompleted
+                                        ? null
+                                        : Border.all(color: context.textSecondary.withValues(alpha: 0.2)),
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        isCompleted ? Icons.check_circle : Icons.check_circle_outline,
+                                        color: isCompleted ? Colors.white : context.textSecondary,
+                                        size: 20,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        isCompleted ? 'Terminado / Leído' : 'Marcar como Terminado',
+                                        style: TextStyle(
+                                          color: isCompleted ? Colors.white : context.textPrimary,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        )
+                      : OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            side: BorderSide(color: context.textSecondary.withValues(alpha: 0.3)),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                          onPressed: () {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Inicia sesión con Google para marcar como terminado'),
+                                duration: Duration(seconds: 2),
+                              ),
+                            );
+                          },
+                          icon: Icon(Icons.check_circle_outline, color: context.textSecondary),
+                          label: Text('Marcar como Terminado', style: TextStyle(color: context.textPrimary, fontWeight: FontWeight.bold)),
                         ),
 
                   // Botón de reanudación de lectura

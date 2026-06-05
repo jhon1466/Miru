@@ -19,6 +19,7 @@ import '../models/novel_history_item.dart';
 import '../models/novel.dart';
 import 'manga_detail_screen.dart';
 import 'novel_detail_screen.dart';
+import '../services/completed_service.dart';
 
 class UserProfileScreen extends StatefulWidget {
   final String userId;
@@ -46,7 +47,11 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         : _mediaType == 'manga'
             ? 'Manga'
             : 'Novela';
-    final actionName = _tabIndex == 0 ? 'Favoritos' : 'Siguiendo';
+    final actionName = _tabIndex == 0
+        ? 'Favoritos'
+        : _tabIndex == 1
+            ? 'Siguiendo'
+            : 'Terminados';
     return '$typeName $actionName';
   }
 
@@ -211,12 +216,19 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                 isActive: _tabIndex == 0,
                                 onTap: () => setState(() => _tabIndex = 0),
                               ),
-                              const SizedBox(width: 8),
+                              const SizedBox(width: 4),
                               _buildTabButton(
                                 context,
                                 title: 'Siguiendo',
                                 isActive: _tabIndex == 1,
                                 onTap: () => setState(() => _tabIndex = 1),
+                              ),
+                              const SizedBox(width: 4),
+                              _buildTabButton(
+                                context,
+                                title: 'Vistos',
+                                isActive: _tabIndex == 2,
+                                onTap: () => setState(() => _tabIndex = 2),
                               ),
                             ],
                           ),
@@ -224,7 +236,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                         ],
                         FavoritesGrid(
                           userId: widget.userId,
-                          showFavorites: _tabIndex == 0,
+                          tabIndex: _tabIndex,
                           mediaType: _mediaType,
                         ),
                       ],
@@ -422,18 +434,75 @@ class UnifiedFavorite {
 
 class FavoritesGrid extends StatelessWidget {
   final String userId;
-  final bool showFavorites;
+  final int tabIndex;
   final String mediaType;
 
   const FavoritesGrid({
     super.key,
     required this.userId,
-    required this.showFavorites,
+    required this.tabIndex,
     required this.mediaType,
   });
 
   @override
   Widget build(BuildContext context) {
+    if (tabIndex == 2) {
+      return StreamBuilder<List<CompletedMedia>>(
+        stream: CompletedService.getCompleted(userId, mediaType),
+        builder: (context, snap) {
+          if (snap.connectionState == ConnectionState.waiting) return _buildLoading();
+          final items = snap.data ?? [];
+          if (items.isEmpty) return _buildEmptyState(context);
+
+          final unified = items.map((fav) => UnifiedFavorite(
+            id: fav.mediaId,
+            title: fav.title,
+            coverUrl: fav.image,
+            onTap: () {
+              if (mediaType == 'anime') {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => DetailScreen(
+                      animeUrl: fav.mediaId,
+                      animeTitle: fav.title,
+                      animeImage: fav.image,
+                    ),
+                  ),
+                );
+              } else if (mediaType == 'manga') {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => MangaDetailScreen(mangaId: fav.mediaId),
+                  ),
+                );
+              } else {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => NovelDetailScreen(
+                      novel: Novel(
+                        id: fav.mediaId,
+                        title: fav.title,
+                        url: fav.mediaId,
+                        coverUrl: fav.image,
+                        status: fav.status,
+                        author: fav.author,
+                      ),
+                    ),
+                  ),
+                );
+              }
+            },
+          )).toList();
+
+          return _buildGrid(context, unified);
+        },
+      );
+    }
+
+    final showFavorites = tabIndex == 0;
     if (mediaType == 'anime') {
       return StreamBuilder<List<FavoriteAnime>>(
         stream: showFavorites
@@ -539,15 +608,18 @@ class FavoritesGrid extends StatelessWidget {
   Widget _buildEmptyState(BuildContext context) {
     String message;
     IconData icon;
-    if (mediaType == 'anime') {
-      message = showFavorites ? 'Sin favoritos aún' : 'No sigue ningún anime aún';
-      icon = showFavorites ? Icons.bookmark_outline : Icons.notifications_none_outlined;
+    if (tabIndex == 2) {
+      message = 'Ninguno terminado aún';
+      icon = Icons.check_circle_outline;
+    } else if (mediaType == 'anime') {
+      message = tabIndex == 0 ? 'Sin favoritos aún' : 'No sigue ningún anime aún';
+      icon = tabIndex == 0 ? Icons.bookmark_outline : Icons.notifications_none_outlined;
     } else if (mediaType == 'manga') {
-      message = showFavorites ? 'Sin favoritos aún' : 'No sigue ningún manga aún';
-      icon = showFavorites ? Icons.bookmark_outline : Icons.notifications_none_outlined;
+      message = tabIndex == 0 ? 'Sin favoritos aún' : 'No sigue ningún manga aún';
+      icon = tabIndex == 0 ? Icons.bookmark_outline : Icons.notifications_none_outlined;
     } else {
-      message = showFavorites ? 'Sin favoritos aún' : 'No sigue ninguna novela aún';
-      icon = showFavorites ? Icons.bookmark_outline : Icons.notifications_none_outlined;
+      message = tabIndex == 0 ? 'Sin favoritos aún' : 'No sigue ninguna novela aún';
+      icon = tabIndex == 0 ? Icons.bookmark_outline : Icons.notifications_none_outlined;
     }
 
     return Container(
