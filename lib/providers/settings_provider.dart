@@ -10,12 +10,14 @@ class SettingsProvider extends ChangeNotifier {
   static const _keyUpdateNotif = 'settings_update_notifications_enabled';
   static const _keyAutoplay = 'settings_autoplay_next_episode';
   static const _keyBgDownload = 'settings_background_downloads_enabled';
+  static const _keyFavoriteProvider = 'settings_favorite_provider_domain';
 
   bool _adultContentEnabled = false;
   ThemeMode _themeMode = ThemeMode.light; // Default to light theme
   bool _updateNotificationsEnabled = true; // Default to true
   bool _autoplayNextEpisode = false;
   bool _backgroundDownloadsEnabled = true; // Default to true
+  String _favoriteProviderDomain = ''; // Default is '' (Todos)
   bool _loaded = false;
 
   bool get adultContentEnabled => _adultContentEnabled;
@@ -23,6 +25,7 @@ class SettingsProvider extends ChangeNotifier {
   bool get updateNotificationsEnabled => _updateNotificationsEnabled;
   bool get autoplayNextEpisode => _autoplayNextEpisode;
   bool get backgroundDownloadsEnabled => _backgroundDownloadsEnabled;
+  String get favoriteProviderDomain => _favoriteProviderDomain;
   bool get isLoaded => _loaded;
 
   Future<void> load() async {
@@ -32,6 +35,7 @@ class SettingsProvider extends ChangeNotifier {
     _updateNotificationsEnabled = prefs.getBool(_keyUpdateNotif) ?? true;
     _autoplayNextEpisode = prefs.getBool(_keyAutoplay) ?? false;
     _backgroundDownloadsEnabled = prefs.getBool(_keyBgDownload) ?? true;
+    _favoriteProviderDomain = prefs.getString(_keyFavoriteProvider) ?? '';
     
     final themeString = prefs.getString(_keyTheme) ?? 'light';
     _themeMode = ThemeMode.values.firstWhere(
@@ -102,6 +106,14 @@ class SettingsProvider extends ChangeNotifier {
     _backgroundDownloadsEnabled = value;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_keyBgDownload, value);
+    notifyListeners();
+  }
+
+  Future<void> setFavoriteProviderDomain(String domain) async {
+    if (_favoriteProviderDomain == domain) return;
+    _favoriteProviderDomain = domain;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyFavoriteProvider, domain);
     notifyListeners();
   }
 

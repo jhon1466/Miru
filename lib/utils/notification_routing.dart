@@ -10,6 +10,8 @@ import '../screens/notifications_screen.dart';
 import '../screens/player_screen.dart';
 import '../screens/manga_detail_screen.dart';
 import '../screens/novel_detail_screen.dart';
+import '../core/update_service.dart';
+import '../widgets/update_dialog.dart';
 
 /// Abre el anime/episodio/comentario indicado por una notificación.
 class NotificationRouting {
@@ -78,6 +80,23 @@ class NotificationRouting {
     }
 
     final finalMediaType = mediaType?.toLowerCase();
+
+    // 0. App Update Navigation
+    if (finalMediaType == 'app_update' || finalMediaType == 'update') {
+      final updateInfo = await UpdateService.checkForUpdates();
+      if (!nav.mounted) return;
+      if (updateInfo.hasUpdate) {
+        showAppUpdateDialog(nav.context, updateInfo);
+      } else {
+        ScaffoldMessenger.of(nav.context).showSnackBar(
+          SnackBar(
+            content: Text('Tu aplicación ya está en la versión más reciente (${UpdateService.appVersion}).'),
+            backgroundColor: Theme.of(nav.context).colorScheme.primary,
+          ),
+        );
+      }
+      return;
+    }
 
     // 1. Manga Navigation
     if (finalMediaType == 'manga' || (mangaId != null && mangaId.isNotEmpty)) {

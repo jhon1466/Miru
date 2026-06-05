@@ -171,6 +171,41 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         },
                       ),
                     ),
+                    Consumer<AnimeProvider>(
+                      builder: (context, animeProvider, _) {
+                        final currentFavorite = settings.favoriteProviderDomain;
+                        final availableProviders = animeProvider.providers;
+                        final exists = availableProviders.any((p) => p['domain'] == currentFavorite);
+                        
+                        return ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: Icon(
+                            Icons.star_border,
+                            color: context.primaryColor,
+                          ),
+                          title: const Text('Proveedor favorito (Home)'),
+                          subtitle: const Text('Por defecto para capítulos recientes y populares'),
+                          trailing: DropdownButton<String>(
+                            value: exists ? currentFavorite : '',
+                            dropdownColor: context.cardColor,
+                            underline: const SizedBox(),
+                            icon: Icon(Icons.arrow_drop_down, color: context.textSecondary),
+                            items: availableProviders.map((p) {
+                              return DropdownMenuItem<String>(
+                                value: p['domain'] ?? '',
+                                child: Text(p['name'] ?? 'Todos', style: TextStyle(color: context.textPrimary)),
+                              );
+                            }).toList(),
+                            onChanged: (domain) {
+                              if (domain != null) {
+                                settings.setFavoriteProviderDomain(domain);
+                                animeProvider.selectProvider(domain);
+                              }
+                            },
+                          ),
+                        );
+                      },
+                    ),
                   ],
                 );
               },
