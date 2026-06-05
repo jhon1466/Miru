@@ -1,12 +1,9 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import '../models/novel.dart';
 import '../services/offline_storage_service.dart';
+import '../services/sky_novels_service.dart';
 
 class NovelProvider extends ChangeNotifier {
-  static const String _baseUrl = 'https://api.skynovels.net/api';
-
   // Popular Novels
   List<Novel> _popularNovels = [];
   bool _isLoadingPopular = false;
@@ -23,7 +20,6 @@ class NovelProvider extends ChangeNotifier {
   List<Novel> _searchResults = [];
   bool _isSearching = false;
   String? _searchError;
-  String _lastSearchQuery = '';
 
   List<Novel> get searchResults => _searchResults;
   bool get isSearching => _isSearching;
@@ -53,7 +49,6 @@ class NovelProvider extends ChangeNotifier {
   String? get contentError => _contentError;
   bool get isContentOffline => _isContentOffline;
 
-  // Load Popular Novels
   Future<void> loadPopularNovels({bool loadMore = false}) async {
     if (loadMore) {
       if (!_hasMorePopular || _isLoadingPopular) return;
@@ -68,46 +63,29 @@ class NovelProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final url = '$_baseUrl/novels?order=views&page=$_popularPage&limit=20';
-      final response = await http.get(
-        Uri.parse(url),
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          'Accept': 'application/json',
-        },
-      );
+      final newItems = await SkyNovelsService.fetchPopularNovels(page: _popularPage);
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final List<dynamic> novelsJson = data['novels'] ?? [];
-        final List<Novel> newItems = novelsJson.map((n) => Novel.fromJson(n)).toList();
-
-        if (loadMore) {
-          _popularNovels.addAll(newItems);
-        } else {
-          _popularNovels = newItems;
-        }
-
-        _hasMorePopular = newItems.length >= 20;
+      if (loadMore) {
+        _popularNovels.addAll(newItems);
       } else {
-        _popularError = 'Error al cargar populares: ${response.statusCode}';
+        _popularNovels = newItems;
       }
+
+      _hasMorePopular = newItems.length >= 20;
     } catch (e) {
-      _popularError = e.toString();
+      _popularError = e.toString().replaceAll('Exception: ', '');
     } finally {
       _isLoadingPopular = false;
       notifyListeners();
     }
   }
 
-  // Search Novels
   Future<void> searchNovels(String query) async {
     final trimmed = query.trim();
     if (trimmed.isEmpty) {
       _searchResults = [];
       _isSearching = false;
       _searchError = null;
-      _lastSearchQuery = '';
       notifyListeners();
       return;
     }
@@ -115,35 +93,18 @@ class NovelProvider extends ChangeNotifier {
     _isSearching = true;
     _searchResults = [];
     _searchError = null;
-    _lastSearchQuery = trimmed;
     notifyListeners();
 
     try {
-      final url = '$_baseUrl/novels?q=${Uri.encodeComponent(trimmed)}';
-      final response = await http.get(
-        Uri.parse(url),
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          'Accept': 'application/json',
-        },
-      );
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final List<dynamic> novelsJson = data['novels'] ?? [];
-        _searchResults = novelsJson.map((n) => Novel.fromJson(n)).toList();
-      } else {
-        _searchError = 'Error de búsqueda: ${response.statusCode}';
-      }
+      _searchResults = await SkyNovelsService.searchNovels(trimmed);
     } catch (e) {
-      _searchError = e.toString();
+      _searchError = e.toString().replaceAll('Exception: ', '');
     } finally {
       _isSearching = false;
       notifyListeners();
     }
   }
 
-  // Load Novel Details and Chapters
   Future<void> loadNovelDetails(Novel novel) async {
     _selectedNovel = novel;
     _selectedNovelSynopsis = null;
@@ -153,72 +114,35 @@ class NovelProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final baseResponse = await http.get(
-        Uri.parse('$_baseUrl/novels/${novel.id}/base'),
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          'Accept': 'application/json',
-        },
-      );
+      final details = await SkyNovelsService.fetchNovelDetails(novel.id);
+      if (details != null) {
+        _selectedNovelSynopsis = details['synopsis']?.toString();
+        _chapters = (details['chapters'] as List<NovelChapter>?) ?? [];
 
-      final chaptersResponse = await http.get(
-        Uri.parse('$_baseUrl/novel-chapters/${novel.id}'),
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          'Accept': 'application/json',
-        },
-      );
-
-      if (baseResponse.statusCode == 200 && chaptersResponse.statusCode == 200) {
-        final baseData = jsonDecode(baseResponse.body);
-        final chaptersData = jsonDecode(chaptersResponse.body);
-
-        final novelBase = baseData['novel'];
-        if (novelBase != null) {
-          _selectedNovelSynopsis = novelBase['nvl_content']?.toString()
-              .replaceAll(RegExp(r'<[^>]*>'), '')
-              .trim();
-          _selectedNovel = Novel.fromJson(novelBase);
-        }
-
-        final novelObj = chaptersData['novel'];
-        if (novelObj != null) {
-          List<dynamic>? chaptersList;
-
-          if (novelObj is List && novelObj.isNotEmpty) {
-            // API returned novel as a JSON array: [{ chapters: [...] }]
-            final firstVolume = novelObj[0];
-            if (firstVolume is Map && firstVolume['chapters'] != null) {
-              chaptersList = firstVolume['chapters'] as List<dynamic>;
-            }
-          } else if (novelObj is Map) {
-            // API returned novel as a JSON object: { "0": { chapters: [...] } }
-            final volumeData = novelObj['0'];
-            if (volumeData != null && volumeData['chapters'] != null) {
-              chaptersList = volumeData['chapters'] as List<dynamic>;
-            }
-          }
-
-          if (chaptersList != null && chaptersList.isNotEmpty) {
-            final List<NovelChapter> list = chaptersList
-                .map((c) => NovelChapter.fromJson(c as Map<String, dynamic>))
-                .toList();
-            list.sort((a, b) => a.number.compareTo(b.number));
-            _chapters = list;
-          }
+        final updatedNovel = details['novel'] as Novel?;
+        if (updatedNovel != null) {
+          _selectedNovel = updatedNovel;
+        } else if (details['coverUrl'] != null && details['coverUrl'].toString().isNotEmpty) {
+          _selectedNovel = Novel(
+            id: novel.id,
+            title: novel.title,
+            url: novel.url,
+            coverUrl: details['coverUrl'].toString(),
+            status: novel.status,
+            author: novel.author,
+          );
         }
       } else {
-        _detailsError = 'Error al cargar detalles (Status: ${baseResponse.statusCode} / ${chaptersResponse.statusCode})';
+        _detailsError = 'No se pudieron cargar los detalles de la novela.';
       }
     } catch (e) {
-      _detailsError = e.toString();
+      _detailsError = e.toString().replaceAll('Exception: ', '');
     } finally {
       _isLoadingDetails = false;
       notifyListeners();
     }
   }
 
-  // Load Chapter Paragraphs
   Future<void> loadChapterContent(String chapterUrl, {String? novelId, String? chapterId}) async {
     _chapterParagraphs = [];
     _isLoadingContent = true;
@@ -227,7 +151,6 @@ class NovelProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // 1. Check offline cache first
       if (novelId != null && chapterId != null) {
         final isDownloaded = await OfflineStorageService.isNovelChapterDownloaded(novelId, chapterId);
         if (isDownloaded) {
@@ -239,80 +162,16 @@ class NovelProvider extends ChangeNotifier {
           }
         }
       }
-      final response = await http.get(
-        Uri.parse('$_baseUrl/chapters/$chapterUrl'),
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          'Accept': 'application/json',
-        },
-      );
 
-      if (response.statusCode == 200) {
-        final bodyJson = jsonDecode(response.body);
-        final chapterData = bodyJson['chapter'];
-        if (chapterData != null) {
-          final content = chapterData['chp_content']?.toString() ?? '';
-          _chapterParagraphs = _parseHtmlToParagraphs(content);
-        } else {
-          _contentError = 'Error: No se encontró contenido del capítulo.';
-        }
-      } else {
-        _contentError = 'Error al cargar contenido: ${response.statusCode}';
+      _chapterParagraphs = await SkyNovelsService.fetchChapterContent(chapterUrl);
+      if (_chapterParagraphs.isEmpty) {
+        _contentError = 'No se encontró contenido en este capítulo.';
       }
     } catch (e) {
-      _contentError = e.toString();
+      _contentError = e.toString().replaceAll('Exception: ', '');
     } finally {
       _isLoadingContent = false;
       notifyListeners();
     }
   }
-
-  List<String> _parseHtmlToParagraphs(String html) {
-    var text = html
-        .replaceAll(RegExp(r'<br\s*\/?>', caseSensitive: false), '\n')
-        .replaceAll(RegExp(r'<\/p>', caseSensitive: false), '\n\n')
-        .replaceAll(RegExp(r'<\/div>', caseSensitive: false), '\n\n')
-        .replaceAll(RegExp(r'<\/li>', caseSensitive: false), '\n\n');
-
-    text = text.replaceAll(RegExp(r'<[^>]*>'), '');
-
-    text = text
-        .replaceAll('&emsp;', ' ')
-        .replaceAll('&nbsp;', ' ')
-        .replaceAll('&amp;', '&')
-        .replaceAll('&lt;', '<')
-        .replaceAll('&gt;', '>')
-        .replaceAll('&quot;', '"')
-        .replaceAll('&apos;', "'")
-        .replaceAll('&#8211;', '—')
-        .replaceAll('&#8212;', '—')
-        .replaceAll('&#8216;', "'")
-        .replaceAll('&#8217;', "'")
-        .replaceAll('&#8220;', '"')
-        .replaceAll('&#8221;', '"')
-        .replaceAll('&ldquo;', '"')
-        .replaceAll('&rdquo;', '"')
-        .replaceAll('&lsquo;', "'")
-        .replaceAll('&rsquo;', "'")
-        .replaceAll('&ndash;', '–')
-        .replaceAll('&mdash;', '—');
-
-    text = text.replaceAll(RegExp(r'[\t\u00A0\u2000-\u200F\u202F\u205F\u3000]'), ' ');
-    text = text.replaceAll(RegExp(r' {2,}'), ' ');
-
-    final rawLines = text.split('\n');
-    final List<String> paragraphs = [];
-
-    for (var line in rawLines) {
-      final trimmed = line.trim();
-      if (trimmed.isEmpty) continue;
-      if (trimmed.contains('All rights reserved') || trimmed.contains('derechos reservados')) {
-        continue;
-      }
-      paragraphs.add(trimmed);
-    }
-
-    return paragraphs;
-  }
 }
-

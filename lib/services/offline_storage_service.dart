@@ -1,10 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:http/http.dart' as http;
-import '../models/manga.dart';
-import '../models/novel.dart';
+import 'sky_novels_service.dart';
 
 class OfflineStorageService {
   static Future<Directory> _getMangaOfflineDir() async {
@@ -193,70 +191,7 @@ class OfflineStorageService {
   // --- NOVEL ---
 
   static Future<List<String>> fetchNovelParagraphs(String chapterUrl) async {
-    final response = await http.get(
-      Uri.parse('https://api.skynovels.net/api/chapters/$chapterUrl'),
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'application/json',
-      },
-    );
-    if (response.statusCode == 200) {
-      final bodyJson = jsonDecode(response.body);
-      final chapterData = bodyJson['chapter'];
-      if (chapterData != null) {
-        final content = chapterData['chp_content']?.toString() ?? '';
-        return _parseHtmlToParagraphs(content);
-      }
-    }
-    return [];
-  }
-
-  static List<String> _parseHtmlToParagraphs(String html) {
-    var text = html
-        .replaceAll(RegExp(r'<br\s*\/?>', caseSensitive: false), '\n')
-        .replaceAll(RegExp(r'<\/p>', caseSensitive: false), '\n\n')
-        .replaceAll(RegExp(r'<\/div>', caseSensitive: false), '\n\n')
-        .replaceAll(RegExp(r'<\/li>', caseSensitive: false), '\n\n');
-
-    text = text.replaceAll(RegExp(r'<[^>]*>'), '');
-
-    text = text
-        .replaceAll('&emsp;', ' ')
-        .replaceAll('&nbsp;', ' ')
-        .replaceAll('&amp;', '&')
-        .replaceAll('&lt;', '<')
-        .replaceAll('&gt;', '>')
-        .replaceAll('&quot;', '"')
-        .replaceAll('&apos;', "'")
-        .replaceAll('&#8211;', '—')
-        .replaceAll('&#8212;', '—')
-        .replaceAll('&#8216;', "'")
-        .replaceAll('&#8217;', "'")
-        .replaceAll('&#8220;', '"')
-        .replaceAll('&#8221;', '"')
-        .replaceAll('&ldquo;', '"')
-        .replaceAll('&rdquo;', '"')
-        .replaceAll('&lsquo;', "'")
-        .replaceAll('&rsquo;', "'")
-        .replaceAll('&ndash;', '–')
-        .replaceAll('&mdash;', '—');
-
-    text = text.replaceAll(RegExp(r'[\t\u00A0\u2000-\u200F\u202F\u205F\u3000]'), ' ');
-    text = text.replaceAll(RegExp(r' {2,}'), ' ');
-
-    final rawLines = text.split('\n');
-    final List<String> paragraphs = [];
-
-    for (var line in rawLines) {
-      final trimmed = line.trim();
-      if (trimmed.isEmpty) continue;
-      if (trimmed.contains('All rights reserved') || trimmed.contains('derechos reservados')) {
-        continue;
-      }
-      paragraphs.add(trimmed);
-    }
-
-    return paragraphs;
+    return await SkyNovelsService.fetchChapterContent(chapterUrl);
   }
 
   static Future<void> saveNovelChapter({

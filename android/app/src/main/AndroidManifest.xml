@@ -49,6 +49,8 @@
                 <data android:host="www.tioanime.com" />
                 <data android:host="jkanime.net" />
                 <data android:host="www.jkanime.net" />
+                <data android:host="monoschinos.st" />
+                <data android:host="www.monoschinos.st" />
                 <data android:host="monoschinos2.com" />
                 <data android:host="www.monoschinos2.com" />
                 <data android:host="latanime.org" />
@@ -101,6 +103,15 @@
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
+        </intent>
+        <!-- Required for url_launcher to open URLs in Chrome/browser -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="http" />
         </intent>
     </queries>
 </manifest>

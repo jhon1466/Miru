@@ -6,7 +6,6 @@ import '../models/novel.dart';
 import '../providers/novel_provider.dart';
 import '../providers/auth_provider.dart' as app_auth;
 import '../providers/novel_history_provider.dart';
-
 enum ReaderTheme {
   dark,
   light,
@@ -45,8 +44,9 @@ class _NovelReaderScreenState extends State<NovelReaderScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<NovelProvider>().loadChapterContent(
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final provider = context.read<NovelProvider>();
+      await provider.loadChapterContent(
         widget.chapter.url,
         novelId: widget.novelId,
         chapterId: widget.chapter.id,
@@ -301,8 +301,11 @@ class _NovelReaderScreenState extends State<NovelReaderScreen> {
                         ),
                         const SizedBox(height: 24),
                         ElevatedButton(
-                          onPressed: () => novelProvider
-                              .loadChapterContent(widget.chapter.url, novelId: widget.novelId, chapterId: widget.chapter.id),
+                          onPressed: () => novelProvider.loadChapterContent(
+                            widget.chapter.url,
+                            novelId: widget.novelId,
+                            chapterId: widget.chapter.id,
+                          ),
                           child: const Text('Reintentar'),
                         ),
                       ],

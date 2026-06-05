@@ -306,7 +306,8 @@ class _LoggedInBodyState extends State<_LoggedInBody> {
                 ],
               ),
               const SizedBox(height: 16),
-              Row(
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     _getSectionTitle(),
@@ -316,26 +317,30 @@ class _LoggedInBodyState extends State<_LoggedInBody> {
                       color: context.textPrimary,
                     ),
                   ),
-                  const Spacer(),
-                  _buildTabButton(
-                    context,
-                    title: 'Favoritos',
-                    isActive: _tabIndex == 0,
-                    onTap: () => setState(() => _tabIndex = 0),
-                  ),
-                  const SizedBox(width: 4),
-                  _buildTabButton(
-                    context,
-                    title: 'Siguiendo',
-                    isActive: _tabIndex == 1,
-                    onTap: () => setState(() => _tabIndex = 1),
-                  ),
-                  const SizedBox(width: 4),
-                  _buildTabButton(
-                    context,
-                    title: 'Vistos',
-                    isActive: _tabIndex == 2,
-                    onTap: () => setState(() => _tabIndex = 2),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      _buildTabButton(
+                        context,
+                        title: 'Favoritos',
+                        isActive: _tabIndex == 0,
+                        onTap: () => setState(() => _tabIndex = 0),
+                      ),
+                      const SizedBox(width: 8),
+                      _buildTabButton(
+                        context,
+                        title: 'Siguiendo',
+                        isActive: _tabIndex == 1,
+                        onTap: () => setState(() => _tabIndex = 1),
+                      ),
+                      const SizedBox(width: 8),
+                      _buildTabButton(
+                        context,
+                        title: 'Vistos',
+                        isActive: _tabIndex == 2,
+                        onTap: () => setState(() => _tabIndex = 2),
+                      ),
+                    ],
                   ),
                 ],
               ),

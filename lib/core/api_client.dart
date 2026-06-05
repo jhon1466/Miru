@@ -174,7 +174,7 @@ class ApiClient {
     final baseUrl = await getBaseUrl();
     final uri = Uri.parse('$baseUrl/api/v1/anime/info').replace(queryParameters: {'url': animeUrl});
     
-    final response = await http.get(uri);
+    final response = await http.get(uri).timeout(const Duration(seconds: 120));
     if (response.statusCode == 200) {
       final decoded = json.decode(response.body);
       return AnimeDetails.fromJson(decoded['data'] ?? decoded);

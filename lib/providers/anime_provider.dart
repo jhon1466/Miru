@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/anime.dart';
 import '../core/api_client.dart';
 import '../services/api_cache_service.dart';
+import '../services/monoschinos_episode_service.dart';
 import '../utils/adult_content.dart';
 
 class AnimeProvider extends ChangeNotifier {
@@ -18,10 +19,12 @@ class AnimeProvider extends ChangeNotifier {
   AnimeDetails? _selectedAnime;
   bool _isLoadingDetails = false;
   String? _detailsError;
+  bool _isLoadingEpisodes = false;
 
   AnimeDetails? get selectedAnime => _selectedAnime;
   bool get isLoadingDetails => _isLoadingDetails;
   String? get detailsError => _detailsError;
+  bool get isLoadingEpisodes => _isLoadingEpisodes;
 
   // Enlaces de Episodio
   EpisodeLinksResponse? _episodeLinks;
@@ -59,7 +62,7 @@ class AnimeProvider extends ChangeNotifier {
     {'name': 'AnimeFLV', 'domain': 'animeflv.net'},
     {'name': 'TioAnime', 'domain': 'tioanime.com'},
     {'name': 'JKAnime', 'domain': 'jkanime.net'},
-    {'name': 'MonosChinos', 'domain': 'monoschinos2.com'},
+    {'name': 'MonosChinos', 'domain': 'monoschinos.st'},
     {'name': 'LatAnime', 'domain': 'latanime.org'},
     {'name': 'HentaiLA', 'domain': AdultContent.hentaiDomain},
   ];
@@ -163,15 +166,42 @@ class AnimeProvider extends ChangeNotifier {
   // Cargar Detalle de Anime
   Future<void> loadAnimeDetails(String animeUrl) async {
     _isLoadingDetails = true;
+    _isLoadingEpisodes = false;
     _detailsError = null;
     _selectedAnime = null;
     notifyListeners();
 
     try {
-      _selectedAnime = await ApiClient.getAnimeInfo(animeUrl);
+      final normalizedUrl = MonosChinosEpisodeService.isMonosChinosUrl(animeUrl)
+          ? MonosChinosEpisodeService.normalizeAnimeUrl(animeUrl)
+          : animeUrl;
+
+      final details = await ApiClient.getAnimeInfo(normalizedUrl);
+      _selectedAnime = details;
+      _isLoadingDetails = false;
+      notifyListeners();
+
+      if (MonosChinosEpisodeService.isMonosChinosUrl(normalizedUrl)) {
+        _isLoadingEpisodes = true;
+        notifyListeners();
+
+        try {
+          final localEpisodes = await MonosChinosEpisodeService.fetchEpisodes(normalizedUrl);
+          if (localEpisodes.isNotEmpty && _selectedAnime == details) {
+            _selectedAnime = _selectedAnime!.copyWith(
+              episodes: localEpisodes,
+              totalEpisodes: localEpisodes.length,
+            );
+          }
+        } catch (e) {
+          debugPrint('Error loading local episodes: $e');
+        } finally {
+          _isLoadingEpisodes = false;
+          notifyListeners();
+        }
+      }
     } catch (e) {
       _detailsError = e.toString().replaceAll('Exception: ', '');
-    } finally {
       _isLoadingDetails = false;
       notifyListeners();
     }

@@ -641,6 +641,10 @@ class _DetailScreenState extends State<DetailScreen> {
                                       children: [
                                         AnimePosterImage(
                                           imageUrl: relation.image,
+                                          urlCandidates: collectRelationPosterCandidates(
+                                            apiImage: relation.image,
+                                            animeUrl: relation.url,
+                                          ),
                                           fit: BoxFit.cover,
                                           borderRadius: BorderRadius.circular(8),
                                         ),
@@ -747,21 +751,42 @@ class _DetailScreenState extends State<DetailScreen> {
           ),
 
           // Lista de Episodios (SliverList para rendimiento)
-          displayedEpisodes.isEmpty
+          animeProvider.isLoadingEpisodes
               ? SliverToBoxAdapter(
                   child: Center(
                     child: Padding(
                       padding: const EdgeInsets.all(40.0),
-                      child: Text(
-                        _episodeSearchQuery.trim().isNotEmpty
-                            ? 'No se encontraron episodios para "$_episodeSearchQuery"'
-                            : 'No hay episodios disponibles.',
-                        style: TextStyle(color: context.textSecondary),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          CircularProgressIndicator(
+                            valueColor: AlwaysStoppedAnimation(context.primaryColor),
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'Cargando episodios...',
+                            style: TextStyle(color: context.textSecondary),
+                          ),
+                        ],
                       ),
                     ),
                   ),
                 )
-              : SliverPadding(
+              : displayedEpisodes.isEmpty
+                  ? SliverToBoxAdapter(
+                      child: Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(40.0),
+                          child: Text(
+                            _episodeSearchQuery.trim().isNotEmpty
+                                ? 'No se encontraron episodios para "$_episodeSearchQuery"'
+                                : 'No hay episodios disponibles.',
+                            style: TextStyle(color: context.textSecondary),
+                          ),
+                        ),
+                      ),
+                    )
+                  : SliverPadding(
                   padding: const EdgeInsets.symmetric(horizontal: 20.0),
                   sliver: SliverList(
                     delegate: SliverChildBuilderDelegate(

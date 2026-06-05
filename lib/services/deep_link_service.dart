@@ -46,7 +46,7 @@ class DeepLinkService {
              host.contains('animeflv.net') ||
              host.contains('tioanime.com') ||
              host.contains('jkanime.net') ||
-             host.contains('monoschinos2.com') ||
+             host.contains('monoschinos') ||
              host.contains('latanime.org') ||
              host.contains('hentaila.com');
     } catch (_) {
