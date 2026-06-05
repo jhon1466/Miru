@@ -499,23 +499,57 @@ class _CommentsSectionState extends State<CommentsSection> {
                   return Column(
                     key: ValueKey('group_${root.id}'),
                     children: [
-                      _tile(root, auth, isReply: false, allComments: all),
-                      ...replies.map((r) {
+                      IntrinsicHeight(
+                        key: ValueKey('root_row_${root.id}'),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            CustomPaint(
+                              size: const Size(20, double.infinity),
+                              painter: RootThreadLinePainter(
+                                hasReplies: replies.isNotEmpty,
+                                color: AppTheme.primaryColor.withValues(alpha: 0.3),
+                              ),
+                            ),
+                            Expanded(
+                              child: _tile(
+                                root,
+                                auth,
+                                isReply: false,
+                                allComments: all,
+                                leftPadding: 0.0,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      ...replies.asMap().entries.map((entry) {
+                        final index = entry.key;
+                        final r = entry.value;
+                        final isLastReply = index == replies.length - 1;
                         return IntrinsicHeight(
                           key: ValueKey('padding_${r.id}'),
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              const SizedBox(width: 20),
-                              Container(
-                                width: 1.5,
-                                color: AppTheme.primaryColor.withValues(alpha: 0.3),
+                              CustomPaint(
+                                size: const Size(56, double.infinity),
+                                painter: ThreadLinePainter(
+                                  isLast: isLastReply,
+                                  color: AppTheme.primaryColor.withValues(alpha: 0.3),
+                                ),
                               ),
-                              const SizedBox(width: 14),
                               Expanded(
                                 child: Padding(
                                   padding: const EdgeInsets.only(bottom: 8.0),
-                                  child: _tile(r, auth, isReply: true, root: root, allComments: all),
+                                  child: _tile(
+                                    r,
+                                    auth,
+                                    isReply: true,
+                                    root: root,
+                                    allComments: all,
+                                    leftPadding: 0.0,
+                                  ),
                                 ),
                               ),
                             ],
@@ -658,7 +692,14 @@ class _CommentsSectionState extends State<CommentsSection> {
     );
   }
 
-  Widget _tile(Comment comment, app_auth.AuthProvider auth, {required bool isReply, Comment? root, List<Comment> allComments = const []}) {
+  Widget _tile(
+    Comment comment,
+    app_auth.AuthProvider auth, {
+    required bool isReply,
+    Comment? root,
+    List<Comment> allComments = const [],
+    double leftPadding = 20.0,
+  }) {
     final isOwner = auth.userId == comment.userId;
     final isFocused = widget.focusCommentId == comment.id;
     final key = _keyFor(comment.id);
@@ -684,7 +725,12 @@ class _CommentsSectionState extends State<CommentsSection> {
         }
 
         return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+          padding: EdgeInsets.only(
+            left: leftPadding,
+            right: 20,
+            top: 6,
+            bottom: 6,
+          ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -949,5 +995,84 @@ class _CommentsSectionState extends State<CommentsSection> {
     if (diff.inDays < 1) return 'hace ${diff.inHours}h';
     if (diff.inDays < 7) return 'hace ${diff.inDays}d';
     return '${date.day}/${date.month}/${date.year}';
+  }
+}
+
+class RootThreadLinePainter extends CustomPainter {
+  final bool hasReplies;
+  final Color color;
+
+  RootThreadLinePainter({required this.hasReplies, required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (!hasReplies) return;
+
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5
+      ..strokeCap = StrokeCap.round;
+
+    // Linea vertical en X = 36 (centro del avatar del root)
+    // Empezando abajo del avatar (Y = 6 de padding superior + 32 de altura = 38)
+    canvas.drawLine(
+      const Offset(36, 38),
+      Offset(36, size.height),
+      paint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant RootThreadLinePainter oldDelegate) {
+    return oldDelegate.hasReplies != hasReplies || oldDelegate.color != color;
+  }
+}
+
+class ThreadLinePainter extends CustomPainter {
+  final bool isLast;
+  final Color color;
+
+  ThreadLinePainter({required this.isLast, required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5
+      ..strokeCap = StrokeCap.round;
+
+    final path = Path();
+
+    // Linea vertical baja en X = 36
+    const double startX = 36.0;
+    // Centro del avatar de la respuesta es Y = 22
+    const double centerY = 22.0;
+    // El radio de la curva es 12px
+    const double curveStartY = centerY - 12.0;
+
+    if (isLast) {
+      // Dibuja linea vertical hasta el inicio de la curva
+      path.moveTo(startX, 0);
+      path.lineTo(startX, curveStartY);
+      // Curva hacia la derecha terminando en el borde derecho del CustomPaint (X = size.width = 56)
+      path.quadraticBezierTo(startX, centerY, size.width, centerY);
+    } else {
+      // Dibuja la linea vertical completa de arriba a abajo
+      path.moveTo(startX, 0);
+      path.lineTo(startX, size.height);
+
+      // Dibuja la curva como un ramal hacia la derecha
+      path.moveTo(startX, curveStartY);
+      path.quadraticBezierTo(startX, centerY, size.width, centerY);
+    }
+
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant ThreadLinePainter oldDelegate) {
+    return oldDelegate.isLast != isLast || oldDelegate.color != color;
   }
 }
