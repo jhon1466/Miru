@@ -14,6 +14,7 @@ class Comment {
   final String? parentId;
   final String? replyToUserId;
   final String? replyToUserName;
+  final Map<String, String> reactions;
 
   Comment({
     required this.id,
@@ -29,6 +30,7 @@ class Comment {
     this.parentId,
     this.replyToUserId,
     this.replyToUserName,
+    required this.reactions,
   });
 
   bool get isReply => parentId != null && parentId!.isNotEmpty;
@@ -36,7 +38,7 @@ class Comment {
 
   bool get hasSticker => stickerUrl != null && stickerUrl!.isNotEmpty;
 
-  Comment withAuthor({String? displayName, String? photoUrl, String? replyToName}) {
+  Comment withAuthor({String? displayName, String? photoUrl, String? replyToName, Map<String, String>? reactions}) {
     return Comment(
       id: id,
       userId: userId,
@@ -51,6 +53,7 @@ class Comment {
       parentId: parentId,
       replyToUserId: replyToUserId,
       replyToUserName: replyToName ?? replyToUserName,
+      reactions: reactions ?? this.reactions,
     );
   }
 
@@ -71,6 +74,7 @@ class Comment {
       parentId: data['parentId']?.toString(),
       replyToUserId: data['replyToUserId']?.toString(),
       replyToUserName: data['replyToUserName']?.toString(),
+      reactions: Map<String, String>.from(data['reactions'] is Map ? data['reactions'] : {}),
     );
   }
 
@@ -88,6 +92,7 @@ class Comment {
       if (parentId != null) 'parentId': parentId,
       if (replyToUserId != null) 'replyToUserId': replyToUserId,
       if (replyToUserName != null) 'replyToUserName': replyToUserName,
+      'reactions': reactions,
     };
   }
 }

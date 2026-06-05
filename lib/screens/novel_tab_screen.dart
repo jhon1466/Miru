@@ -695,8 +695,39 @@ class _HistoryTab extends StatelessWidget {
                       style: TextStyle(
                           fontSize: 12, color: context.textSecondary),
                     ),
-                    trailing: Icon(Icons.chevron_right,
-                        color: context.textSecondary),
+                    trailing: IconButton(
+                      icon: Icon(Icons.more_vert, color: context.textSecondary),
+                      onPressed: () {
+                        showModalBottomSheet(
+                          context: context,
+                          backgroundColor: context.cardColor,
+                          shape: const RoundedRectangleBorder(
+                            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                          ),
+                          builder: (ctx) => Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              ListTile(
+                                leading: const Icon(Icons.info, color: Colors.blue),
+                                title: Text('Ver detalles', style: TextStyle(color: context.textPrimary)),
+                                onTap: () {
+                                  Navigator.pop(ctx);
+                                  onOpenNovel(item.novelId, item.novelTitle, item.coverUrl);
+                                },
+                              ),
+                              ListTile(
+                                leading: const Icon(Icons.delete, color: AppTheme.dangerColor),
+                                title: Text('Eliminar del historial', style: TextStyle(color: context.textPrimary)),
+                                onTap: () {
+                                  Navigator.pop(ctx);
+                                  onRemove(item.novelId);
+                                },
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
                   ),
                 ),
               );
