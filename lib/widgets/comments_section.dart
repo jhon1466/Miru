@@ -493,18 +493,35 @@ class _CommentsSectionState extends State<CommentsSection> {
                 );
               }
 
-              return Column(
+               return Column(
                 children: roots.map((root) {
                   final replies = _repliesFor(root.id, all);
                   return Column(
                     key: ValueKey('group_${root.id}'),
                     children: [
-                      _tile(root, auth, isReply: false),
-                      ...replies.map((r) => Padding(
-                            key: ValueKey('padding_${r.id}'),
-                            padding: const EdgeInsets.only(left: 36),
-                            child: _tile(r, auth, isReply: true, root: root),
-                          )),
+                      _tile(root, auth, isReply: false, allComments: all),
+                      ...replies.map((r) {
+                        return IntrinsicHeight(
+                          key: ValueKey('padding_${r.id}'),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              const SizedBox(width: 20),
+                              Container(
+                                width: 1.5,
+                                color: AppTheme.primaryColor.withValues(alpha: 0.3),
+                              ),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Padding(
+                                  padding: const EdgeInsets.only(bottom: 8.0),
+                                  child: _tile(r, auth, isReply: true, root: root, allComments: all),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
                     ],
                   );
                 }).toList(),
@@ -641,7 +658,7 @@ class _CommentsSectionState extends State<CommentsSection> {
     );
   }
 
-  Widget _tile(Comment comment, app_auth.AuthProvider auth, {required bool isReply, Comment? root}) {
+  Widget _tile(Comment comment, app_auth.AuthProvider auth, {required bool isReply, Comment? root, List<Comment> allComments = const []}) {
     final isOwner = auth.userId == comment.userId;
     final isFocused = widget.focusCommentId == comment.id;
     final key = _keyFor(comment.id);
@@ -654,6 +671,17 @@ class _CommentsSectionState extends State<CommentsSection> {
         final displayName = authorProfile?.displayName ?? comment.userDisplayName;
         final photoUrl = authorProfile?.photoUrl ?? comment.userPhotoUrl;
         final liveComment = comment.withAuthor(displayName: displayName, photoUrl: photoUrl);
+
+        Comment? repliedTo;
+        if (isReply && allComments.isNotEmpty) {
+          try {
+            repliedTo = allComments.firstWhere(
+              (c) => c.userId == liveComment.replyToUserId && c.createdAt.isBefore(liveComment.createdAt) && (c.id == liveComment.parentId || c.parentId == liveComment.parentId),
+            );
+          } catch (_) {
+            repliedTo = root;
+          }
+        }
 
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
@@ -767,6 +795,48 @@ class _CommentsSectionState extends State<CommentsSection> {
                               style: TextStyle(fontSize: 11, color: AppTheme.accentColor),
                             ),
                           ),
+                        if (isReply && repliedTo != null) ...[
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            margin: const EdgeInsets.only(bottom: 6, top: 6),
+                            decoration: BoxDecoration(
+                              color: context.backgroundColor.withValues(alpha: 0.5),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border(
+                                left: BorderSide(
+                                  color: AppTheme.accentColor,
+                                  width: 3,
+                                ),
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '@${repliedTo.userDisplayName}',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppTheme.accentColor,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  repliedTo.text.isNotEmpty
+                                      ? repliedTo.text
+                                      : (repliedTo.stickerUrl != null ? '🎭 Sticker' : '📷 Imagen'),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: context.textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                         if (liveComment.text.isNotEmpty) ...[
                           const SizedBox(height: 6),
                           Text(
@@ -789,6 +859,8 @@ class _CommentsSectionState extends State<CommentsSection> {
                           TappableNetworkImage(
                             imageUrl: liveComment.imageUrl!,
                             heroTag: 'comment_img_${liveComment.id}',
+                            width: 200,
+                            height: 150,
                             fit: BoxFit.cover,
                             borderRadius: BorderRadius.circular(8),
                           ),
