@@ -23,8 +23,50 @@ class _CatalogScreenState extends State<CatalogScreen> {
   final _scrollController = ScrollController();
 
   static const _defaultGenres = [
-    'Acción', 'Aventura', 'Fantasía', 'Drama', 'Romance', 'Comedia',
-    'Suspenso', 'Ciencia Ficción', 'Isekai', 'Psicológico',
+    'Acción',
+    'Artes Marciales',
+    'Aventura',
+    'Carreras',
+    'Ciencia Ficción',
+    'Comedia',
+    'Cyberpunk',
+    'Demencia',
+    'Demonios',
+    'Deportes',
+    'Drama',
+    'Ecchi',
+    'Escolar',
+    'Espacial',
+    'Fantasía',
+    'Fantasía oscura',
+    'Gore',
+    'Harem',
+    'Histórico',
+    'Isekai',
+    'Josei',
+    'Juegos',
+    'Magia',
+    'Mecha',
+    'Militar',
+    'Misterio',
+    'Música',
+    'Parodia',
+    'Policial',
+    'Post-Apocalíptico',
+    'Psicológico',
+    'Recuentos de la vida',
+    'Romance',
+    'Samuráis',
+    'Seinen',
+    'Shoujo',
+    'Shounen',
+    'Sobrenatural',
+    'Superpoderes',
+    'Suspenso',
+    'Terror',
+    'Vampiros',
+    'Yaoi',
+    'Yuri',
   ];
   static const _defaultTypes = ['TV Anime', 'Película', 'OVA', 'Especial'];
   static const _defaultStatuses = ['En emisión', 'Finalizado', 'Próximamente'];
@@ -95,9 +137,23 @@ class _CatalogScreenState extends State<CatalogScreen> {
   }
 
   Widget _buildFilters(BuildContext context, AnimeProvider provider) {
-    final genres = provider.facetGenres.isNotEmpty ? provider.facetGenres : _defaultGenres;
-    final types = provider.facetTypes.isNotEmpty ? provider.facetTypes : _defaultTypes;
-    final statuses = provider.facetStatuses.isNotEmpty ? provider.facetStatuses : _defaultStatuses;
+    final genres = {
+      ..._defaultGenres,
+      ...provider.facetGenres,
+    }.where((s) => s.isNotEmpty).toList()
+      ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+
+    final types = {
+      ..._defaultTypes,
+      ...provider.facetTypes,
+    }.where((s) => s.isNotEmpty).toList()
+      ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+
+    final statuses = {
+      ..._defaultStatuses,
+      ...provider.facetStatuses,
+    }.where((s) => s.isNotEmpty).toList()
+      ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
 
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
