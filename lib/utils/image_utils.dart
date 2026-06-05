@@ -3,17 +3,22 @@ String? normalizeAnimeImageUrl(String? raw, {String? baseAnimeUrl}) {
   if (raw == null) return null;
   final trimmed = raw.trim();
   if (trimmed.isEmpty || trimmed == 'null') return null;
+  if (trimmed.startsWith('data:')) return null;
 
-  if (trimmed.startsWith('//')) {
-    return 'https:${trimmed.substring(2)}';
+  var urlStr = trimmed;
+  if (urlStr.startsWith('//')) {
+    urlStr = 'https:${urlStr.substring(2)}';
   }
-  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
-    return trimmed;
+  if (urlStr.startsWith('http://') || urlStr.startsWith('https://')) {
+    if (urlStr.contains('cdn.jkanime.')) {
+      return urlStr.replaceAll(RegExp(r'cdn\.jkanime\.(net|top)', caseSensitive: false), 'cdn.jkdesa.com');
+    }
+    return urlStr;
   }
-  if (trimmed.startsWith('/') && baseAnimeUrl != null) {
+  if (urlStr.startsWith('/') && baseAnimeUrl != null) {
     final uri = Uri.tryParse(baseAnimeUrl);
     if (uri != null && uri.host.isNotEmpty) {
-      return '${uri.scheme}://${uri.host}$trimmed';
+      return '${uri.scheme}://${uri.host}$urlStr';
     }
   }
   return null;
@@ -74,8 +79,14 @@ List<String> inferImageUrlsFromAnimeUrl(String animeUrl, {bool bannersFirst = fa
       bannerUrls.add('https://cdn.animeav1.com/banners/$slug.jpg');
     }
   } else if (host.contains('animeflv')) {
-    if (slug != null) {
+    if (slug != null && RegExp(r'^\d+$').hasMatch(slug)) {
       coverUrls.add('https://${uri.host}/uploads/animes/covers/$slug.jpg');
+    }
+  } else if (host.contains('jkanime') || host.contains('jkdesa')) {
+    if (slug != null) {
+      final cleanSlug = slug.replaceAll(RegExp(r'/$'), '');
+      coverUrls.add('https://cdn.jkdesa.com/assets/images/animes/image/$cleanSlug.jpg');
+      coverUrls.add('https://cdn.jkanime.net/assets/images/animes/image/$cleanSlug.jpg');
     }
   }
 
@@ -97,11 +108,24 @@ Map<String, String> imageHttpHeadersForUrl(String url) {
     headers['Referer'] = 'https://animeav1.com/';
     headers['Origin'] = 'https://animeav1.com';
   } else if (host.contains('animeflv')) {
-    headers['Referer'] = 'https://www3.animeflv.net/';
+    headers['Referer'] = 'https://www4.animeflv.net/';
+    headers['Origin'] = 'https://www4.animeflv.net';
+  } else if (host.contains('jkanime') || host.contains('jkdesa')) {
+    headers['Referer'] = 'https://jkanime.net/';
+    headers['Origin'] = 'https://jkanime.net';
+  } else if (host.contains('monoschinos')) {
+    final origin = host.contains('monoschinos.st')
+        ? 'https://monoschinos.st'
+        : (host.contains('monoschinos2.com') ? 'https://monoschinos2.com' : 'https://$host');
+    headers['Referer'] = '$origin/';
+    headers['Origin'] = origin;
   } else if (host.contains('hentaila')) {
     headers['Referer'] = 'https://hentaila.com/';
   } else if (host.contains('latanime')) {
     headers['Referer'] = 'https://latanime.org/';
+  } else if (host.contains('skynovels')) {
+    headers['Referer'] = 'https://skynovels.net/';
+    headers['Origin'] = 'https://skynovels.net';
   }
 
   return headers;
@@ -147,6 +171,14 @@ List<String> collectPosterUrlCandidates({
   }
 
   return list;
+}
+
+/// Candidatos de portada para un anime relacionado (JK, FLV, etc.).
+List<String> collectRelationPosterCandidates({
+  String? apiImage,
+  String? animeUrl,
+}) {
+  return collectPosterUrlCandidates(apiImage: apiImage, animeUrl: animeUrl);
 }
 
 /// Lista para banner: portada que ya funciona primero, luego backdrops amplios.

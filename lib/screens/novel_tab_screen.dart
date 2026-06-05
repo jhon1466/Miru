@@ -107,7 +107,7 @@ class _NovelTabScreenState extends State<NovelTabScreen>
                       color: context.primaryColor, size: 28),
                   const SizedBox(width: 8),
                   Text(
-                    'SkyNovels',
+                    'Novelas Ligeras',
                     style: TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.bold,
@@ -271,8 +271,7 @@ class _ExploreTab extends StatelessWidget {
                             ElevatedButton(
                               onPressed: () {
                                 if (isSearchingMode) {
-                                  novelProvider
-                                      .searchNovels(searchController.text);
+                                  novelProvider.searchNovels(searchController.text);
                                 } else {
                                   novelProvider.loadPopularNovels();
                                 }

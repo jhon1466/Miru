@@ -13,6 +13,7 @@ import '../utils/auth_ui.dart';
 import '../widgets/media_rating_section.dart';
 import '../services/completed_service.dart';
 import 'novel_reader_screen.dart';
+import '../widgets/comments_section.dart';
 
 class NovelDetailScreen extends StatefulWidget {
   final Novel novel;
@@ -33,8 +34,9 @@ class _NovelDetailScreenState extends State<NovelDetailScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<NovelProvider>().loadNovelDetails(widget.novel);
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final provider = context.read<NovelProvider>();
+      await provider.loadNovelDetails(widget.novel);
       _loadOfflineStatus();
     });
   }
@@ -71,7 +73,9 @@ class _NovelDetailScreenState extends State<NovelDetailScreen> {
     });
     try {
       final paragraphs = await OfflineStorageService.fetchNovelParagraphs(chapter.url);
-      if (paragraphs.isEmpty) throw Exception('No se encontró contenido');
+      if (paragraphs.isEmpty) {
+        throw Exception('No se encontró contenido en el capítulo.');
+      }
       await OfflineStorageService.saveNovelChapter(
         novelId: details.id,
         novelTitle: details.title,
@@ -695,6 +699,15 @@ class _NovelDetailScreenState extends State<NovelDetailScreen> {
                     ),
                   ),
                 ),
+
+          // Sección de Comentarios de la Novela
+          SliverToBoxAdapter(
+            child: CommentsSection(
+              animeSlug: details.id,
+              animeTitle: details.title,
+              animeUrl: details.url,
+            ),
+          ),
 
           const SliverToBoxAdapter(child: SizedBox(height: 80)),
         ],

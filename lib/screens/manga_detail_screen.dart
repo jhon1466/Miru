@@ -12,6 +12,7 @@ import '../services/offline_storage_service.dart';
 import '../widgets/media_rating_section.dart';
 import '../services/completed_service.dart';
 import 'manga_reader_screen.dart';
+import '../widgets/comments_section.dart';
 
 class MangaDetailScreen extends StatefulWidget {
   final String mangaId;
@@ -818,6 +819,15 @@ class _MangaDetailScreenState extends State<MangaDetailScreen> {
                     ),
                   ),
                 ),
+
+          // Sección de Comentarios del Manga
+          SliverToBoxAdapter(
+            child: CommentsSection(
+              animeSlug: widget.mangaId,
+              animeTitle: details.title,
+              animeUrl: mangaShareUrl,
+            ),
+          ),
 
           const SliverToBoxAdapter(
             child: SizedBox(height: 60),

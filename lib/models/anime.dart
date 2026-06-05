@@ -248,6 +248,32 @@ class AnimeDetails {
     );
   }
 
+  AnimeDetails copyWith({
+    List<Episode>? episodes,
+    int? totalEpisodes,
+  }) {
+    return AnimeDetails(
+      id: id,
+      title: title,
+      titleJapanese: titleJapanese,
+      description: description,
+      image: image,
+      backdrop: backdrop,
+      status: status,
+      type: type,
+      year: year,
+      score: score,
+      votes: votes,
+      totalEpisodes: totalEpisodes ?? this.totalEpisodes,
+      malId: malId,
+      trailer: trailer,
+      genres: genres,
+      episodes: episodes ?? this.episodes,
+      source: source,
+      relations: relations,
+    );
+  }
+
   Map<String, dynamic> toJson() {
     return {
       'id': id,

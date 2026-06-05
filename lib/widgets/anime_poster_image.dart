@@ -39,10 +39,6 @@ class AnimePosterImage extends StatelessWidget {
   }
 
   List<String> _buildUrlList() {
-    if (urlCandidates != null && urlCandidates!.isNotEmpty) {
-      return urlCandidates!;
-    }
-
     final seen = <String>{};
     final list = <String>[];
 
@@ -51,6 +47,11 @@ class AnimePosterImage extends StatelessWidget {
       if (url != null && seen.add(url)) list.add(url);
     }
 
+    if (urlCandidates != null) {
+      for (final u in urlCandidates!) {
+        add(u);
+      }
+    }
     add(imageUrl);
     if (fallbackUrls != null) {
       for (final u in fallbackUrls!) {

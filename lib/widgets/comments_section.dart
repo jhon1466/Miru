@@ -459,7 +459,7 @@ class _CommentsSectionState extends State<CommentsSection> {
     final auth = Provider.of<app_auth.AuthProvider>(context);
     final label = widget.episodeNumber != null
         ? 'Comentarios del Episodio ${widget.episodeNumber!.toInt()}'
-        : 'Comentarios del Anime';
+        : 'Comentarios';
 
     return Container(
       key: widget.sectionKey,
