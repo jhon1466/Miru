@@ -46,6 +46,7 @@ class CommentsSection extends StatefulWidget {
 class _CommentsSectionState extends State<CommentsSection> {
   final TextEditingController _commentController = TextEditingController();
   final FocusNode _inputFocus = FocusNode();
+  final GlobalKey _inputKey = GlobalKey();
   final Map<String, GlobalKey> _commentKeys = {};
   bool _isSending = false;
   bool _didScrollToFocus = false;
@@ -196,6 +197,17 @@ class _CommentsSectionState extends State<CommentsSection> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _inputFocus.requestFocus();
+      Future.delayed(const Duration(milliseconds: 150), () {
+        if (!mounted) return;
+        final ctx = _inputKey.currentContext;
+        if (ctx != null && ctx.mounted) {
+          Scrollable.ensureVisible(
+            ctx,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOut,
+          );
+        }
+      });
     });
   }
 
@@ -575,6 +587,7 @@ class _CommentsSectionState extends State<CommentsSection> {
 
   Widget _buildInput(app_auth.AuthProvider auth) {
     return Container(
+      key: _inputKey,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: context.cardColor,
