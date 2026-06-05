@@ -59,7 +59,11 @@ class _LoggedInBodyState extends State<_LoggedInBody> {
         : _mediaType == 'manga'
             ? 'Manga'
             : 'Novela';
-    final actionName = _tabIndex == 0 ? 'Favoritos' : 'Siguiendo';
+    final actionName = _tabIndex == 0
+        ? 'Favoritos'
+        : _tabIndex == 1
+            ? 'Siguiendo'
+            : 'Terminados';
     return '$typeName $actionName';
   }
 
@@ -304,19 +308,26 @@ class _LoggedInBodyState extends State<_LoggedInBody> {
                     isActive: _tabIndex == 0,
                     onTap: () => setState(() => _tabIndex = 0),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 4),
                   _buildTabButton(
                     context,
                     title: 'Siguiendo',
                     isActive: _tabIndex == 1,
                     onTap: () => setState(() => _tabIndex = 1),
                   ),
+                  const SizedBox(width: 4),
+                  _buildTabButton(
+                    context,
+                    title: 'Vistos',
+                    isActive: _tabIndex == 2,
+                    onTap: () => setState(() => _tabIndex = 2),
+                  ),
                 ],
               ),
               const SizedBox(height: 16),
               FavoritesGrid(
                 userId: uid,
-                showFavorites: _tabIndex == 0,
+                tabIndex: _tabIndex,
                 mediaType: _mediaType,
               ),
               const SizedBox(height: 28),

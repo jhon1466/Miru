@@ -14,6 +14,7 @@ import '../models/anime.dart';
 import '../utils/image_utils.dart';
 import '../services/follow_service.dart';
 import '../widgets/media_rating_section.dart';
+import '../services/completed_service.dart';
 import 'player_screen.dart';
 
 class DetailScreen extends StatefulWidget {
@@ -474,6 +475,91 @@ class _DetailScreenState extends State<DetailScreen> {
                           ),
                     const SizedBox(height: 16),
                   ],
+                  const SizedBox(height: 12),
+                  authProvider.isLoggedIn
+                      ? StreamBuilder<bool>(
+                          stream: CompletedService.isCompletedStream(
+                            authProvider.userId!,
+                            widget.animeUrl,
+                          ),
+                          builder: (context, snapshot) {
+                            final isCompleted = snapshot.data ?? false;
+                            return Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(12),
+                                onTap: () async {
+                                  await CompletedService.toggleCompleted(
+                                    userId: authProvider.userId!,
+                                    mediaId: widget.animeUrl,
+                                    mediaType: 'anime',
+                                    title: details.title,
+                                    image: details.image ?? widget.animeImage,
+                                    type: details.type,
+                                    status: details.status,
+                                    genres: details.genres.map((g) => g.name).toList(),
+                                  );
+                                  if (!context.mounted) return;
+                                  ScaffoldMessenger.of(context).clearSnackBars();
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(isCompleted ? 'Eliminado de terminados' : 'Marcado como terminado'),
+                                      backgroundColor: isCompleted ? context.dangerColor : context.successColor,
+                                      duration: const Duration(seconds: 1),
+                                    ),
+                                  );
+                                },
+                                child: Ink(
+                                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                                  decoration: BoxDecoration(
+                                    color: isCompleted ? context.successColor : context.cardColor,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: isCompleted
+                                        ? null
+                                        : Border.all(color: context.textSecondary.withValues(alpha: 0.2)),
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        isCompleted ? Icons.check_circle : Icons.check_circle_outline,
+                                        color: isCompleted ? Colors.white : context.textSecondary,
+                                        size: 20,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        isCompleted ? 'Terminado / Visto' : 'Marcar como Terminado',
+                                        style: TextStyle(
+                                          color: isCompleted ? Colors.white : context.textPrimary,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        )
+                      : OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            side: BorderSide(color: context.textSecondary.withValues(alpha: 0.3)),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                          onPressed: () {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Inicia sesión con Google para marcar como terminado'),
+                                duration: Duration(seconds: 2),
+                              ),
+                            );
+                          },
+                          icon: Icon(Icons.check_circle_outline, color: context.textSecondary),
+                          label: Text('Marcar como Terminado', style: TextStyle(color: context.textPrimary, fontWeight: FontWeight.bold)),
+                        ),
+                  const SizedBox(height: 16),
 
                   const SizedBox(height: 24),
                   // Géneros
