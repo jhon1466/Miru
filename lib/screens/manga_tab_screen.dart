@@ -449,6 +449,19 @@ class _MangaTabScreenState extends State<MangaTabScreen> {
         mainAxisSize: MainAxisSize.min,
         children: [
           ListTile(
+            leading: const Icon(Icons.info, color: Colors.blue),
+            title: Text('Ver detalles', style: TextStyle(color: context.textPrimary)),
+            onTap: () {
+              Navigator.pop(ctx);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => MangaDetailScreen(mangaId: mangaId),
+                ),
+              );
+            },
+          ),
+          ListTile(
             leading: const Icon(Icons.delete, color: AppTheme.dangerColor),
             title: Text('Eliminar del historial', style: TextStyle(color: context.textPrimary)),
             onTap: () {

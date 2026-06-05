@@ -13,6 +13,8 @@ import '../services/comment_image_service.dart';
 import '../services/sticker_service.dart';
 import '../services/user_service.dart';
 import 'sticker_picker_sheet.dart';
+import 'emoji_reaction_picker.dart';
+import 'reactions_row.dart';
 import '../screens/user_profile_screen.dart';
 import '../utils/auth_ui.dart';
 import 'fullscreen_image_viewer.dart';
@@ -305,6 +307,133 @@ class _CommentsSectionState extends State<CommentsSection> {
     }
   }
 
+  void _showCommentActions(
+    BuildContext context,
+    Comment comment,
+    app_auth.AuthProvider auth,
+    bool isReply,
+    Comment? root,
+  ) {
+    if (!auth.isLoggedIn) return;
+
+    final currentUid = auth.userId ?? '';
+    final isOwner = comment.userId == currentUid;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: context.cardColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 16.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    ...['👍', '❤️', '😂', '😮', '😢', '🙏'].map((emoji) {
+                      final hasReacted = comment.reactions[currentUid] == emoji;
+                      return GestureDetector(
+                        onTap: () {
+                          Navigator.pop(ctx);
+                          CommentService.toggleReaction(
+                            animeSlug: widget.animeSlug,
+                            commentId: comment.id,
+                            userId: currentUid,
+                            emoji: emoji,
+                          );
+                        },
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: hasReacted
+                                ? AppTheme.primaryColor.withValues(alpha: 0.15)
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(emoji, style: const TextStyle(fontSize: 24)),
+                        ),
+                      );
+                    }),
+                    GestureDetector(
+                      onTap: () async {
+                        Navigator.pop(ctx);
+                        final selectedEmoji = await EmojiReactionPicker.show(context);
+                        if (selectedEmoji != null) {
+                          CommentService.toggleReaction(
+                            animeSlug: widget.animeSlug,
+                            commentId: comment.id,
+                            userId: currentUid,
+                            emoji: selectedEmoji,
+                          );
+                        }
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: context.textSecondary.withValues(alpha: 0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(Icons.add, color: context.textPrimary, size: 22),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.reply),
+                title: const Text('Responder'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _startReply(comment, isReply ? root : comment);
+                },
+              ),
+              if (comment.text.isNotEmpty)
+                ListTile(
+                  leading: const Icon(Icons.copy),
+                  title: const Text('Copiar texto'),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    Clipboard.setData(ClipboardData(text: comment.text));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Texto copiado'),
+                        duration: Duration(seconds: 1),
+                      ),
+                    );
+                  },
+                ),
+              if (isOwner) ...[
+                ListTile(
+                  leading: const Icon(Icons.edit, color: Colors.amber),
+                  title: const Text('Editar comentario'),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _editComment(comment, auth);
+                  },
+                ),
+                ListTile(
+                  leading: Icon(Icons.delete, color: context.dangerColor),
+                  title: Text('Eliminar comentario', style: TextStyle(color: context.dangerColor)),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _deleteComment(comment, auth);
+                  },
+                ),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   List<Comment> _roots(List<Comment> all) =>
       all.where((c) => c.parentId == null || c.parentId!.isEmpty).toList()
         ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
@@ -546,147 +675,163 @@ class _CommentsSectionState extends State<CommentsSection> {
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: context.cardColor,
-                    borderRadius: BorderRadius.circular(16),
-                    border: isFocused ? Border.all(color: AppTheme.accentColor, width: 2) : null,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              displayName,
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13,
-                                color: AppTheme.primaryColor,
+                child: GestureDetector(
+                  onLongPress: () => _showCommentActions(context, liveComment, auth, isReply, root),
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: context.cardColor,
+                      borderRadius: BorderRadius.circular(16),
+                      border: isFocused ? Border.all(color: AppTheme.accentColor, width: 2) : null,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                displayName,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                  color: AppTheme.primaryColor,
+                                ),
                               ),
                             ),
+                            Text(
+                              _timeAgo(liveComment.createdAt),
+                              style: TextStyle(fontSize: 10, color: context.textSecondary),
+                            ),
+                            if (liveComment.wasEdited)
+                              Text(' · editado', style: TextStyle(fontSize: 10, color: context.textSecondary)),
+                            if (isOwner) ...[
+                              const SizedBox(width: 6),
+                              PopupMenuButton<String>(
+                                icon: Icon(Icons.more_vert, size: 16, color: context.textSecondary),
+                                padding: EdgeInsets.zero,
+                                iconSize: 16,
+                                onSelected: (value) {
+                                  if (value == 'edit') {
+                                    _editComment(liveComment, auth);
+                                  } else if (value == 'delete') {
+                                    _deleteComment(liveComment, auth);
+                                  }
+                                },
+                                itemBuilder: (context) => [
+                                  PopupMenuItem(
+                                    value: 'edit',
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.edit, size: 16, color: context.textPrimary),
+                                        const SizedBox(width: 8),
+                                        const Text('Editar', style: TextStyle(fontSize: 13)),
+                                      ],
+                                    ),
+                                  ),
+                                  PopupMenuItem(
+                                    value: 'delete',
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.delete, size: 16, color: AppTheme.dangerColor),
+                                        const SizedBox(width: 8),
+                                        Text('Eliminar', style: TextStyle(fontSize: 13, color: AppTheme.dangerColor)),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ],
+                        ),
+                        if (isReply && liveComment.replyToUserId != null)
+                          StreamBuilder<UserProfile?>(
+                            stream: UserService.profileStream(liveComment.replyToUserId!),
+                            builder: (context, replySnap) {
+                              final replyName =
+                                  replySnap.data?.displayName ?? liveComment.replyToUserName ?? 'Usuario';
+                              return Padding(
+                                padding: const EdgeInsets.only(top: 2),
+                                child: Text(
+                                  '→ $replyName',
+                                  style: TextStyle(fontSize: 11, color: AppTheme.accentColor),
+                                ),
+                              );
+                            },
+                          )
+                        else if (isReply && liveComment.replyToUserName != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: Text(
+                              '→ ${liveComment.replyToUserName}',
+                              style: TextStyle(fontSize: 11, color: AppTheme.accentColor),
+                            ),
                           ),
+                        if (liveComment.text.isNotEmpty) ...[
+                          const SizedBox(height: 6),
                           Text(
-                            _timeAgo(liveComment.createdAt),
-                            style: TextStyle(fontSize: 10, color: context.textSecondary),
+                            liveComment.text,
+                            style: TextStyle(fontSize: 14, color: context.textPrimary, height: 1.4),
                           ),
-                          if (liveComment.wasEdited)
-                            Text(' · editado', style: TextStyle(fontSize: 10, color: context.textSecondary)),
-                          if (isOwner) ...[
-                            const SizedBox(width: 6),
-                            PopupMenuButton<String>(
-                              icon: Icon(Icons.more_vert, size: 16, color: context.textSecondary),
-                              padding: EdgeInsets.zero,
-                              iconSize: 16,
-                              onSelected: (value) {
-                                if (value == 'edit') {
-                                  _editComment(liveComment, auth);
-                                } else if (value == 'delete') {
-                                  _deleteComment(liveComment, auth);
-                                }
-                              },
-                              itemBuilder: (context) => [
-                                PopupMenuItem(
-                                  value: 'edit',
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.edit, size: 16, color: context.textPrimary),
-                                      const SizedBox(width: 8),
-                                      const Text('Editar', style: TextStyle(fontSize: 13)),
-                                    ],
-                                  ),
-                                ),
-                                PopupMenuItem(
-                                  value: 'delete',
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.delete, size: 16, color: AppTheme.dangerColor),
-                                      const SizedBox(width: 8),
-                                      Text('Eliminar', style: TextStyle(fontSize: 13, color: AppTheme.dangerColor)),
-                                    ],
-                                  ),
-                                ),
-                              ],
+                        ],
+                        if (liveComment.hasSticker) ...[
+                          const SizedBox(height: 8),
+                          TappableNetworkImage(
+                            imageUrl: liveComment.stickerUrl!,
+                            heroTag: 'comment_sticker_${liveComment.id}',
+                            width: 120,
+                            height: 120,
+                            fit: BoxFit.contain,
+                          ),
+                        ],
+                        if (liveComment.imageUrl != null && liveComment.imageUrl!.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          TappableNetworkImage(
+                            imageUrl: liveComment.imageUrl!,
+                            heroTag: 'comment_img_${liveComment.id}',
+                            fit: BoxFit.cover,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ],
+                        if (liveComment.reactions.isNotEmpty) ...[
+                          const SizedBox(height: 6),
+                          ReactionsRow(
+                            reactions: liveComment.reactions,
+                            currentUserId: auth.userId ?? '',
+                            onReactionTapped: (emoji) => CommentService.toggleReaction(
+                              animeSlug: widget.animeSlug,
+                              commentId: liveComment.id,
+                              userId: auth.userId ?? '',
+                              emoji: emoji,
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 6),
+                        Row(
+                          children: [
+                            if (liveComment.text.isNotEmpty)
+                              TextButton(
+                                onPressed: () {
+                                  Clipboard.setData(ClipboardData(text: liveComment.text));
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Texto copiado'),
+                                      duration: Duration(seconds: 1),
+                                    ),
+                                  );
+                                },
+                                child: const Text('Copiar', style: TextStyle(fontSize: 12)),
+                              ),
+                            TextButton(
+                              onPressed: auth.isLoggedIn
+                                  ? () => _startReply(liveComment, isReply ? root : liveComment)
+                                  : null,
+                              child: const Text('Responder', style: TextStyle(fontSize: 12)),
                             ),
                           ],
-                        ],
-                      ),
-                      if (isReply && liveComment.replyToUserId != null)
-                        StreamBuilder<UserProfile?>(
-                          stream: UserService.profileStream(liveComment.replyToUserId!),
-                          builder: (context, replySnap) {
-                            final replyName =
-                                replySnap.data?.displayName ?? liveComment.replyToUserName ?? 'Usuario';
-                            return Padding(
-                              padding: const EdgeInsets.only(top: 2),
-                              child: Text(
-                                '→ $replyName',
-                                style: TextStyle(fontSize: 11, color: AppTheme.accentColor),
-                              ),
-                            );
-                          },
-                        )
-                      else if (isReply && liveComment.replyToUserName != null)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 2),
-                          child: Text(
-                            '→ ${liveComment.replyToUserName}',
-                            style: TextStyle(fontSize: 11, color: AppTheme.accentColor),
-                          ),
-                        ),
-                      if (liveComment.text.isNotEmpty) ...[
-                        const SizedBox(height: 6),
-                        Text(
-                          liveComment.text,
-                          style: TextStyle(fontSize: 14, color: context.textPrimary, height: 1.4),
                         ),
                       ],
-                      if (liveComment.hasSticker) ...[
-                        const SizedBox(height: 8),
-                        TappableNetworkImage(
-                          imageUrl: liveComment.stickerUrl!,
-                          heroTag: 'comment_sticker_${liveComment.id}',
-                          width: 120,
-                          height: 120,
-                          fit: BoxFit.contain,
-                        ),
-                      ],
-                      if (liveComment.imageUrl != null && liveComment.imageUrl!.isNotEmpty) ...[
-                        const SizedBox(height: 8),
-                        TappableNetworkImage(
-                          imageUrl: liveComment.imageUrl!,
-                          heroTag: 'comment_img_${liveComment.id}',
-                          fit: BoxFit.cover,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ],
-                      const SizedBox(height: 6),
-                      Row(
-                        children: [
-                          if (liveComment.text.isNotEmpty)
-                            TextButton(
-                              onPressed: () {
-                                Clipboard.setData(ClipboardData(text: liveComment.text));
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Texto copiado'),
-                                    duration: Duration(seconds: 1),
-                                  ),
-                                );
-                              },
-                              child: const Text('Copiar', style: TextStyle(fontSize: 12)),
-                            ),
-                          TextButton(
-                            onPressed: auth.isLoggedIn
-                                ? () => _startReply(liveComment, isReply ? root : liveComment)
-                                : null,
-                            child: const Text('Responder', style: TextStyle(fontSize: 12)),
-                          ),
-                        ],
-                      ),
-                    ],
+                    ),
                   ),
                 ),
               ),

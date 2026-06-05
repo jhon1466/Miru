@@ -55,6 +55,7 @@ class CommentService {
       parentId: parentId,
       replyToUserId: replyToUserId,
       replyToUserName: replyToUserName,
+      reactions: const {},
     );
 
     final doc = await _commentsRef(animeSlug).add(comment.toFirestore());
@@ -161,5 +162,33 @@ class CommentService {
     await applyUpdates(repliesMention, {'replyToUserName': displayName});
 
     return updated;
+  }
+
+  static Future<void> toggleReaction({
+    required String animeSlug,
+    required String commentId,
+    required String userId,
+    required String emoji,
+  }) async {
+    final ref = _commentsRef(animeSlug).doc(commentId);
+    try {
+      await _db.runTransaction((transaction) async {
+        final snap = await transaction.get(ref);
+        if (!snap.exists) return;
+
+        final data = snap.data() as Map<String, dynamic>? ?? {};
+        final reactions = Map<String, String>.from(data['reactions'] is Map ? data['reactions'] : {});
+
+        if (reactions[userId] == emoji) {
+          reactions.remove(userId);
+        } else {
+          reactions[userId] = emoji;
+        }
+
+        transaction.update(ref, {'reactions': reactions});
+      });
+    } catch (e) {
+      print('Error toggling comment reaction: $e');
+    }
   }
 }

@@ -10,6 +10,8 @@ import '../core/theme.dart';
 import '../providers/auth_provider.dart' as app_auth;
 import '../widgets/sticker_picker_sheet.dart';
 import '../widgets/fullscreen_image_viewer.dart';
+import '../widgets/emoji_reaction_picker.dart';
+import '../widgets/reactions_row.dart';
 import 'user_profile_screen.dart';
 
 class PublicChatScreen extends StatefulWidget {
@@ -307,6 +309,18 @@ class _PublicChatScreenState extends State<PublicChatScreen> {
                         ],
                       ),
                     ),
+                    if (msg.reactions.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      ReactionsRow(
+                        reactions: msg.reactions,
+                        currentUserId: Provider.of<app_auth.AuthProvider>(context, listen: false).userId ?? '',
+                        onReactionTapped: (emoji) => _toggleReaction(
+                          msg.id,
+                          Provider.of<app_auth.AuthProvider>(context, listen: false).userId ?? '',
+                          emoji,
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 2),
                     Row(
                       mainAxisSize: MainAxisSize.min,
@@ -478,6 +492,29 @@ class _PublicChatScreenState extends State<PublicChatScreen> {
     );
   }
 
+  Future<void> _toggleReaction(String messageId, String userId, String emoji) async {
+    final ref = _db.collection('public_chat').doc(messageId);
+    try {
+      await _db.runTransaction((transaction) async {
+        final snap = await transaction.get(ref);
+        if (!snap.exists) return;
+
+        final data = snap.data() as Map<String, dynamic>? ?? {};
+        final reactions = Map<String, String>.from(data['reactions'] is Map ? data['reactions'] : {});
+
+        if (reactions[userId] == emoji) {
+          reactions.remove(userId);
+        } else {
+          reactions[userId] = emoji;
+        }
+
+        transaction.update(ref, {'reactions': reactions});
+      });
+    } catch (e) {
+      debugPrint('Error toggling reaction: $e');
+    }
+  }
+
   Future<void> _sendMessage(
     app_auth.AuthProvider authProvider, {
     String? fileUrl,
@@ -607,6 +644,7 @@ class _PublicChatScreenState extends State<PublicChatScreen> {
   }
 
   void _showMessageActions(BuildContext context, MessageModel msg, bool isMe) {
+    final currentUid = Provider.of<app_auth.AuthProvider>(context, listen: false).userId ?? '';
     showModalBottomSheet(
       context: context,
       backgroundColor: context.cardColor,
@@ -618,6 +656,52 @@ class _PublicChatScreenState extends State<PublicChatScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 16.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    ...['👍', '❤️', '😂', '😮', '😢', '🙏'].map((emoji) {
+                      final hasReacted = msg.reactions[currentUid] == emoji;
+                      return GestureDetector(
+                        onTap: () {
+                          Navigator.pop(ctx);
+                          _toggleReaction(msg.id, currentUid, emoji);
+                        },
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: hasReacted
+                                ? AppTheme.primaryColor.withValues(alpha: 0.15)
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(emoji, style: const TextStyle(fontSize: 24)),
+                        ),
+                      );
+                    }),
+                    GestureDetector(
+                      onTap: () async {
+                        Navigator.pop(ctx);
+                        final selectedEmoji = await EmojiReactionPicker.show(context);
+                        if (selectedEmoji != null) {
+                          _toggleReaction(msg.id, currentUid, selectedEmoji);
+                        }
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: context.textSecondary.withValues(alpha: 0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(Icons.add, color: context.textPrimary, size: 22),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
               ListTile(
                 leading: const Icon(Icons.reply),
                 title: const Text('Responder'),
@@ -816,6 +900,7 @@ class MessageModel {
   final String? replyToName;
   final String? replyToText;
   final DateTime? timestamp;
+  final Map<String, String> reactions;
 
   MessageModel({
     required this.id,
@@ -830,6 +915,7 @@ class MessageModel {
     this.replyToName,
     this.replyToText,
     this.timestamp,
+    required this.reactions,
   });
 
   factory MessageModel.fromFirestore(DocumentSnapshot doc) {
@@ -847,6 +933,7 @@ class MessageModel {
       replyToName: data['replyToName']?.toString(),
       replyToText: data['replyToText']?.toString(),
       timestamp: (data['timestamp'] as Timestamp?)?.toDate(),
+      reactions: Map<String, String>.from(data['reactions'] is Map ? data['reactions'] : {}),
     );
   }
 }
