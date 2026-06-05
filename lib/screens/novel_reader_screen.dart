@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../core/theme.dart';
 import '../models/novel.dart';
@@ -10,6 +11,7 @@ enum ReaderTheme {
   dark,
   light,
   sepia,
+  oled,
 }
 
 class NovelReaderScreen extends StatefulWidget {
@@ -99,6 +101,8 @@ class _NovelReaderScreenState extends State<NovelReaderScreen> {
         return const Color(0xFFF8FAFC);
       case ReaderTheme.sepia:
         return const Color(0xFFFDF6E3);
+      case ReaderTheme.oled:
+        return const Color(0xFF000000);
     }
   }
 
@@ -110,6 +114,31 @@ class _NovelReaderScreenState extends State<NovelReaderScreen> {
         return const Color(0xFF1E293B);
       case ReaderTheme.sepia:
         return const Color(0xFF586E75);
+      case ReaderTheme.oled:
+        return const Color(0xFFF1F5F9);
+    }
+  }
+
+  SystemUiOverlayStyle _getSystemOverlayStyle() {
+    switch (_theme) {
+      case ReaderTheme.dark:
+      case ReaderTheme.oled:
+        return const SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: Brightness.light,
+          statusBarBrightness: Brightness.dark,
+          systemNavigationBarColor: Colors.transparent,
+          systemNavigationBarIconBrightness: Brightness.light,
+        );
+      case ReaderTheme.light:
+      case ReaderTheme.sepia:
+        return const SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: Brightness.dark,
+          statusBarBrightness: Brightness.light,
+          systemNavigationBarColor: Colors.transparent,
+          systemNavigationBarIconBrightness: Brightness.dark,
+        );
     }
   }
 
@@ -169,6 +198,7 @@ class _NovelReaderScreenState extends State<NovelReaderScreen> {
       appBar: AppBar(
         backgroundColor: bgColor,
         foregroundColor: textColor,
+        systemOverlayStyle: _getSystemOverlayStyle(),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -237,6 +267,11 @@ class _NovelReaderScreenState extends State<NovelReaderScreen> {
               PopupMenuItem(
                 value: ReaderTheme.sepia,
                 child: Text('Modo Sepia',
+                    style: TextStyle(color: context.textPrimary)),
+              ),
+              PopupMenuItem(
+                value: ReaderTheme.oled,
+                child: Text('Modo OLED',
                     style: TextStyle(color: context.textPrimary)),
               ),
             ],

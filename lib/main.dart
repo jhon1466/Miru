@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'core/theme.dart';
@@ -66,6 +67,21 @@ class MyApp extends StatelessWidget {
             theme: AppTheme.lightTheme,
             darkTheme: AppTheme.darkTheme,
             themeMode: settings.themeMode,
+            builder: (context, child) {
+              final isDark = Theme.of(context).brightness == Brightness.dark;
+              return AnnotatedRegion<SystemUiOverlayStyle>(
+                value: isDark
+                    ? SystemUiOverlayStyle.light.copyWith(
+                        statusBarColor: Colors.transparent,
+                        systemNavigationBarColor: Colors.transparent,
+                      )
+                    : SystemUiOverlayStyle.dark.copyWith(
+                        statusBarColor: Colors.transparent,
+                        systemNavigationBarColor: Colors.transparent,
+                      ),
+                child: child ?? const SizedBox.shrink(),
+              );
+            },
             home: const SplashScreen(),
           );
         },
