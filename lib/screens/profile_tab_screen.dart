@@ -70,6 +70,7 @@ class _LoggedInBodyState extends State<_LoggedInBody> {
   Widget _buildMediaChip(
     BuildContext context, {
     required String title,
+    required IconData icon,
     required bool isActive,
     required VoidCallback onTap,
   }) {
@@ -83,24 +84,35 @@ class _LoggedInBodyState extends State<_LoggedInBody> {
           color: isActive ? context.primaryColor : context.cardColor,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isActive ? context.primaryColor : context.textSecondary.withOpacity(0.15),
+            color: isActive ? context.primaryColor : context.textSecondary.withValues(alpha: 0.15),
             width: 1.5,
           ),
           boxShadow: isActive ? [
             BoxShadow(
-              color: context.primaryColor.withOpacity(0.3),
+              color: context.primaryColor.withValues(alpha: 0.3),
               blurRadius: 8,
               offset: const Offset(0, 4),
             )
           ] : null,
         ),
-        child: Text(
-          title,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.bold,
-            color: isActive ? Colors.white : context.textPrimary,
-          ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              color: isActive ? Colors.white : context.textSecondary,
+              size: 16,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+                color: isActive ? Colors.white : context.textPrimary,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -270,21 +282,24 @@ class _LoggedInBodyState extends State<_LoggedInBody> {
                 children: [
                   _buildMediaChip(
                     context,
-                    title: '🎬 Anime',
+                    title: 'Anime',
+                    icon: Icons.movie_creation_rounded,
                     isActive: _mediaType == 'anime',
                     onTap: () => setState(() => _mediaType = 'anime'),
                   ),
                   const SizedBox(width: 8),
                   _buildMediaChip(
                     context,
-                    title: '📖 Manga',
+                    title: 'Manga',
+                    icon: Icons.book_rounded,
                     isActive: _mediaType == 'manga',
                     onTap: () => setState(() => _mediaType = 'manga'),
                   ),
                   const SizedBox(width: 8),
                   _buildMediaChip(
                     context,
-                    title: '📚 Novelas',
+                    title: 'Novelas',
+                    icon: Icons.auto_stories_rounded,
                     isActive: _mediaType == 'novel',
                     onTap: () => setState(() => _mediaType = 'novel'),
                   ),
