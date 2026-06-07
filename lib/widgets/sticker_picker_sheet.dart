@@ -29,9 +29,13 @@ const _kSupporterStickers = [
 ];
 
 class StickerPickerSheet extends StatefulWidget {
-  const StickerPickerSheet({super.key});
+  final bool isSupporter;
+  const StickerPickerSheet({super.key, this.isSupporter = false});
 
   static Future<StickerItem?> pick(BuildContext context) {
+    // Leer isSupporter ANTES de abrir el sheet para que el nuevo contexto
+    // del modal no pierda el valor del Provider.
+    final isSupporter = context.read<SupporterProvider>().isSupporter;
     return showModalBottomSheet<StickerItem>(
       context: context,
       backgroundColor: context.cardColor,
@@ -39,7 +43,7 @@ class StickerPickerSheet extends StatefulWidget {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       isScrollControlled: true,
-      builder: (_) => const StickerPickerSheet(),
+      builder: (_) => StickerPickerSheet(isSupporter: isSupporter),
     );
   }
 
@@ -137,7 +141,7 @@ class _StickerPickerSheetState extends State<StickerPickerSheet>
     }
 
     final allStickers = _packs.expand((p) => p.stickers).toList();
-    final isSupporter = context.watch<SupporterProvider>().isSupporter;
+    final isSupporter = widget.isSupporter;
 
     return SafeArea(
       child: SizedBox(

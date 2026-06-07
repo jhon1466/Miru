@@ -756,10 +756,16 @@ class _PublicChatScreenState extends State<PublicChatScreen> {
       }
       // Si no es URL ni archivo real (p.ej. emoji como 👑), se envía solo stickerCode
 
+      // Para stickers emoji (sin archivo real) usar filePath (el emoji) como
+      // stickerCode para que el renderer lo muestre directamente.
+      final stickerCode = (fileUrl == null && !sticker.filePath.startsWith('http'))
+          ? sticker.filePath   // '🔥', '👑', etc.
+          : sticker.id;
+
       await _sendMessage(
         authProvider,
         fileUrl: fileUrl,
-        stickerCode: sticker.id,
+        stickerCode: stickerCode,
       );
     } catch (e) {
       messenger.showSnackBar(
