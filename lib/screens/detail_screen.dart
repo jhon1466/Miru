@@ -18,6 +18,7 @@ import '../services/completed_service.dart';
 import '../providers/supporter_provider.dart';
 import '../providers/download_provider.dart';
 import 'player_screen.dart';
+import 'downloads_screen.dart';
 
 class DetailScreen extends StatefulWidget {
   final String animeUrl;
@@ -159,7 +160,17 @@ class _DetailScreenState extends State<DetailScreen> {
           ),
           backgroundColor: Theme.of(context).colorScheme.primary,
           behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 3),
+          duration: const Duration(seconds: 4),
+          action: SnackBarAction(
+            label: 'Ver',
+            textColor: Colors.white,
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const DownloadsScreen()),
+              );
+            },
+          ),
         ),
       );
     }
