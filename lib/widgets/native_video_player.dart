@@ -7,7 +7,7 @@ import 'package:screen_brightness/screen_brightness.dart';
 import 'package:video_player/video_player.dart';
 import 'package:volume_controller/volume_controller.dart';
 import '../core/theme.dart';
-import '../widgets/cast_picker.dart';
+import 'cast_picker.dart';
 
 class NativeVideoPlayer extends StatefulWidget {
   final String url;
@@ -851,7 +851,7 @@ class _NativeVideoPlayerState extends State<NativeVideoPlayer> {
                           ),
                           const SizedBox(width: 8),
 
-                          // Chromecast button
+                          // Botón Chromecast
                           CastIconButton(
                             videoUrl: widget.url,
                             videoTitle: widget.title,
