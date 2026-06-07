@@ -29,10 +29,7 @@ class _MangaTabScreenState extends State<MangaTabScreen> {
     super.initState();
     _scrollController.addListener(_onScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final provider = context.read<MangaProvider>();
-      if (provider.popularManga.isEmpty) {
-        provider.loadPopularManga();
-      }
+      context.read<MangaProvider>().loadPopularManga();
     });
   }
 
@@ -95,7 +92,7 @@ class _MangaTabScreenState extends State<MangaTabScreen> {
                       Icon(Icons.book_rounded, color: context.primaryColor, size: 28),
                       const SizedBox(width: 8),
                       Text(
-                        'InManga',
+                        'ZonaTMO',
                         style: TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.bold,
@@ -244,7 +241,7 @@ class _MangaTabScreenState extends State<MangaTabScreen> {
                                             Navigator.push(
                                               context,
                                               MaterialPageRoute(
-                                                builder: (context) => MangaDetailScreen(mangaId: manga.id),
+                                                builder: (context) => MangaDetailScreen(mangaId: manga.id, slug: manga.slug),
                                               ),
                                             );
                                           },

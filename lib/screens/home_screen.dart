@@ -18,6 +18,7 @@ import 'notifications_screen.dart';
 import 'public_chat_screen.dart';
 import '../providers/chat_provider.dart';
 import 'profile_tab_screen.dart';
+import 'downloads_screen.dart';
 import '../providers/supporter_provider.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -60,16 +61,19 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        centerTitle: false,
+        titleSpacing: 16,
         title: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary,
-                shape: BoxShape.circle,
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Image.asset(
+                'assets/miruapp.png',
+                width: 32,
+                height: 32,
+                fit: BoxFit.cover,
               ),
-              child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 18),
             ),
             const SizedBox(width: 8),
             const Text(
@@ -84,6 +88,15 @@ class _HomeScreenState extends State<HomeScreen> {
         actions: [
           _NotificationsBell(authProvider: authProvider),
           _ChatIconButton(authProvider: authProvider),
+          // Botón de descargas
+          IconButton(
+            tooltip: 'Descargas',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => DownloadsScreen()),
+            ),
+            icon: const Icon(Icons.download_rounded, size: 24),
+          ),
           _ProfileIconButton(authProvider: authProvider),
           const SizedBox(width: 4),
         ],
