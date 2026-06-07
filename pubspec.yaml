@@ -62,12 +62,12 @@ dependencies:
   volume_controller: ^2.0.7
   cast: ^2.1.0
 
-# Pin bonsoir to a version compatible with the cast package (cast 2.1.0 uses bonsoir 3.x API)
+# Pin bonsoir to a version compatible with the cast package (cast 2.1.0 uses bonsoir 3-5 API)
 dependency_overrides:
-  bonsoir: 3.0.0
-  bonsoir_android: 3.0.0+1
-  bonsoir_darwin: 3.0.0
-  bonsoir_platform_interface: 3.0.0
+  bonsoir: ">=5.0.0 <6.0.0"
+  bonsoir_android: ">=5.0.0 <6.0.0"
+  bonsoir_darwin: ">=5.0.0 <6.0.0"
+  bonsoir_platform_interface: ">=5.0.0 <6.0.0"
 
 dev_dependencies:
   flutter_test:
