@@ -810,6 +810,7 @@ class _NativeVideoPlayerState extends State<NativeVideoPlayer> {
             // Top Controls Bar (Back + Title + Options) - Glassmorphism Floating
             SafeArea(
               bottom: false,
+              top: _isFullscreen,
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
                 child: ClipRRect(
@@ -972,6 +973,7 @@ class _NativeVideoPlayerState extends State<NativeVideoPlayer> {
             // Lower Controls Bar (Slider + Duration + Fullscreen) - Glassmorphism Floating
             SafeArea(
               top: false,
+              bottom: _isFullscreen,
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
                 child: ClipRRect(
