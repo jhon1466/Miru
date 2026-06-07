@@ -850,6 +850,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
               allowsInlineMediaPlayback: true,
               iframeAllowFullscreen: true,
               useShouldOverrideUrlLoading: true,
+              useShouldInterceptRequest: true, // Interceptar TODAS las peticiones (iframes, XHR, fetch)
               javaScriptCanOpenWindowsAutomatically: false,
               supportMultipleWindows: true,
               useHybridComposition: true,
@@ -938,11 +939,29 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 _injectPlayerCleanupJs(controller);
               }
             },
+            shouldInterceptRequest: (controller, request) async {
+              // Este callback intercepta TODAS las peticiones de red:
+              // frame principal, iframes, XHR, fetch, media segments.
+              // Es la forma más fiable de capturar la URL real del video.
+              if (_isResolvingUrl && !_useWebViewFallback) {
+                final url = request.url.toString();
+                // Ignorar segmentos .ts individuales (evitar llamadas duplicadas)
+                if (!url.endsWith('.ts') && !url.contains('.ts?') && _isDirectMediaUrl(url)) {
+                  debugPrint('[Intercept] ✅ URL de video interceptada: $url');
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted && _isResolvingUrl && !_useWebViewFallback) {
+                      _onUrlResolved(url);
+                    }
+                  });
+                }
+              }
+              return null; // Dejar pasar la petición normalmente
+            },
             onLoadResource: (controller, resource) {
               final resUrl = resource.url?.toString();
               if (resUrl != null) {
-                debugPrint('WebView Resource Loaded: $resUrl');
                 if (_isResolvingUrl && !_useWebViewFallback && _isDirectMediaUrl(resUrl)) {
+                  debugPrint('[Resource] ✅ $resUrl');
                   _onUrlResolved(resUrl);
                 }
               }
