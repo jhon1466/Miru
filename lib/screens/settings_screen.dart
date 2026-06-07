@@ -171,7 +171,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           ),
                           DropdownMenuItem(
                             value: AppThemeOption.custom,
-                            child: Text('Personalizado', style: TextStyle(color: context.primaryColor)),
+                            child: Text('Sistema', style: TextStyle(color: context.primaryColor)),
                           ),
                         ],
                         onChanged: (option) {
@@ -179,8 +179,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         },
                       ),
                     ),
-                    // ── Color de acento (solo en modo Personalizado) ─────
-                    if (settings.themeOption == AppThemeOption.custom)
+                    // ── Color de acento (disponible en todos los modos) ──
                     Padding(
                       padding: const EdgeInsets.only(top: 4, bottom: 12),
                       child: Column(
@@ -470,7 +469,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               contentPadding: EdgeInsets.zero,
               leading: Icon(Icons.info_outline, color: context.primaryColor),
               title: const Text('Versión de la app'),
-              subtitle: const Text('2.0.9'),
+              subtitle: const Text('2.0.11'),
             ),
             ListTile(
               contentPadding: EdgeInsets.zero,
