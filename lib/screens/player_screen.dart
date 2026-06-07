@@ -1108,18 +1108,6 @@ class _PlayerScreenState extends State<PlayerScreen> {
                   'Servidores (${_isSub ? "SUB" : "DUB"})',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: context.textPrimary),
                 ),
-                if (_isScanning) ...[
-                  const SizedBox(width: 8),
-                  SizedBox(
-                    width: 12, height: 12,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 1.5,
-                      color: context.primaryColor,
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  Text('Escaneando…', style: TextStyle(fontSize: 11, color: context.textSecondary)),
-                ],
               ],
             ),
             const SizedBox(height: 10),
@@ -1154,31 +1142,6 @@ class _PlayerScreenState extends State<PlayerScreen> {
                             ),
                           ),
                         ),
-                        if (isNative)
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: Colors.green.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: Colors.green.withValues(alpha: 0.4)),
-                            ),
-                            child: const Text('📱 Nativo', style: TextStyle(fontSize: 10, color: Colors.green, fontWeight: FontWeight.bold)),
-                          )
-                        else if (isWebView)
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: Colors.orange.withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: Colors.orange.withValues(alpha: 0.35)),
-                            ),
-                            child: const Text('🌐 WebView', style: TextStyle(fontSize: 10, color: Colors.orange, fontWeight: FontWeight.bold)),
-                          )
-                        else if (_isScanning)
-                          SizedBox(
-                            width: 10, height: 10,
-                            child: CircularProgressIndicator(strokeWidth: 1.5, color: context.textSecondary),
-                          ),
                       ],
                     ),
                     subtitle: server.quality != null
