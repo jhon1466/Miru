@@ -1164,37 +1164,49 @@ class _ProfileHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final canEditBanner = isOwner && isSupporter;
+    final topPadding = MediaQuery.of(context).padding.top;
 
     return Column(
       children: [
         // ── Banner area ──────────────────────────────────────────────────
-        Stack(
+        SizedBox(
+          height: topPadding + _bannerHeight + _avatarRadius,
+          child: Stack(
           clipBehavior: Clip.none,
           children: [
-            // Banner image / placeholder
-            GestureDetector(
-              onTap: canEditBanner ? onEditBanner : null,
-              child: Container(
-                height: _bannerHeight,
-                width: double.infinity,
-                decoration: BoxDecoration(color: context.cardColor),
-                child: hasBanner
-                    ? Image.network(
-                        profile!.bannerUrl!,
-                        fit: BoxFit.cover,
-                        width: double.infinity,
-                        height: _bannerHeight,
-                        errorBuilder: (_, __, ___) => _bannerPlaceholder(context),
-                      )
-                    : _bannerPlaceholder(context),
+            // Espacio del status bar con el color de fondo
+            Container(
+              height: topPadding + _bannerHeight,
+              color: context.backgroundColor,
+            ),
+
+            // Banner image / placeholder — debajo del status bar
+            Padding(
+              padding: EdgeInsets.only(top: topPadding),
+              child: GestureDetector(
+                onTap: canEditBanner ? onEditBanner : null,
+                child: Container(
+                  height: _bannerHeight,
+                  width: double.infinity,
+                  decoration: BoxDecoration(color: context.cardColor),
+                  child: hasBanner
+                      ? Image.network(
+                          profile!.bannerUrl!,
+                          fit: BoxFit.cover,
+                          width: double.infinity,
+                          height: _bannerHeight,
+                          errorBuilder: (_, __, ___) => _bannerPlaceholder(context),
+                        )
+                      : _bannerPlaceholder(context),
+                ),
               ),
             ),
 
-            // Back button
-            SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.all(8),
-                child: CircleAvatar(
+            // Back button — dentro del status bar area
+            Positioned(
+              top: topPadding + 8,
+              left: 8,
+              child: CircleAvatar(
                   radius: 18,
                   backgroundColor: Colors.black.withValues(alpha: 0.45),
                   child: IconButton(
@@ -1203,7 +1215,6 @@ class _ProfileHeader extends StatelessWidget {
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                 ),
-              ),
             ),
 
             // Edit / remove banner buttons (solo owner + supporter)
@@ -1281,9 +1292,9 @@ class _ProfileHeader extends StatelessWidget {
             ),
           ],
         ),
+        ),
 
-        // Espacio para el avatar que sobresale
-        const SizedBox(height: _avatarRadius + 10),
+        const SizedBox(height: 10),
 
         // Nombre + badges
         Padding(
