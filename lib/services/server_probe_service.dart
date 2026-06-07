@@ -10,6 +10,13 @@ class ServerProbeService {
 
   /// Prueba si una URL se puede reproducir en el reproductor nativo.
   /// Hace HEAD (o GET parcial) y verifica Content-Type.
+  /// Verificación rápida sin red (solo patrones de URL)
+  static ProbeResult quickCheck(String url) {
+    if (_isStaticallyNative(url)) return ProbeResult.native;
+    if (_isStaticallyEmbed(url)) return ProbeResult.webview;
+    return ProbeResult.unknown;
+  }
+
   static Future<ProbeResult> probe(String url) async {
     if (url.isEmpty) return ProbeResult.unknown;
 
