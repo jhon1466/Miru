@@ -1243,28 +1243,26 @@ class _SupporterBannerCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final primary = context.primaryColor;
+
     return Consumer<SupporterProvider>(
       builder: (context, supporter, _) {
+        // ── Ya es supporter ──────────────────────────────────────────────
         if (supporter.isSupporter) {
-          // Ya es supporter: tarjeta de agradecimiento compacta
           return Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  context.supporterColor.withValues(alpha: 0.12),
-                  const Color(0xFFFF9A3C).withValues(alpha: 0.08),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
+              color: context.cardColor,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: context.supporterColor.withValues(alpha: 0.35), width: 1),
+              border: Border.all(
+                color: context.supporterColor.withValues(alpha: 0.4),
+                width: 1,
+              ),
             ),
             child: Row(
               children: [
-                const Text('👑', style: TextStyle(fontSize: 26)),
-                const SizedBox(width: 12),
+                const Text('👑', style: TextStyle(fontSize: 28)),
+                const SizedBox(width: 14),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1277,10 +1275,10 @@ class _SupporterBannerCard extends StatelessWidget {
                           color: context.supporterColor,
                         ),
                       ),
-                      const SizedBox(height: 2),
+                      const SizedBox(height: 3),
                       Text(
                         'Gracias por apoyar el proyecto. Todos tus beneficios están activos.',
-                        style: TextStyle(fontSize: 12, color: context.textSecondary, height: 1.3),
+                        style: TextStyle(fontSize: 12, color: context.textSecondary, height: 1.4),
                       ),
                     ],
                   ),
@@ -1290,67 +1288,49 @@ class _SupporterBannerCard extends StatelessWidget {
           );
         }
 
-        // No es supporter: banner motivador
+        // ── No es supporter: banner motivador ────────────────────────────
         return Container(
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                const Color(0xFF1A1025),
-                const Color(0xFF201530),
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: const Color(0xFFFFD93D).withValues(alpha: 0.3), width: 1),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFFFFD93D).withValues(alpha: 0.07),
-                blurRadius: 16,
-                spreadRadius: 2,
-              ),
-            ],
+            color: context.cardColor,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: primary.withValues(alpha: 0.25), width: 1),
           ),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header dorado
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      const Color(0xFFFFD93D).withValues(alpha: 0.18),
-                      const Color(0xFFFF9A3C).withValues(alpha: 0.10),
-                    ],
-                    begin: Alignment.centerLeft,
-                    end: Alignment.centerRight,
-                  ),
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(20),
-                    topRight: Radius.circular(20),
-                  ),
-                ),
+              // Header
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
                 child: Row(
                   children: [
-                    const Text('👑', style: TextStyle(fontSize: 28)),
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: primary.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Center(
+                        child: Text('👑', style: TextStyle(fontSize: 22)),
+                      ),
+                    ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
+                          Text(
                             'Apoya Miru en Patreon',
                             style: TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.bold,
-                              color: Color(0xFFFFD93D),
+                              color: context.textPrimary,
                             ),
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            'Mantén la app viva y obtén beneficios exclusivos',
-                            style: TextStyle(fontSize: 11, color: context.textSecondary, height: 1.3),
+                            'Desbloquea beneficios exclusivos',
+                            style: TextStyle(fontSize: 12, color: context.textSecondary),
                           ),
                         ],
                       ),
@@ -1359,68 +1339,64 @@ class _SupporterBannerCard extends StatelessWidget {
                 ),
               ),
 
-              // Beneficios
+              Divider(height: 1, color: primary.withValues(alpha: 0.1)),
+
+              // Beneficios en grid 2x3
               Padding(
-                padding: const EdgeInsets.fromLTRB(18, 14, 18, 6),
+                padding: const EdgeInsets.all(16),
                 child: Column(
                   children: [
-                    _benefitRow('🎨', 'Colores de acento exclusivos', '10 colores extra que nadie más puede usar'),
+                    Row(
+                      children: [
+                        _benefitChip(context, '🎨', 'Colores exclusivos'),
+                        const SizedBox(width: 8),
+                        _benefitChip(context, '💬', 'Chat sin límites'),
+                      ],
+                    ),
                     const SizedBox(height: 8),
-                    _benefitRow('💬', 'Chat sin límites', 'Mensajes largos y sin tiempo de espera'),
+                    Row(
+                      children: [
+                        _benefitChip(context, '👑', 'Insignia Supporter'),
+                        const SizedBox(width: 8),
+                        _benefitChip(context, '⬇️', 'Descarga temporadas'),
+                      ],
+                    ),
                     const SizedBox(height: 8),
-                    _benefitRow('🏆', 'Insignia en perfil y comentarios', 'Destaca con la corona de Supporter'),
-                    const SizedBox(height: 8),
-                    _benefitRow('⬇️', 'Descarga temporadas completas', 'Un toque para descargar todos los episodios'),
-                    const SizedBox(height: 8),
-                    _benefitRow('🎭', 'Stickers exclusivos en el chat', 'Acceso a stickers que no están disponibles para todos'),
+                    Row(
+                      children: [
+                        _benefitChip(context, '🎭', 'Stickers exclusivos'),
+                        const SizedBox(width: 8),
+                        _benefitChip(context, '🎡', 'Rueda de colores'),
+                      ],
+                    ),
                   ],
                 ),
               ),
 
-              // Separador
+              // Botón CTA
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 18),
-                child: Divider(color: const Color(0xFFFFD93D).withValues(alpha: 0.15), height: 20),
-              ),
-
-              // CTA
-              Padding(
-                padding: const EdgeInsets.fromLTRB(18, 4, 18, 16),
-                child: Column(
-                  children: [
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: () => launchUrl(
-                          Uri.parse(_patreonUrl),
-                          mode: LaunchMode.externalApplication,
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFFF424D), // color Patreon
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          elevation: 0,
-                        ),
-                        child: const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text('❤️', style: TextStyle(fontSize: 16)),
-                            SizedBox(width: 8),
-                            Text(
-                              'Unirme en Patreon',
-                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                            ),
-                          ],
-                        ),
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () => launchUrl(
+                      Uri.parse(_patreonUrl),
+                      mode: LaunchMode.externalApplication,
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: primary,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
                       ),
+                      elevation: 0,
                     ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Cancela cuando quieras · Sin compromisos',
-                      style: TextStyle(fontSize: 10, color: context.textSecondary),
+                    child: const Text(
+                      'Unirme en Patreon',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                     ),
-                  ],
+                  ),
                 ),
               ),
             ],
@@ -1430,29 +1406,33 @@ class _SupporterBannerCard extends StatelessWidget {
     );
   }
 
-  static Widget _benefitRow(String emoji, String title, String subtitle) {
-    return Builder(
-      builder: (context) => Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(emoji, style: const TextStyle(fontSize: 16)),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.white),
+  static Widget _benefitChip(BuildContext context, String emoji, String label) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: context.primaryColor.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: context.primaryColor.withValues(alpha: 0.15)),
+        ),
+        child: Row(
+          children: [
+            Text(emoji, style: const TextStyle(fontSize: 15)),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: context.textPrimary,
                 ),
-                Text(
-                  subtitle,
-                  style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.5), height: 1.3),
-                ),
-              ],
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
