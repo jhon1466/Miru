@@ -65,6 +65,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
   // URLs reales extraídas: embedUrl → directUrl
   final Map<String, String> _extractedUrls = {};
   bool _isScanning = false;
+  bool _jsHandlerRegistered = false;
 
   @override
   void initState() {
@@ -217,18 +218,28 @@ class _PlayerScreenState extends State<PlayerScreen> {
     }
   }
 
-  /// Cambia al servidor nativo si el actual está en WebView fallback
+  /// Cambia al servidor nativo si la extracción tuvo éxito.
+  /// Solo cambia si es el servidor actualmente cargado O si aún no hay servidor nativo.
   void _autoSwitchIfBetter(String embedUrl, String directUrl, EpisodeLinksResponse links) {
     if (!mounted) return;
-    // Solo cambiar automáticamente si estamos atascados en WebView fallback
-    if (!_useWebViewFallback && !_isResolvingUrl) return;
 
     final allServers = [...links.subStream, ...links.dubStream];
     final match = allServers.where((s) => s.url == embedUrl).firstOrNull;
     if (match == null) return;
 
     final isSub = links.subStream.any((s) => s.url == embedUrl);
-    _playServer(directUrl, match.server, isSub, logHistory: false);
+
+    // Cambiar si:
+    // 1. Este es el servidor actualmente activo y todavía está resolviendo/fallback
+    // 2. O aún no hay ningún servidor activo
+    final isCurrentServer = _originalEmbedUrl == embedUrl ||
+        _selectedServerUrl == embedUrl || _selectedServerUrl == null;
+    final needsSwitch = _useWebViewFallback || _isResolvingUrl || isCurrentServer;
+
+    if (needsSwitch) {
+      debugPrint('[AutoSwitch] ✅ Cambiando a nativo: $embedUrl → $directUrl');
+      _playServer(directUrl, match.server, isSub, logHistory: false);
+    }
   }
 
   ({String url, String server, bool isSub})? _firstPlayableLink(
@@ -274,6 +285,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _resolverTimeoutTimer?.cancel();
     _jsExtractionTimer?.cancel();
 
+    // Guardar la URL embed original ANTES de resolverla
+    final embedUrl = url;
+
     // Si ya tenemos una URL directa extraída para este embed, usarla
     final resolved = _extractedUrls[url];
     if (resolved != null && resolved.isNotEmpty) {
@@ -283,7 +297,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     final isDirect = _isDirectMediaUrl(url);
 
     setState(() {
-      _originalEmbedUrl = url;
+      _originalEmbedUrl = embedUrl; // Siempre guardar la URL embed, no la resuelta
       _selectedServerUrl = url;
       _selectedServerName = name;
       _isSub = isSub;
@@ -292,7 +306,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
     });
 
     if (!isDirect) {
-      _resolverTimeoutTimer = Timer(const Duration(seconds: 8), () {
+      // Cargar el URL en el webview persistente
+      _webViewController?.loadUrl(urlRequest: URLRequest(url: WebUri(embedUrl)));
+      // Timeout: si no se resuelve en 20 segundos, mostrar WebView directamente
+      _resolverTimeoutTimer = Timer(const Duration(seconds: 20), () {
         if (mounted && _isResolvingUrl) {
           setState(() {
             _isResolvingUrl = false;
@@ -306,8 +323,6 @@ class _PlayerScreenState extends State<PlayerScreen> {
           });
         }
       });
-      // Cargar el URL en el webview persistente
-      _webViewController?.loadUrl(urlRequest: URLRequest(url: WebUri(url)));
     }
 
     if (logHistory) {
@@ -342,9 +357,81 @@ class _PlayerScreenState extends State<PlayerScreen> {
     });
   }
 
+  /// Inyecta hooks de XHR/fetch + MutationObserver para capturar la URL de video
+  /// antes de que llegue al player (mucho más efectivo que onLoadResource solo).
+  void _injectInterceptionJs(InAppWebViewController controller) {
+    const js = r"""
+      (function() {
+        if (window.__miru_hooked) return;
+        window.__miru_hooked = true;
+
+        function send(url) {
+          if (!url || typeof url !== 'string' || url.length < 12) return;
+          if (url.startsWith('blob:') || url.startsWith('data:') || url.startsWith('about:')) return;
+          var l = url.toLowerCase();
+          if (l.match(/\.(m3u8|mp4|mkv|webm|ts|avi|flv)([?#&]|$)/) ||
+              l.includes('/m3u8') || l.includes('/hls/') ||
+              l.includes('/get_video') || l.includes('googleusercontent.com')) {
+            try { window.flutter_inappwebview.callHandler('videoUrlFound', url); } catch(e) {}
+          }
+        }
+
+        // Hook XMLHttpRequest.open
+        var _xhrOpen = XMLHttpRequest.prototype.open;
+        XMLHttpRequest.prototype.open = function() {
+          try { if (arguments[1]) send(String(arguments[1])); } catch(e) {}
+          return _xhrOpen.apply(this, arguments);
+        };
+
+        // Hook fetch
+        var _fetch = window.fetch;
+        if (_fetch) {
+          window.fetch = function(input, init) {
+            try {
+              var u = typeof input === 'string' ? input
+                    : (input instanceof Request ? input.url : String(input));
+              send(u);
+            } catch(e) {}
+            return _fetch.apply(this, arguments);
+          };
+        }
+
+        // Scan <video> y <source> existentes y futuros
+        function scan() {
+          try {
+            document.querySelectorAll('video, source').forEach(function(el) {
+              var s = el.src || el.getAttribute('src') || '';
+              if (s && !s.startsWith('blob:')) send(s);
+            });
+          } catch(e) {}
+        }
+
+        // MutationObserver para detectar cambios en el DOM
+        try {
+          new MutationObserver(function() { scan(); }).observe(
+            document.documentElement || document,
+            { childList: true, subtree: true, attributes: true }
+          );
+        } catch(e) {}
+
+        scan();
+        [300, 800, 1500, 3000, 6000, 10000].forEach(function(t) {
+          setTimeout(scan, t);
+        });
+      })();
+    """;
+    try {
+      controller.evaluateJavascript(source: js);
+    } catch (e) {
+      debugPrint('[Interception] JS inject error: $e');
+    }
+  }
+
   void _extractVideoUrl(InAppWebViewController controller) {
+    // La extracción principal ahora se hace via _injectInterceptionJs (XHR/fetch hooks).
+    // Este método es un fallback de polling para videos con src directo.
     _jsExtractionTimer?.cancel();
-    _jsExtractionTimer = Timer.periodic(const Duration(milliseconds: 500), (timer) async {
+    _jsExtractionTimer = Timer.periodic(const Duration(milliseconds: 800), (timer) async {
       if (!mounted || !_isResolvingUrl) {
         timer.cancel();
         return;
@@ -353,9 +440,12 @@ class _PlayerScreenState extends State<PlayerScreen> {
         final videoSrc = await controller.evaluateJavascript(source: """
           (function() {
             var video = document.querySelector('video');
-            if (video && video.src && !video.src.startsWith('blob:') && !video.src.startsWith('about:')) return video.src;
-            var source = document.querySelector('source');
-            if (source && source.src && !source.src.startsWith('blob:') && !source.src.startsWith('about:')) return source.src;
+            if (video && video.src && !video.src.startsWith('blob:') && !video.src.startsWith('about:') && video.src.length > 12) return video.src;
+            var sources = document.querySelectorAll('source');
+            for (var i = 0; i < sources.length; i++) {
+              var s = sources[i].src;
+              if (s && !s.startsWith('blob:') && s.length > 12) return s;
+            }
             return '';
           })()
         """);
@@ -666,33 +756,37 @@ class _PlayerScreenState extends State<PlayerScreen> {
         lower.contains('/embed/') ||
         lower.endsWith('.html') ||
         lower.contains('.html?') ||
-        lower.contains('/e/') || // streamtape / streamwish / voe
-        lower.contains('/v/') ||
         lower.contains('doodstream.com/e/') ||
         lower.contains('streamwish.to/e/') ||
-        lower.contains('voe.sx/e/')) {
+        lower.contains('voe.sx/e/') ||
+        lower.contains('filemoon.sx/e/') ||
+        lower.contains('mixdrop.co/e/') ||
+        lower.contains('streamtape.com/e/')) {
       return false;
     }
 
     // Si contiene mp4upload, solo es directo si tiene extensión de video o es descarga directa /d/
     if (lower.contains('mp4upload.com')) {
-      final hasVideoExtension = lower.endsWith('.mp4') || 
+      final hasVideoExtension = lower.endsWith('.mp4') ||
                                lower.contains('.mp4?') ||
                                lower.contains('/d/');
-      if (!hasVideoExtension) {
-        return false;
-      }
+      if (!hasVideoExtension) return false;
     }
 
-    if (lower.contains('.mp4') ||
-        lower.contains('.m3u8') ||
-        lower.contains('/m3u8/') ||    // CDN paths like /m3u8/hash (ej: zilla-networks)
-        lower.contains('.mkv') ||
-        lower.contains('.webm') ||
-        lower.contains('/get_video?') ||
-        lower.contains('googleusercontent.com')) {
+    // Extensiones de video conocidas (con o sin query string)
+    final extMatch = RegExp(r'\.(m3u8|mp4|mkv|webm|ts|avi|flv|ogv)([?#&]|$)').hasMatch(lower);
+    if (extMatch) return true;
+
+    // Rutas CDN comunes que no tienen extensión pero son streams directos
+    if (lower.contains('/m3u8') ||     // /m3u8/hash, /m3u8?token=...
+        lower.contains('/hls/') ||     // /hls/video.m3u8 o /hls/stream
+        lower.contains('/dash/') ||    // MPEG-DASH
+        lower.contains('/get_video') ||
+        lower.contains('googleusercontent.com') ||
+        lower.contains('/media/') && (lower.contains('cdn') || lower.contains('stream'))) {
       return true;
     }
+
     return false;
   }
 
@@ -733,6 +827,22 @@ class _PlayerScreenState extends State<PlayerScreen> {
             initialUrlRequest: URLRequest(url: WebUri(_originalEmbedUrl ?? _selectedServerUrl!)),
             onWebViewCreated: (controller) {
               _webViewController = controller;
+              // Registrar handler UNA sola vez para recibir URLs de video desde JS
+              if (!_jsHandlerRegistered) {
+                _jsHandlerRegistered = true;
+                controller.addJavaScriptHandler(
+                  handlerName: 'videoUrlFound',
+                  callback: (args) {
+                    if (!mounted || args.isEmpty) return;
+                    final url = args[0].toString().trim();
+                    if (url.isEmpty || url.startsWith('blob:')) return;
+                    if (_isResolvingUrl && !_useWebViewFallback && _isDirectMediaUrl(url)) {
+                      debugPrint('[JS Hook] ✅ Video URL interceptada: $url');
+                      _onUrlResolved(url);
+                    }
+                  },
+                );
+              }
             },
             initialSettings: InAppWebViewSettings(
               javaScriptEnabled: true,
@@ -804,6 +914,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
             },
             onLoadStart: (controller, url) {
               debugPrint('WebView Load Start: $url');
+              // Inyectar hooks XHR/fetch lo antes posible
+              if (_isResolvingUrl && !_useWebViewFallback) {
+                _injectInterceptionJs(controller);
+              }
             },
             onEnterFullscreen: (controller) {
               unawaited(_onWebEnterFullscreen(controller));
@@ -814,6 +928,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
             onLoadStop: (controller, url) async {
               debugPrint('WebView Load Stop: $url');
               if (_isResolvingUrl && !_useWebViewFallback) {
+                // Inyectar hooks (refuerzo: la página ya cargó, re-hookear XHR/fetch)
+                _injectInterceptionJs(controller);
+                // Polling fallback para src directo en <video>
                 _extractVideoUrl(controller);
               }
               // Solo aplicar limpieza cuando el WebView es visible al usuario
