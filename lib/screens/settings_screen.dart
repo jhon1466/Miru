@@ -13,6 +13,7 @@ import '../services/anilist_service.dart';
 import 'package:flutter/painting.dart';
 import '../utils/auth_ui.dart';
 import '../providers/supporter_provider.dart';
+import '../widgets/color_wheel_picker.dart';
 import 'user_profile_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -263,14 +264,80 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                       },
                                     ),
                                   ),
-                                  if (!supporter.isSupporter) ...[
-                                    const SizedBox(height: 6),
+                                  const SizedBox(height: 10),
+                                  // Botón rueda de colores (solo supporters)
+                                  if (supporter.isSupporter)
+                                    GestureDetector(
+                                      onTap: () async {
+                                        final picked = await showDialog<Color>(
+                                          context: context,
+                                          builder: (_) => ColorWheelDialog(
+                                            initialColor: settings.seedColor,
+                                          ),
+                                        );
+                                        if (picked != null && context.mounted) {
+                                          settings.setSeedColor(picked);
+                                        }
+                                      },
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                        decoration: BoxDecoration(
+                                          gradient: LinearGradient(
+                                            colors: [
+                                              const Color(0xFFFFD93D).withValues(alpha: 0.12),
+                                              const Color(0xFFFF9A3C).withValues(alpha: 0.08),
+                                            ],
+                                          ),
+                                          borderRadius: BorderRadius.circular(10),
+                                          border: Border.all(
+                                            color: const Color(0xFFFFD93D).withValues(alpha: 0.35),
+                                            width: 1,
+                                          ),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            // Mini arcoíris circular
+                                            Container(
+                                              width: 20,
+                                              height: 20,
+                                              decoration: const BoxDecoration(
+                                                shape: BoxShape.circle,
+                                                gradient: SweepGradient(
+                                                  colors: [
+                                                    Color(0xFFFF0000),
+                                                    Color(0xFFFFFF00),
+                                                    Color(0xFF00FF00),
+                                                    Color(0xFF00FFFF),
+                                                    Color(0xFF0000FF),
+                                                    Color(0xFFFF00FF),
+                                                    Color(0xFFFF0000),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            const Text(
+                                              'Rueda de colores',
+                                              style: TextStyle(
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w600,
+                                                color: Color(0xFFFFD93D),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 4),
+                                            const Text('👑', style: TextStyle(fontSize: 11)),
+                                          ],
+                                        ),
+                                      ),
+                                    )
+                                  else ...[
                                     Row(
                                       children: [
                                         const Icon(Icons.lock_rounded, size: 12, color: Color(0xFFFFD93D)),
                                         const SizedBox(width: 4),
                                         Text(
-                                          '10 colores extra para supporters de Patreon',
+                                          '10 colores extra + rueda de colores para supporters',
                                           style: TextStyle(fontSize: 11, color: context.textSecondary),
                                         ),
                                       ],
