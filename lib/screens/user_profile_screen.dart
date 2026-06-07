@@ -1259,18 +1259,18 @@ class _ProfileHeader extends StatelessWidget {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.5),
+                      color: Colors.black.withValues(alpha: 0.65),
                       borderRadius: BorderRadius.circular(20),
                     ),
-                    child: Row(
+                    child: const Row(
                       children: [
-                        Icon(Icons.lock_rounded, size: 12, color: context.supporterColor),
-                        const SizedBox(width: 4),
+                        Icon(Icons.lock_rounded, size: 12, color: Colors.white),
+                        SizedBox(width: 5),
                         Text(
-                          'Banner · Supporter',
+                          'Banner exclusivo 👑',
                           style: TextStyle(
                             fontSize: 11,
-                            color: context.supporterColor,
+                            color: Colors.white,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
