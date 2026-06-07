@@ -62,11 +62,13 @@ class _LoggedInBodyState extends State<_LoggedInBody> {
     final picked = await ImagePicker().pickImage(source: ImageSource.gallery, maxWidth: 1200, imageQuality: 85);
     if (picked == null || !mounted) return;
 
-    // Mostrar diálogo de ajuste de posición antes de subir
-    final result = await showDialog<({double alignY, File file})>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => _BannerPositionDialog(imageFile: File(picked.path)),
+    // Mostrar pantalla de ajuste de posición antes de subir
+    final result = await Navigator.push<({double alignY, File file})>(
+      context,
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => _BannerPositionDialog(imageFile: File(picked.path)),
+      ),
     );
     if (result == null || !mounted) return;
 
@@ -676,130 +678,161 @@ class _BannerPositionDialog extends StatefulWidget {
 
 class _BannerPositionDialogState extends State<_BannerPositionDialog> {
   double _alignY = 0.0;
+  static const double _bannerH = 140;
+  static const double _avatarR = 44;
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
-      insetPadding: const EdgeInsets.all(0),
-      backgroundColor: Colors.black,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Título
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-            child: Row(
-              children: [
-                const Icon(Icons.crop_free_rounded, color: Colors.white, size: 18),
-                const SizedBox(width: 8),
-                const Expanded(
-                  child: Text(
-                    'Ajusta la posición del banner',
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.close, color: Colors.white54, size: 20),
-                  onPressed: () => Navigator.pop(context),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                ),
-              ],
-            ),
-          ),
+    final bg = Theme.of(context).scaffoldBackgroundColor;
+    final primary = Theme.of(context).colorScheme.primary;
 
-          // Preview con drag
-          GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onVerticalDragUpdate: (d) {
-              setState(() {
-                _alignY = (_alignY + d.delta.dy / 90).clamp(-1.0, 1.0);
-              });
-            },
-            child: Stack(
-              children: [
-                SizedBox(
-                  height: 180,
-                  width: double.infinity,
-                  child: Image.file(
-                    widget.imageFile,
-                    fit: BoxFit.cover,
-                    alignment: Alignment(0, _alignY),
-                  ),
-                ),
-                // Hint de arrastre
-                Positioned.fill(
-                  child: Center(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.55),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.swap_vert_rounded, color: Colors.white, size: 16),
-                          SizedBox(width: 6),
-                          Text('Arrastra para reposicionar',
-                              style: TextStyle(color: Colors.white, fontSize: 12)),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // Slider + botones
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-            child: Row(
-              children: [
-                const Icon(Icons.arrow_upward_rounded, color: Colors.white54, size: 16),
-                Expanded(
-                  child: Slider(
-                    value: _alignY,
-                    min: -1.0,
-                    max: 1.0,
-                    activeColor: Theme.of(context).colorScheme.primary,
-                    inactiveColor: Colors.white24,
-                    onChanged: (v) => setState(() => _alignY = v),
-                  ),
-                ),
-                const Icon(Icons.arrow_downward_rounded, color: Colors.white54, size: 16),
-              ],
-            ),
-          ),
-
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            child: Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
+    return Scaffold(
+      backgroundColor: Colors.black87,
+      body: SafeArea(
+        child: Column(
+          children: [
+            // ── Barra superior ────────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              child: Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white),
                     onPressed: () => Navigator.pop(context),
-                    style: OutlinedButton.styleFrom(foregroundColor: Colors.white54, side: const BorderSide(color: Colors.white24)),
-                    child: const Text('Cancelar'),
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () => Navigator.pop(context, (alignY: _alignY, file: widget.imageFile)),
-                    icon: const Icon(Icons.check_rounded, size: 18),
-                    label: const Text('Guardar'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Theme.of(context).colorScheme.primary,
-                      foregroundColor: Colors.white,
+                  const Expanded(
+                    child: Text(
+                      'Ajusta la posición del banner',
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
                     ),
                   ),
-                ),
-              ],
+                  TextButton.icon(
+                    onPressed: () => Navigator.pop(context, (alignY: _alignY, file: widget.imageFile)),
+                    icon: const Icon(Icons.check_rounded, color: Colors.white, size: 18),
+                    label: const Text('Guardar', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    style: TextButton.styleFrom(backgroundColor: primary.withValues(alpha: 0.85), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))),
+                  ),
+                  const SizedBox(width: 8),
+                ],
+              ),
             ),
-          ),
-        ],
+
+            const Spacer(),
+
+            // ── Vista previa exacta del perfil ────────────────────────────
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 24),
+              decoration: BoxDecoration(
+                color: bg,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: primary, width: 2),
+              ),
+              clipBehavior: Clip.hardEdge,
+              child: Column(
+                children: [
+                  // Banner draggable
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onVerticalDragUpdate: (d) => setState(() {
+                      _alignY = (_alignY + d.delta.dy / 70).clamp(-1.0, 1.0);
+                    }),
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        // Banner
+                        SizedBox(
+                          height: _bannerH,
+                          width: double.infinity,
+                          child: Image.file(
+                            widget.imageFile,
+                            fit: BoxFit.cover,
+                            alignment: Alignment(0, _alignY),
+                          ),
+                        ),
+                        // Hint "arrastra aquí"
+                        Positioned.fill(
+                          child: Center(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withValues(alpha: 0.5),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.swap_vert_rounded, color: Colors.white, size: 14),
+                                  SizedBox(width: 5),
+                                  Text('Arrastra aquí', style: TextStyle(color: Colors.white, fontSize: 11)),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        // Avatar superpuesto (igual que en el perfil real)
+                        Positioned(
+                          bottom: -_avatarR,
+                          left: 0, right: 0,
+                          child: Center(
+                            child: Container(
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(color: bg, width: 3),
+                                color: primary.withValues(alpha: 0.3),
+                              ),
+                              width: _avatarR * 2,
+                              height: _avatarR * 2,
+                              child: Icon(Icons.person_rounded, color: Colors.white, size: _avatarR),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Espacio para el avatar
+                  SizedBox(height: _avatarR + 12),
+                  // Nombre y email simulados
+                  Container(
+                    width: 120,
+                    height: 12,
+                    decoration: BoxDecoration(color: primary.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(6)),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    width: 180,
+                    height: 10,
+                    decoration: BoxDecoration(color: Colors.white12, borderRadius: BorderRadius.circular(6)),
+                  ),
+                  const SizedBox(height: 20),
+                ],
+              ),
+            ),
+
+            const Spacer(),
+
+            // ── Slider ────────────────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
+                  const Icon(Icons.arrow_upward_rounded, color: Colors.white54, size: 16),
+                  Expanded(
+                    child: Slider(
+                      value: _alignY,
+                      min: -1.0,
+                      max: 1.0,
+                      activeColor: primary,
+                      inactiveColor: Colors.white24,
+                      onChanged: (v) => setState(() => _alignY = v),
+                    ),
+                  ),
+                  const Icon(Icons.arrow_downward_rounded, color: Colors.white54, size: 16),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+        ),
       ),
     );
   }
