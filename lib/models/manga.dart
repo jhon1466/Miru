@@ -1,5 +1,6 @@
 class Manga {
   final String id;
+  final String slug;
   final String title;
   final String description;
   final String? coverUrl;
@@ -11,6 +12,7 @@ class Manga {
 
   Manga({
     required this.id,
+    this.slug = '',
     required this.title,
     required this.description,
     this.coverUrl,
@@ -22,9 +24,9 @@ class Manga {
   });
 
   factory Manga.fromJson(Map<String, dynamic> json) {
-    // Mantener compatibilidad por si se llama en algún punto con un mapa vacío o parcial
     return Manga(
       id: json['id']?.toString() ?? '',
+      slug: json['slug']?.toString() ?? '',
       title: json['title']?.toString() ?? '',
       description: json['description']?.toString() ?? '',
       coverUrl: json['coverUrl']?.toString(),
@@ -36,126 +38,149 @@ class Manga {
     );
   }
 
-  // Constructor de factoría para parsear InManga desde los listados HTML (búsqueda y populares)
-  factory Manga.fromInMangaHtml(String html, {bool isPopular = false}) {
-    // 1. Extraer href para obtener el UUID
-    final hrefMatch = RegExp(r'href="([^"]*\/ver\/manga\/[^"]*)"').firstMatch(html);
-    final href = hrefMatch?.group(1) ?? '';
-    final parts = href.split('/');
-    final id = parts.isNotEmpty ? parts.last : '';
-    
-    // 2. Extraer título
-    String title = '';
-    if (isPopular) {
-      final titleMatch = RegExp(r'<strong class="media-box-heading[^"]*">([\s\S]*?)<\/strong>').firstMatch(html);
-      title = titleMatch?.group(1) ?? '';
-    } else {
-      final titleMatch = RegExp(r'class="[^"]*ellipsed-text[^"]*">(?:<em[^>]*><\/em>)?\s*([^<]+)<\/h4>').firstMatch(html);
-      title = titleMatch?.group(1) ?? '';
-    }
-    title = _decodeHtmlEntities(title.replaceAll(RegExp(r'<[^>]*>'), '')).trim();
-    
-    // 3. Extraer portada
+  // ── ZonaTMO: tarjeta de listado HTML ──────────────────────────────────────
+  // Estructura de cada tarjeta en /library:
+  // <div class="element">
+  //   <div class="thumbnail-title">
+  //     <a href="/library/manga/{slug}/{id}">
+  //       <img src="..." onerror="...">
+  //       <h4 class="text-truncate">{title}</h4>
+  //     </a>
+  //   </div>
+  // </div>
+  factory Manga.fromZonaTmoHtml(String block) {
+    // 1. href → slug + id
+    final hrefMatch = RegExp(r'href="/library/(?:manga|manhwa|manhua)/([^/]+)/(\d+)"').firstMatch(block);
+    final slug = hrefMatch?.group(1) ?? '';
+    final id   = hrefMatch?.group(2) ?? '';
+
+    // 2. Título
+    final titleMatch = RegExp(r'<h4[^>]*class="[^"]*text-truncate[^"]*"[^>]*>([\s\S]*?)</h4>').firstMatch(block);
+    String title = _decodeHtmlEntities(
+      (titleMatch?.group(1) ?? '').replaceAll(RegExp(r'<[^>]*>'), '').trim(),
+    );
+
+    // 3. Portada
     String? coverUrl;
-    final coverMatch = RegExp(isPopular ? r'<img[^>]*src="([^"]+)"' : r'<img[^>]*data-src="([^"]+)"').firstMatch(html);
-    if (coverMatch != null) {
-      coverUrl = coverMatch.group(1);
-      if (coverUrl != null && coverUrl.startsWith('..')) {
-        coverUrl = 'https://inmanga.com${coverUrl.substring(2)}';
-      }
+    final imgMatch = RegExp(r'<img[^>]+(?:src|data-src)="([^"]+)"').firstMatch(block);
+    coverUrl = imgMatch?.group(1);
+    if (coverUrl != null && coverUrl.startsWith('/')) {
+      coverUrl = 'https://zonatmo.org$coverUrl';
     }
-    
-    // 4. Extraer estado (solo en búsqueda)
+
+    // 4. Estado (badge opcional)
     String? status;
-    final statusMatch = RegExp(r'label-(?:success|danger)[^"]*">([^<]+)<\/span>').firstMatch(html);
+    final statusMatch = RegExp(r'<span[^>]*class="[^"]*badge[^"]*"[^>]*>([\s\S]*?)</span>').firstMatch(block);
     if (statusMatch != null) {
-      status = _decodeHtmlEntities(statusMatch.group(1) ?? '').trim();
+      status = _decodeHtmlEntities(statusMatch.group(1)!.replaceAll(RegExp(r'<[^>]*>'), '').trim());
     }
-    
+
     return Manga(
       id: id,
+      slug: slug,
       title: title,
       description: '',
       coverUrl: coverUrl,
       status: status,
-      year: null,
       genres: [],
-      author: null,
       availableLanguages: ['es'],
     );
   }
 
-  // Constructor de factoría para parsear InManga desde la página de detalles HTML
-  factory Manga.fromInMangaDetailHtml(String id, String html) {
-    // 1. Extraer título
-    final titleMatch = RegExp(r'<h1>([^<]+)</h1>').firstMatch(html) ?? 
-                       RegExp(r'class="panel-heading visible-xs"[^>]*>([^<]+)</div>').firstMatch(html);
-    final title = _decodeHtmlEntities(titleMatch?.group(1) ?? 'Manga').trim();
-    
-    // 2. Extraer portada
-    String? coverUrl;
-    final coverMatch = RegExp(r'src="([^"]*intomanga\.com\/i\/m\/[^"]+\/t\/o\/[^"]+\.jpg)"').firstMatch(html);
-    if (coverMatch != null) {
-      coverUrl = coverMatch.group(1);
-    }
-    
-    // 3. Extraer sinopsis
-    // Estructura real: <div class="panel widget"><div class="panel-heading"><h1>...</h1>...</div><div class="panel-body">SINOPSIS</div></div>
-    // Buscamos el primer panel-body que siga a un h1 (el panel de descripción)
-    String description = '';
-    // Regex principal: panel widget que contiene h1 seguido de panel-body con texto
-    final descMainMatch = RegExp(
-      r'<div class="panel widget">\s*<div class="panel-heading">\s*<h1>[^<]+</h1>[\s\S]*?</div>\s*<div class="panel-body">([\s\S]*?)</div>',
-    ).firstMatch(html);
-    if (descMainMatch != null) {
-      description = _decodeHtmlEntities(descMainMatch.group(1) ?? '').replaceAll(RegExp(r'<[^>]*>'), '').trim();
-    }
-    // Fallback: primer panel-body no vacío
-    if (description.isEmpty) {
-      final allPanelBodies = RegExp(r'<div class="panel-body">([\s\S]*?)</div>').allMatches(html);
-      for (final m in allPanelBodies) {
-        final candidate = _decodeHtmlEntities(m.group(1) ?? '').replaceAll(RegExp(r'<[^>]*>'), '').trim();
-        if (candidate.length > 20) {
-          description = candidate;
-          break;
-        }
-      }
-    }
-    
-    // 4. Extraer estado
-    String? status;
-    final statusMatch = RegExp(r'label-[a-z\-]+\s+pull-right">\s*([^<]+)</span>\s*<em[^>]*></em>\s*Estado').firstMatch(html);
-    if (statusMatch != null) {
-      status = _decodeHtmlEntities(statusMatch.group(1) ?? '').trim();
-    }
-    
-    // 5. Extraer año
-    int? year;
-    final dateMatch = RegExp(r'label-primary pull-right">\s*([^<]+)</span>\s*<em[^>]*></em>\s*Publicaci').firstMatch(html);
-    if (dateMatch != null) {
-      final dateStr = dateMatch.group(1)?.trim() ?? '';
-      if (dateStr.length >= 4) {
-        year = int.tryParse(dateStr.substring(dateStr.length - 4));
-      }
-    }
-    
-    // 6. Extraer autor
-    String? author;
-    final authorMatch = RegExp(r'label-warning pull-right">\s*([^<]+)</span>\s*<em[^>]*></em>\s*Autor').firstMatch(html);
-    if (authorMatch != null) {
-      author = _decodeHtmlEntities(authorMatch.group(1) ?? '').trim();
+  // ── ZonaTMO: página de detalles ───────────────────────────────────────────
+  factory Manga.fromZonaTmoDetailHtml(String id, String slug, String html) {
+    // 1. Título — ZonaTMO pone el nombre en og:title o en <title>
+    String title = '';
+
+    // Prioridad 1: <meta property="og:title" content="...">
+    final ogTitle = RegExp(r'<meta[^>]+property="og:title"[^>]+content="([^"]+)"').firstMatch(html)
+        ?? RegExp(r'<meta[^>]+content="([^"]+)"[^>]+property="og:title"').firstMatch(html);
+    if (ogTitle != null) {
+      String t = _decodeHtmlEntities(ogTitle.group(1)!.trim());
+      // ZonaTMO og:title = "Ver {nombre} Online Gratis" — quitar prefijo y sufijo
+      t = t.replaceFirst(RegExp(r'^Ver\s+', caseSensitive: false), '');
+      t = t.replaceAll(RegExp(r'\s+Online\b.*$', caseSensitive: false), '');
+      title = t.trim();
     }
 
-    // 7. Extraer géneros
-    final List<String> genres = [];
-    final genreMatches = RegExp(r'<a[^>]*href="[^"]*filter\[genreIds\][^"]*"[^>]*>\s*([^<]+)\s*</a>').allMatches(html);
-    for (final m in genreMatches) {
-      final genre = _decodeHtmlEntities(m.group(1) ?? '').trim();
-      if (genre.isNotEmpty) genres.add(genre);
+    // Prioridad 2: <h1 class="...element-title..."> o cualquier <h1>
+    if (title.isEmpty) {
+      final h1 = RegExp(r'<h1[^>]*>([\s\S]*?)</h1>').firstMatch(html);
+      if (h1 != null) {
+        title = _decodeHtmlEntities(h1.group(1)!.replaceAll(RegExp(r'<[^>]*>'), '').trim());
+      }
     }
-    
+
+    // Prioridad 4: primer <h2> que no sea "Capítulos"
+    if (title.isEmpty) {
+      for (final m in RegExp(r'<h2[^>]*>([\s\S]*?)</h2>').allMatches(html)) {
+        final t = _decodeHtmlEntities(m.group(1)!.replaceAll(RegExp(r'<[^>]*>'), '').trim());
+        if (t.isNotEmpty && !t.startsWith('Cap')) { title = t; break; }
+      }
+    }
+
+    if (title.isEmpty) title = slug.replaceAll('-', ' ');
+    // ignore: avoid_print
+    print('[DETAIL] title="$title" slug="$slug"');
+
+    // 2. Portada — ZonaTMO: <img class="book-thumbnail"> o data-bg en el detail
+    String? coverUrl;
+    final coverMatch = RegExp(r'<img[^>]+class="[^"]*book-thumbnail[^"]*"[^>]+src="([^"]+)"').firstMatch(html)
+        ?? RegExp(r'<img[^>]+src="(https://(?:storage\.)?zonatmo\.org/(?:storage/)?covers/[^"]+)"').firstMatch(html)
+        ?? RegExp(r'data-bg="(https?://[^"]+covers[^"]+)"').firstMatch(html);
+    coverUrl = coverMatch?.group(1);
+    if (coverUrl != null && coverUrl.startsWith('/')) {
+      coverUrl = 'https://zonatmo.org$coverUrl';
+    }
+
+    // 3. Sinopsis — ZonaTMO: <p class="element-description"> o <div class="col-12">
+    String description = '';
+    final descMatch = RegExp(r'<p[^>]+class="[^"]*element-description[^"]*"[^>]*>([\s\S]*?)</p>').firstMatch(html)
+        ?? RegExp(r'<meta[^>]+name="description"[^>]+content="([^"]+)"').firstMatch(html)
+        ?? RegExp(r'<meta[^>]+content="([^"]+)"[^>]+name="description"').firstMatch(html);
+    if (descMatch != null) {
+      description = _decodeHtmlEntities(
+        descMatch.group(1)!.replaceAll(RegExp(r'<[^>]*>'), '').trim(),
+      );
+    }
+
+    // 4. Estado — buscar texto literal de estado en el HTML
+    String? status;
+    // ZonaTMO usa texto como "En emisión", "Finalizado", "Abandonado", "Pausado"
+    // Puede estar en <span>, <p>, <div> con clase que contenga "status" o "estado"
+    const stateTexts = ['En emisión', 'Finalizado', 'Abandonado', 'Pausado', 'En Emisión'];
+    for (final s in stateTexts) {
+      if (html.contains(s)) { status = s == 'En Emisión' ? 'En emisión' : s; break; }
+    }
+
+    // 5. Autor — ZonaTMO: <a href="/library?...demography..."> o label "Autor"
+    String? author;
+    final authorMatch = RegExp(
+      r'(?:Autor|Author)[^<]*<[^>]+>[^<]*<a[^>]*>([^<]+)</a>',
+      caseSensitive: false,
+    ).firstMatch(html) ?? RegExp(r'<a[^>]+href="/library\?[^"]*author[^"]*"[^>]*>([^<]+)</a>').firstMatch(html);
+    if (authorMatch != null) {
+      author = _decodeHtmlEntities(authorMatch.group(1)!.trim());
+    }
+
+    // 6. Géneros — ZonaTMO: <a href="/biblioteca?genders[]=..."> o /library?genders
+    final List<String> genres = [];
+    final genreMatches = RegExp(
+      r'<a[^>]+href="[^"]*(?:genders|genres|generos)[^"]*"[^>]*>([^<]+)</a>',
+    ).allMatches(html);
+    for (final m in genreMatches) {
+      final g = _decodeHtmlEntities(m.group(1)!.trim());
+      if (g.isNotEmpty && g.length < 40) genres.add(g);
+    }
+
+    // 7. Año
+    int? year;
+    final yearMatch = RegExp(r'\b(19\d{2}|20\d{2})\b').firstMatch(html.substring(0, html.length > 3000 ? 3000 : html.length));
+    if (yearMatch != null) year = int.tryParse(yearMatch.group(0)!);
+
     return Manga(
       id: id,
+      slug: slug,
       title: title,
       description: description,
       coverUrl: coverUrl,
@@ -168,10 +193,10 @@ class Manga {
   }
 }
 
-// Función auxiliar para decodificar entidades HTML comunes en español
+// ── Entidades HTML ────────────────────────────────────────────────────────────
 String _decodeHtmlEntities(String input) {
   var result = input;
-  final entities = {
+  const entities = {
     '&#225;': 'á', '&aacute;': 'á',
     '&#233;': 'é', '&eacute;': 'é',
     '&#237;': 'í', '&iacute;': 'í',
@@ -186,12 +211,9 @@ String _decodeHtmlEntities(String input) {
     '&#218;': 'Ú', '&Uacute;': 'Ú',
     '&#220;': 'Ü', '&Uuml;': 'Ü',
     '&#252;': 'ü', '&uuml;': 'ü',
-    '&nbsp;': ' ',
-    '&amp;': '&',
-    '&quot;': '"',
-    '&#39;': "'",
-    '&lt;': '<',
-    '&gt;': '>',
+    '&nbsp;': ' ', '&amp;': '&',
+    '&quot;': '"', '&#39;': "'",
+    '&lt;': '<', '&gt;': '>',
   };
   entities.forEach((key, value) {
     result = result.replaceAll(key, value);
@@ -199,6 +221,7 @@ String _decodeHtmlEntities(String input) {
   return result;
 }
 
+// ── Capítulo ──────────────────────────────────────────────────────────────────
 class MangaChapter {
   final String id;
   final String chapterNumber;
@@ -233,19 +256,34 @@ class MangaChapter {
     );
   }
 
-  // Constructor de factoría para parsear capítulos de InManga
-  factory MangaChapter.fromInMangaJson(Map<String, dynamic> json) {
-    final number = json['Number']?.toString() ?? '0';
-    final id = json['Identification']?.toString() ?? '';
+  // ── ZonaTMO: fila de capítulo en la página de detalles HTML ──────────────
+  // <li class="chapter-item">
+  //   <a href="/viewer/{id}/cascade">Cap. {number}</a>
+  //   <span class="text-truncate">{scanlation}</span>
+  // </li>
+  factory MangaChapter.fromZonaTmoHtml(String block) {
+    // ID del capítulo desde href /viewer/{id}/cascade o /viewer/{id}/paginated
+    final hrefMatch = RegExp(r'/viewer/(\d+)/').firstMatch(block);
+    final id = hrefMatch?.group(1) ?? '';
+
+    // Número de capítulo
+    final numMatch = RegExp(r'Cap(?:ítulo|\.)\s*([\d.]+)', caseSensitive: false).firstMatch(block);
+    final number = numMatch?.group(1) ?? '0';
+
+    // Scanlation (grupo)
+    String? scanlation;
+    final scanMatch = RegExp(r'<span[^>]*class="[^"]*text-truncate[^"]*"[^>]*>([\s\S]*?)</span>').firstMatch(block);
+    if (scanMatch != null) {
+      scanlation = _decodeHtmlEntities(scanMatch.group(1)!.replaceAll(RegExp(r'<[^>]*>'), '').trim());
+    }
+
     return MangaChapter(
       id: id,
       chapterNumber: number,
-      volume: null,
       title: 'Capítulo $number',
       pagesCount: 0,
-      scanlationGroup: null,
+      scanlationGroup: scanlation,
       translatedLanguage: 'es',
-      externalUrl: null,
     );
   }
 }

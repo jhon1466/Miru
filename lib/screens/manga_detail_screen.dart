@@ -16,8 +16,9 @@ import '../widgets/comments_section.dart';
 
 class MangaDetailScreen extends StatefulWidget {
   final String mangaId;
+  final String slug;
 
-  const MangaDetailScreen({super.key, required this.mangaId});
+  const MangaDetailScreen({super.key, required this.mangaId, this.slug = ''});
 
   @override
   State<MangaDetailScreen> createState() => _MangaDetailScreenState();
@@ -36,9 +37,13 @@ class _MangaDetailScreenState extends State<MangaDetailScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final provider = context.read<MangaProvider>();
-      await provider.loadMangaDetails(widget.mangaId);
+      if (widget.slug.isNotEmpty) {
+        await provider.loadMangaDetailsBySlug(widget.mangaId, widget.slug);
+      } else {
+        await provider.loadMangaDetails(widget.mangaId);
+      }
       if (mounted) {
-        provider.loadChapters(widget.mangaId);
+        provider.loadChapters(widget.mangaId, slug: widget.slug);
       }
       _loadProgress();
       _loadOfflineStatus();
@@ -169,7 +174,7 @@ class _MangaDetailScreenState extends State<MangaDetailScreen> {
                 ElevatedButton(
                   onPressed: () {
                     mangaProvider.loadMangaDetails(widget.mangaId);
-                    mangaProvider.loadChapters(widget.mangaId);
+                    mangaProvider.loadChapters(widget.mangaId, slug: widget.slug);
                   },
                   child: const Text('Reintentar'),
                 ),
@@ -211,7 +216,8 @@ class _MangaDetailScreenState extends State<MangaDetailScreen> {
     final resumeChapterNum = _readingProgress?['chapterNumber'];
     final resumePage = int.tryParse(_readingProgress?['page'] ?? '1') ?? 1;
 
-    final mangaShareUrl = 'https://inmanga.com/ver/manga/${details.title.replaceAll(' ', '-').toLowerCase()}/${widget.mangaId}';
+    final mangaSlug = widget.slug.isNotEmpty ? widget.slug : details.title.toLowerCase().replaceAll(' ', '-').replaceAll(RegExp(r'[^a-z0-9\-]'), '');
+    final mangaShareUrl = 'https://zonatmo.org/library/manga/${widget.mangaId}/$mangaSlug';
 
     return Scaffold(
       body: CustomScrollView(
@@ -270,7 +276,7 @@ class _MangaDetailScreenState extends State<MangaDetailScreen> {
                 onPressed: () {
                   SharePlus.instance.share(
                     ShareParams(
-                      text: '¡Lee ${details.title} en InManga! $mangaShareUrl',
+                      text: '¡Lee ${details.title} en ZonaTMO! $mangaShareUrl',
                     ),
                   );
                 },

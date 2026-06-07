@@ -126,6 +126,9 @@ Map<String, String> imageHttpHeadersForUrl(String url) {
   } else if (host.contains('skynovels')) {
     headers['Referer'] = 'https://skynovels.net/';
     headers['Origin'] = 'https://skynovels.net';
+  } else if (host.contains('zonatmo') || host.contains('storage.zonatmo')) {
+    headers['Referer'] = 'https://zonatmo.org/';
+    headers['Origin'] = 'https://zonatmo.org';
   }
 
   return headers;

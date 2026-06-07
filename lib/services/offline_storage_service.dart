@@ -22,27 +22,41 @@ class OfflineStorageService {
   // --- MANGA ---
 
   static Future<List<String>> fetchMangaPages(String mangaId, String chapterId) async {
-    final uri = Uri.parse('https://inmanga.com/chapter/chapterIndexControls').replace(queryParameters: {
-      'identification': chapterId,
-    });
+    // ZonaTMO: /view_uploads/{uploadId}
+    final uri = Uri.parse('https://zonatmo.org/view_uploads/$chapterId');
     final response = await http.get(uri, headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'User-Agent': 'Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.6367.82 Mobile Safari/537.36',
+      'Referer': 'https://zonatmo.org/',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      'Accept-Language': 'es-ES,es;q=0.9',
+      'Upgrade-Insecure-Requests': '1',
     });
     if (response.statusCode == 200) {
-      final html = response.body;
-      final selectMatch = RegExp(r'<select[^>]*id="PageList"[^>]*>([\s\S]*?)<\/select>').firstMatch(html);
-      if (selectMatch != null) {
-        final selectInnerHtml = selectMatch.group(1) ?? '';
-        final pageOptionRegex = RegExp(r'<option[^>]*value="([^"]*)"[^>]*>\s*([\s\S]*?)\s*<\/option>');
-        final matches = pageOptionRegex.allMatches(selectInnerHtml);
-        final chapterIdLower = chapterId.toLowerCase();
-        return matches.map((m) {
-          final pageId = m.group(1) ?? '';
-          return 'https://cdn1.intomanga.com/i/m/$mangaId/c/$chapterIdLower/o/$pageId.jpg';
-        }).toList();
-      }
+      return _parseZonaTmoPages(response.body);
     }
     return [];
+  }
+
+  static List<String> _parseZonaTmoPages(String html) {
+    // 1. JSON en script
+    final jsonScript = RegExp(
+        r'(?:var\s+chapter\s*=\s*|Pages\.init\()\s*(\{[\s\S]*?\}|\[[\s\S]*?\])(?:;|\))');
+    for (final m in jsonScript.allMatches(html)) {
+      try {
+        final decoded = jsonDecode(m.group(1)!);
+        final List pages = decoded is List ? decoded : (decoded['pages'] ?? decoded['images'] ?? []);
+        final urls = pages.map<String>((u) =>
+            u is Map ? (u['url'] ?? u['src'] ?? '').toString() : u.toString()
+        ).where((u) => u.startsWith('http')).toList();
+        if (urls.isNotEmpty) return urls;
+      } catch (_) {}
+    }
+    // 2. Imágenes directas
+    final imgRegex = RegExp(r'<img[^>]+class="[^"]*page[^"]*"[^>]+src="([^"]+)"');
+    return imgRegex.allMatches(html)
+        .map((m) => m.group(1)!)
+        .where((u) => u.startsWith('http'))
+        .toList();
   }
 
   static Future<void> saveMangaChapter({

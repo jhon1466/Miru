@@ -132,26 +132,24 @@ class _SplashScreenState extends State<SplashScreen>
                 ScaleTransition(
                   scale: _scaleAnim,
                   child: Container(
-                    padding: const EdgeInsets.all(26),
                     decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.primary.withValues(alpha: isDark ? 0.12 : 0.1),
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.35),
-                        width: 2,
-                      ),
+                      borderRadius: BorderRadius.circular(32),
                       boxShadow: [
                         BoxShadow(
-                          color: Theme.of(context).colorScheme.primary.withValues(alpha: isDark ? 0.25 : 0.15),
-                          blurRadius: 40,
-                          spreadRadius: 6,
+                          color: Theme.of(context).colorScheme.primary.withValues(alpha: isDark ? 0.4 : 0.2),
+                          blurRadius: 48,
+                          spreadRadius: 8,
                         ),
                       ],
                     ),
-                    child: Icon(
-                      Icons.play_circle_filled_rounded,
-                      size: 80,
-                      color: Theme.of(context).colorScheme.primary,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(32),
+                      child: Image.asset(
+                        'assets/miruapp.png',
+                        width: 120,
+                        height: 120,
+                        fit: BoxFit.cover,
+                      ),
                     ),
                   ),
                 ),

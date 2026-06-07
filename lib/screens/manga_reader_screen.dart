@@ -411,7 +411,10 @@ class _ZoomablePageState extends State<_ZoomablePage> {
               : CachedNetworkImage(
                   imageUrl: widget.imageUrl,
                   httpHeaders: const {
-                    'User-Agent': 'MiruApp/2.0.7 (Contact: support@miru.app)',
+                    'User-Agent': 'Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.6367.82 Mobile Safari/537.36',
+                    'Referer': 'https://zonatmo.org/',
+                    'Origin': 'https://zonatmo.org',
+                    'Accept': 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
                   },
                   fit: BoxFit.contain,
                   width: double.infinity,
