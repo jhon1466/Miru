@@ -1252,14 +1252,14 @@ class _SupporterBannerCard extends StatelessWidget {
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  const Color(0xFFFFD93D).withValues(alpha: 0.12),
+                  context.supporterColor.withValues(alpha: 0.12),
                   const Color(0xFFFF9A3C).withValues(alpha: 0.08),
                 ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFFFFD93D).withValues(alpha: 0.35), width: 1),
+              border: Border.all(color: context.supporterColor.withValues(alpha: 0.35), width: 1),
             ),
             child: Row(
               children: [
@@ -1274,7 +1274,7 @@ class _SupporterBannerCard extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
-                          color: const Color(0xFFFFD93D),
+                          color: context.supporterColor,
                         ),
                       ),
                       const SizedBox(height: 2),
