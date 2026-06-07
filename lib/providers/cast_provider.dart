@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:bonsoir/bonsoir.dart';
 import 'package:cast/cast.dart';
 import 'package:flutter/foundation.dart';
 
@@ -20,6 +21,7 @@ class CastProvider extends ChangeNotifier {
   bool get isSearching => _state == CastState.searching;
   bool get isConnecting => _state == CastState.connecting;
 
+  /// Descubre Chromecasts en la red local usando mDNS (bonsoir).
   Future<void> searchDevices() async {
     _state = CastState.searching;
     _devices = [];
@@ -27,10 +29,44 @@ class CastProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final found = await CastDiscoveryService().search(
-        timeout: const Duration(seconds: 5),
-      );
-      _devices = found;
+      final results = <CastDevice>{};
+      final discovery = BonsoirDiscovery(type: '_googlecast._tcp');
+
+      await discovery.initialize();
+      await discovery.start();
+
+      final sub = discovery.eventStream?.listen((event) {
+        if (event is BonsoirDiscoveryServiceResolvedEvent) {
+          final svc = event.service;
+          final host = svc.host;
+          final port = svc.port;
+          if (host == null) return;
+
+          final attrs = svc.attributes;
+          final name = attrs['fn'] ?? attrs['md'] ?? svc.name;
+
+          results.add(CastDevice(
+            serviceName: svc.name,
+            name: name,
+            host: host,
+            port: port,
+            extras: attrs,
+          ));
+
+          // Actualiza lista en tiempo real
+          _devices = results.toList();
+          notifyListeners();
+        } else if (event is BonsoirDiscoveryServiceFoundEvent) {
+          // Resolver el servicio para obtener host/IP
+          discovery.serviceResolver.resolveService(event.service);
+        }
+      });
+
+      // Esperar 5 segundos para descubrir dispositivos
+      await Future.delayed(const Duration(seconds: 5));
+
+      await sub?.cancel();
+      await discovery.stop();
     } catch (e) {
       debugPrint('[Cast] Discovery error: $e');
       _error = 'Error buscando dispositivos';
@@ -42,6 +78,7 @@ class CastProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Conecta a un dispositivo Chromecast y lanza el receiver por defecto.
   Future<bool> connect(CastDevice device) async {
     _state = CastState.connecting;
     _connectedDevice = device;
@@ -56,12 +93,11 @@ class CastProvider extends ChangeNotifier {
       );
       _activeSession = session;
 
-      // Listen for state changes
       session.stateStream.listen((state) {
         if (state == CastSessionState.connected) {
           _state = CastState.connected;
           notifyListeners();
-          // Launch default media receiver app on the Chromecast
+          // Lanza el Default Media Receiver en el Chromecast
           session.sendMessage(CastSession.kNamespaceReceiver, {
             'type': 'LAUNCH',
             'appId': 'CC1AD845',
