@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../core/theme.dart';
+import '../core/update_service.dart';
+import '../widgets/update_dialog.dart' show MarkdownReleaseText;
 import '../providers/auth_provider.dart' as app_auth;
 import '../providers/history_provider.dart';
 import '../providers/manga_history_provider.dart';
@@ -468,7 +470,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               contentPadding: EdgeInsets.zero,
               leading: Icon(Icons.info_outline, color: context.primaryColor),
               title: const Text('Versión de la app'),
-              subtitle: const Text('2.0.8'),
+              subtitle: const Text('2.0.9'),
             ),
             ListTile(
               contentPadding: EdgeInsets.zero,
@@ -713,100 +715,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _showWhatsNewDialog(BuildContext context) {
-    const changelog = [
-      _ChangelogEntry(
-        version: '2.0.8',
-        date: 'Junio 2025',
-        highlights: [
-          '👑 Sistema de Supporters con beneficios exclusivos',
-          '🎨 10 colores de acento exclusivos para supporters',
-          '💬 Chat mejorado: cooldown, límite de caracteres y stickers VIP',
-          '🏆 Insignia de Supporter en perfil, comentarios y chat',
-          '🔎 Historial de búsquedas guardado localmente',
-          '📖 Tema del lector de novelas persistente entre capítulos',
-          '🖼️ Lector de novelas: eliminación de imágenes embebidas en texto',
-          '🔔 Markdown en notas de actualización (negritas, listas, etc.)',
-        ],
-      ),
-      _ChangelogEntry(
-        version: '2.0.7',
-        date: 'Mayo 2025',
-        highlights: [
-          '📚 Novelas con SkyNovels integrado',
-          '📺 Episodios con MonosChinos',
-          '🖼️ Mejoras de imágenes y caché',
-          '🌙 Modo OLED en el lector de novelas',
-        ],
-      ),
-    ];
-
     showDialog<void>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: context.cardColor,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: [
-            Icon(Icons.auto_awesome_rounded, color: context.accentColor, size: 24),
-            const SizedBox(width: 10),
-            const Text('¿Qué hay de nuevo?', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          ],
-        ),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: changelog.map((entry) {
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: context.primaryColor.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            'v${entry.version}',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: context.primaryColor,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          entry.date,
-                          style: TextStyle(fontSize: 11, color: context.textSecondary),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    ...entry.highlights.map((h) => Padding(
-                      padding: const EdgeInsets.only(bottom: 5),
-                      child: Text(
-                        h,
-                        style: TextStyle(fontSize: 13, color: context.textPrimary, height: 1.4),
-                      ),
-                    )),
-                    const SizedBox(height: 16),
-                  ],
-                );
-              }).toList(),
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cerrar'),
-          ),
-        ],
-      ),
+      builder: (ctx) => _WhatsNewDialog(),
     );
   }
 
@@ -1438,14 +1349,108 @@ class _SupporterBannerCard extends StatelessWidget {
   }
 }
 
-class _ChangelogEntry {
-  final String version;
-  final String date;
-  final List<String> highlights;
+/// Diálogo "¿Qué hay de nuevo?" — carga las notas del release de GitHub
+/// correspondientes a la versión actual instalada.
+class _WhatsNewDialog extends StatefulWidget {
+  @override
+  State<_WhatsNewDialog> createState() => _WhatsNewDialogState();
+}
 
-  const _ChangelogEntry({
-    required this.version,
-    required this.date,
-    required this.highlights,
-  });
+class _WhatsNewDialogState extends State<_WhatsNewDialog> {
+  String? _notes;
+  bool _loading = true;
+  bool _error = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() { _loading = true; _error = false; });
+    try {
+      final notes = await UpdateService.getReleaseNotesForCurrentVersion();
+      if (mounted) {
+        setState(() {
+          _notes = notes;
+          _loading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() { _loading = false; _error = true; });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: context.cardColor,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      title: Row(
+        children: [
+          Icon(Icons.auto_awesome_rounded, color: context.accentColor, size: 24),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('¿Qué hay de nuevo?',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                Text('v${UpdateService.appVersion}',
+                    style: TextStyle(fontSize: 12, color: context.textSecondary)),
+              ],
+            ),
+          ),
+        ],
+      ),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: _loading
+            ? const Padding(
+                padding: EdgeInsets.symmetric(vertical: 32),
+                child: Center(child: CircularProgressIndicator()),
+              )
+            : _error || _notes == null
+                ? Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.cloud_off_rounded,
+                            size: 40, color: context.textSecondary),
+                        const SizedBox(height: 12),
+                        Text(
+                          'No se pudieron cargar las notas de esta versión.\nVerifica tu conexión a internet.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: context.textSecondary, fontSize: 13),
+                        ),
+                        const SizedBox(height: 16),
+                        TextButton.icon(
+                          onPressed: _load,
+                          icon: const Icon(Icons.refresh),
+                          label: const Text('Reintentar'),
+                        ),
+                      ],
+                    ),
+                  )
+                : SingleChildScrollView(
+                    child: MarkdownReleaseText(
+                      text: _notes!,
+                      baseStyle: TextStyle(
+                        fontSize: 13,
+                        color: context.textPrimary,
+                        height: 1.5,
+                      ),
+                    ),
+                  ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cerrar'),
+        ),
+      ],
+    );
+  }
 }

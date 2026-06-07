@@ -180,11 +180,14 @@ class _UpdateDialogContentState extends State<_UpdateDialogContent> {
 
 /// Renderiza texto con soporte básico de Markdown:
 /// **negrita**, *cursiva*, - listas, ### títulos
+// Alias público para reutilizar desde otras pantallas
+typedef MarkdownReleaseText = _MarkdownText;
+
 class _MarkdownText extends StatelessWidget {
   final String text;
   final TextStyle baseStyle;
 
-  const _MarkdownText({required this.text, required this.baseStyle});
+  const _MarkdownText({super.key, required this.text, required this.baseStyle});
 
   @override
   Widget build(BuildContext context) {
