@@ -973,42 +973,39 @@ class _NativeVideoPlayerState extends State<NativeVideoPlayer> {
             SafeArea(
               top: false,
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(14),
                   child: BackdropFilter(
                     filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      padding: const EdgeInsets.fromLTRB(12, 4, 4, 4),
                       decoration: BoxDecoration(
                         color: Colors.black.withValues(alpha: 0.45),
-                        borderRadius: BorderRadius.circular(16),
+                        borderRadius: BorderRadius.circular(14),
                         border: Border.all(color: Colors.white12),
                       ),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           // Slider
-                          SizedBox(
-                            height: 18,
-                            child: SliderTheme(
-                              data: SliderTheme.of(context).copyWith(
-                                trackHeight: 3.5,
-                                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
-                                overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
-                                activeTrackColor: Theme.of(context).colorScheme.primary,
-                                inactiveTrackColor: Colors.white30,
-                                thumbColor: Theme.of(context).colorScheme.primary,
-                                overlayColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
-                              ),
-                              child: Slider(
-                                value: pos.inSeconds.toDouble().clamp(0.0, dur.inSeconds.toDouble()),
-                                max: dur.inSeconds.toDouble(),
-                                onChanged: (val) {
-                                  _controller?.seekTo(Duration(seconds: val.toInt()));
-                                  _startControlsTimer();
-                                },
-                              ),
+                          SliderTheme(
+                            data: SliderTheme.of(context).copyWith(
+                              trackHeight: 3.0,
+                              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                              overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
+                              activeTrackColor: Theme.of(context).colorScheme.primary,
+                              inactiveTrackColor: Colors.white30,
+                              thumbColor: Theme.of(context).colorScheme.primary,
+                              overlayColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
+                            ),
+                            child: Slider(
+                              value: pos.inSeconds.toDouble().clamp(0.0, dur.inSeconds.toDouble()),
+                              max: dur.inSeconds.toDouble(),
+                              onChanged: (val) {
+                                _controller?.seekTo(Duration(seconds: val.toInt()));
+                                _startControlsTimer();
+                              },
                             ),
                           ),
 
@@ -1025,6 +1022,7 @@ class _NativeVideoPlayerState extends State<NativeVideoPlayer> {
                                 ),
                               ),
                               IconButton(
+                                visualDensity: VisualDensity.compact,
                                 icon: Icon(
                                   _isFullscreen ? Icons.fullscreen_exit : Icons.fullscreen,
                                   color: Colors.white,
