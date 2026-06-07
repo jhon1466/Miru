@@ -18,7 +18,7 @@ class UpdateInfo {
 
 class UpdateService {
   // Constantes de configuración de la app
-  static const String appVersion = '2.0.8'; // Versión actual de la aplicación
+  static const String appVersion = '2.0.9'; // Versión actual de la aplicación
   static const String githubOwner = 'jhon1466';
   static const String githubRepo = 'Miru';
 
@@ -76,6 +76,28 @@ class UpdateService {
       downloadUrl: '',
       releaseNotes: '',
     );
+  }
+
+  /// Obtiene las notas del release de la versión actual instalada.
+  /// Prueba primero `v{version}`, luego `{version}` como tag name.
+  static Future<String?> getReleaseNotesForCurrentVersion() async {
+    final tags = ['v$appVersion', appVersion];
+    for (final tag in tags) {
+      try {
+        final url = Uri.parse(
+            'https://api.github.com/repos/$githubOwner/$githubRepo/releases/tags/$tag');
+        final response = await http.get(url, headers: {
+          'Accept': 'application/vnd.github.v3+json',
+          'User-Agent': 'Miru-Client-App',
+        });
+        if (response.statusCode == 200) {
+          final data = json.decode(response.body) as Map<String, dynamic>;
+          final body = (data['body'] ?? '').toString().trim();
+          return body.isEmpty ? null : body;
+        }
+      } catch (_) {}
+    }
+    return null;
   }
 
   /// Compara si la versión de GitHub (latest) es mayor que la actual (current)
