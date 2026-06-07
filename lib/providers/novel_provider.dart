@@ -156,7 +156,11 @@ class NovelProvider extends ChangeNotifier {
         if (isDownloaded) {
           final localParagraphs = await OfflineStorageService.getNovelChapterParagraphs(novelId, chapterId);
           if (localParagraphs.isNotEmpty) {
-            _chapterParagraphs = localParagraphs;
+            // Re-aplica limpieza por si el caché tiene espacios sin limpiar
+            _chapterParagraphs = localParagraphs
+                .map(SkyNovelsService.cleanParagraph)
+                .where((p) => p.isNotEmpty)
+                .toList();
             _isContentOffline = true;
             return;
           }

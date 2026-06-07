@@ -2,34 +2,71 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+/// Opciones de tema visibles al usuario.
+/// [light] y [dark] usan el color fijo original (morado).
+/// [custom] permite elegir un color de acento personalizado.
+enum AppThemeOption { light, dark, custom }
+
 class AppTheme {
   static const Color darkBackground = Color(0xFF0A0D14);
   static const Color cardColor = Color(0xFF161B26);
-  static const Color primaryColor = Color(0xFF8B5CF6); // Neon Purple
-  static const Color accentColor = Color(0xFF0EA5E9);  // Neon Blue
   static const Color textPrimary = Color(0xFFF3F4F6);
   static const Color textSecondary = Color(0xFF9CA3AF);
   static const Color dangerColor = Color(0xFFEF4444);
   static const Color successColor = Color(0xFF10B981);
 
-  static ThemeData get darkTheme {
+  /// Color semilla por defecto (morado original)
+  static const Color defaultSeedColor = Color(0xFF8B5CF6);
+
+  /// Constantes de color para uso estático (sin BuildContext).
+  /// Para uso dinámico en widgets, usa `context.primaryColor` en su lugar.
+  static const Color primaryColor = Color(0xFF8B5CF6);
+  static const Color accentColor = Color(0xFF0EA5E9);
+
+  /// Colores disponibles para todos los usuarios
+  static const List<({Color color, String label})> accentColors = [
+    (color: Color(0xFF8B5CF6), label: 'Morado'),
+    (color: Color(0xFF6366F1), label: 'Índigo'),
+    (color: Color(0xFF3B82F6), label: 'Azul'),
+    (color: Color(0xFF06B6D4), label: 'Cyan'),
+    (color: Color(0xFF10B981), label: 'Verde'),
+    (color: Color(0xFF84CC16), label: 'Lima'),
+    (color: Color(0xFFF59E0B), label: 'Ámbar'),
+    (color: Color(0xFFF97316), label: 'Naranja'),
+    (color: Color(0xFFEF4444), label: 'Rojo'),
+    (color: Color(0xFFEC4899), label: 'Rosa'),
+  ];
+
+  /// Colores exclusivos para supporters (Patreon)
+  static const List<({Color color, String label})> supporterAccentColors = [
+    (color: Color(0xFF14B8A6), label: 'Jade'),
+    (color: Color(0xFF0EA5E9), label: 'Celeste'),
+    (color: Color(0xFFA855F7), label: 'Violeta'),
+    (color: Color(0xFFD946EF), label: 'Fucsia'),
+    (color: Color(0xFFFF6B6B), label: 'Coral'),
+    (color: Color(0xFFFFD93D), label: 'Dorado'),
+    (color: Color(0xFF6BCB77), label: 'Menta'),
+    (color: Color(0xFF4D96FF), label: 'Zafiro'),
+    (color: Color(0xFFFF9A3C), label: 'Mandarina'),
+    (color: Color(0xFFB5838D), label: 'Malva'),
+  ];
+
+  static ThemeData darkTheme(Color seedColor) {
+    final colorScheme = ColorScheme.fromSeed(
+      seedColor: seedColor,
+      brightness: Brightness.dark,
+    ).copyWith(
+      surface: cardColor,
+      onSurface: textPrimary,
+      error: dangerColor,
+    );
+
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
-      primaryColor: primaryColor,
+      colorScheme: colorScheme,
       scaffoldBackgroundColor: darkBackground,
       cardColor: cardColor,
-      colorScheme: const ColorScheme.dark(
-        primary: primaryColor,
-        secondary: accentColor,
-        background: darkBackground,
-        surface: cardColor,
-        error: dangerColor,
-        onPrimary: Colors.white,
-        onSecondary: Colors.white,
-        onBackground: textPrimary,
-        onSurface: textPrimary,
-      ),
       textTheme: GoogleFonts.outfitTextTheme(
         const TextTheme(
           displayLarge: TextStyle(color: textPrimary, fontWeight: FontWeight.bold, fontSize: 32),
@@ -55,17 +92,12 @@ class AppTheme {
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: primaryColor,
-          foregroundColor: Colors.white,
+          backgroundColor: colorScheme.primary,
+          foregroundColor: colorScheme.onPrimary,
           elevation: 2,
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          textStyle: const TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 16,
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
@@ -83,7 +115,7 @@ class AppTheme {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: primaryColor, width: 1.5),
+          borderSide: BorderSide(color: colorScheme.primary, width: 1.5),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
@@ -93,42 +125,38 @@ class AppTheme {
       cardTheme: CardThemeData(
         color: cardColor,
         elevation: 4,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
-      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+      bottomNavigationBarTheme: BottomNavigationBarThemeData(
         backgroundColor: cardColor,
-        selectedItemColor: primaryColor,
+        selectedItemColor: colorScheme.primary,
         unselectedItemColor: textSecondary,
         elevation: 8,
       ),
     );
   }
 
-  static ThemeData get lightTheme {
+  static ThemeData lightTheme(Color seedColor) {
     const lightBackground = Color(0xFFF3F4F6);
     const lightCard = Colors.white;
     const lightTextPrimary = Color(0xFF111827);
     const lightTextSecondary = Color(0xFF4B5563);
 
+    final colorScheme = ColorScheme.fromSeed(
+      seedColor: seedColor,
+      brightness: Brightness.light,
+    ).copyWith(
+      surface: lightCard,
+      onSurface: lightTextPrimary,
+      error: dangerColor,
+    );
+
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.light,
-      primaryColor: primaryColor,
+      colorScheme: colorScheme,
       scaffoldBackgroundColor: lightBackground,
       cardColor: lightCard,
-      colorScheme: const ColorScheme.light(
-        primary: primaryColor,
-        secondary: accentColor,
-        background: lightBackground,
-        surface: lightCard,
-        error: dangerColor,
-        onPrimary: Colors.white,
-        onSecondary: Colors.white,
-        onBackground: lightTextPrimary,
-        onSurface: lightTextPrimary,
-      ),
       textTheme: GoogleFonts.outfitTextTheme(
         const TextTheme(
           displayLarge: TextStyle(color: lightTextPrimary, fontWeight: FontWeight.bold, fontSize: 32),
@@ -154,17 +182,12 @@ class AppTheme {
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: primaryColor,
-          foregroundColor: Colors.white,
+          backgroundColor: colorScheme.primary,
+          foregroundColor: colorScheme.onPrimary,
           elevation: 2,
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          textStyle: const TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 16,
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
@@ -182,7 +205,7 @@ class AppTheme {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: primaryColor, width: 1.5),
+          borderSide: BorderSide(color: colorScheme.primary, width: 1.5),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
@@ -192,13 +215,11 @@ class AppTheme {
       cardTheme: CardThemeData(
         color: lightCard,
         elevation: 4,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
-      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+      bottomNavigationBarTheme: BottomNavigationBarThemeData(
         backgroundColor: lightCard,
-        selectedItemColor: primaryColor,
+        selectedItemColor: colorScheme.primary,
         unselectedItemColor: lightTextSecondary,
         elevation: 8,
       ),
@@ -223,4 +244,7 @@ extension AppThemeExtension on BuildContext {
 
   Color get dangerColor => AppTheme.dangerColor;
   Color get successColor => AppTheme.successColor;
+
+  // Alias para mantener compatibilidad con widgets que usan Theme.of(context).colorScheme.primary
+  Color get appPrimaryColor => Theme.of(this).colorScheme.primary;
 }

@@ -14,8 +14,8 @@ Future<void> showWelcomeDialog(BuildContext context, String name) async {
         children: [
           Container(
             padding: const EdgeInsets.all(8),
-            decoration: const BoxDecoration(
-              color: AppTheme.primaryColor,
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.primary,
               shape: BoxShape.circle,
             ),
             child: const Icon(Icons.waving_hand, color: Colors.white, size: 22),
@@ -36,7 +36,7 @@ Future<void> showWelcomeDialog(BuildContext context, String name) async {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(ctx).pop(),
-          child: Text('Empezar', style: TextStyle(color: AppTheme.primaryColor)),
+          child: Text('Empezar', style: TextStyle(color: Theme.of(context).colorScheme.primary)),
         ),
       ],
     ),

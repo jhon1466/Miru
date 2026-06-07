@@ -56,11 +56,15 @@ class _NativeVideoPlayerState extends State<NativeVideoPlayer> {
 
   bool _isLocked = false;
 
+  static const _channel = MethodChannel('com.anime1v.app/foreground_service');
+
   @override
   void initState() {
     super.initState();
     _initializePlayer();
     _startControlsTimer();
+    // Evitar que la pantalla se apague durante la reproducción
+    _channel.invokeMethod('keepScreenOn').catchError((_) {});
 
     // Inicializar volumen y brillo actuales de forma segura
     try {
@@ -242,12 +246,30 @@ class _NativeVideoPlayerState extends State<NativeVideoPlayer> {
         SystemUiMode.manual,
         overlays: SystemUiOverlay.values,
       );
-      // Permitir tanto portrait como landscape al salir de fullscreen
-      await SystemChrome.setPreferredOrientations([
-        DeviceOrientation.portraitUp,
-        DeviceOrientation.landscapeLeft,
-        DeviceOrientation.landscapeRight,
-      ]);
+      if (_isTV()) {
+        // TV: mantener landscape siempre
+        await SystemChrome.setPreferredOrientations([
+          DeviceOrientation.landscapeLeft,
+          DeviceOrientation.landscapeRight,
+        ]);
+      } else {
+        await SystemChrome.setPreferredOrientations([
+          DeviceOrientation.portraitUp,
+          DeviceOrientation.landscapeLeft,
+          DeviceOrientation.landscapeRight,
+        ]);
+      }
+    }
+  }
+
+  bool _isTV() {
+    try {
+      final mq = MediaQuery.maybeOf(context);
+      if (mq == null) return false;
+      return mq.navigationMode == NavigationMode.directional ||
+          mq.size.shortestSide > 480;
+    } catch (_) {
+      return false;
     }
   }
 
@@ -269,16 +291,25 @@ class _NativeVideoPlayerState extends State<NativeVideoPlayer> {
     _indicatorTimer?.cancel();
     _controller?.removeListener(_playerListener);
     _controller?.dispose();
+    // Liberar wakelock al salir del reproductor
+    _channel.invokeMethod('releaseScreenOn').catchError((_) {});
     try {
       ScreenBrightness().resetScreenBrightness();
     } catch (_) {}
     if (_isFullscreen) {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, overlays: SystemUiOverlay.values);
-      SystemChrome.setPreferredOrientations([
-        DeviceOrientation.portraitUp,
-        DeviceOrientation.landscapeLeft,
-        DeviceOrientation.landscapeRight,
-      ]);
+      if (_isTV()) {
+        SystemChrome.setPreferredOrientations([
+          DeviceOrientation.landscapeLeft,
+          DeviceOrientation.landscapeRight,
+        ]);
+      } else {
+        SystemChrome.setPreferredOrientations([
+          DeviceOrientation.portraitUp,
+          DeviceOrientation.landscapeLeft,
+          DeviceOrientation.landscapeRight,
+        ]);
+      }
     }
     super.dispose();
   }
@@ -319,14 +350,14 @@ class _NativeVideoPlayerState extends State<NativeVideoPlayer> {
                       onPressed: _initializePlayer,
                       icon: const Icon(Icons.refresh),
                       label: const Text('Reintentar'),
-                      style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor),
+                      style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
                     ),
                     if (widget.onErrorFallback != null) ...[
                       const SizedBox(width: 12),
                       TextButton.icon(
                         onPressed: widget.onErrorFallback,
-                        icon: const Icon(Icons.web, color: AppTheme.accentColor),
-                        label: const Text('Usar Web Player', style: TextStyle(color: AppTheme.accentColor)),
+                        icon: Icon(Icons.web, color: Theme.of(context).colorScheme.secondary),
+                        label: Text('Usar Web Player', style: TextStyle(color: Theme.of(context).colorScheme.secondary)),
                       ),
                     ],
                   ],
@@ -341,13 +372,13 @@ class _NativeVideoPlayerState extends State<NativeVideoPlayer> {
     if (!_isInitialized || _controller == null) {
       return Container(
         color: Colors.black,
-        child: const Center(
+        child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              CircularProgressIndicator(valueColor: AlwaysStoppedAnimation(AppTheme.primaryColor)),
-              SizedBox(height: 12),
-              Text(
+              CircularProgressIndicator(valueColor: AlwaysStoppedAnimation(Theme.of(context).colorScheme.primary)),
+              const SizedBox(height: 12),
+              const Text(
                 'Cargando reproductor nativo...',
                 style: TextStyle(color: Colors.white70, fontSize: 12),
               ),
@@ -376,7 +407,10 @@ class _NativeVideoPlayerState extends State<NativeVideoPlayer> {
     final screenWidth = screenSize.width;
     final screenHeight = screenSize.height;
 
-    return Container(
+    return Focus(
+      autofocus: true,
+      onKeyEvent: _handleKeyEvent,
+      child: Container(
       color: Colors.black,
       width: double.infinity,
       height: double.infinity,
@@ -480,7 +514,117 @@ class _NativeVideoPlayerState extends State<NativeVideoPlayer> {
             ),
         ],
       ),
-    );
+    ), // Container
+    ); // Focus
+  }
+
+  /// Manejo de teclas D-pad / teclado para Android TV.
+  KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+      return KeyEventResult.ignored;
+    }
+    if (_controller == null || !_isInitialized) return KeyEventResult.ignored;
+
+    final key = event.logicalKey;
+
+    // Play / Pause — botón central D-pad o Space/Enter
+    if (key == LogicalKeyboardKey.select ||
+        key == LogicalKeyboardKey.enter ||
+        key == LogicalKeyboardKey.space ||
+        key == LogicalKeyboardKey.mediaPlay ||
+        key == LogicalKeyboardKey.mediaPause ||
+        key == LogicalKeyboardKey.mediaPlayPause) {
+      if (_controller!.value.isPlaying) {
+        _controller!.pause();
+      } else {
+        _controller!.play();
+      }
+      setState(() => _showControls = true);
+      _startControlsTimer();
+      return KeyEventResult.handled;
+    }
+
+    // Seek atrás ← o MediaRewind
+    if (key == LogicalKeyboardKey.arrowLeft ||
+        key == LogicalKeyboardKey.mediaRewind) {
+      final current = _controller!.value.position;
+      final target = current - const Duration(seconds: 10);
+      _controller!.seekTo(target < Duration.zero ? Duration.zero : target);
+      setState(() {
+        _showLeftDoubleTap = true;
+        _showControls = true;
+      });
+      _startControlsTimer();
+      Future.delayed(const Duration(milliseconds: 650), () {
+        if (mounted) setState(() => _showLeftDoubleTap = false);
+      });
+      return KeyEventResult.handled;
+    }
+
+    // Seek adelante → o MediaFastForward
+    if (key == LogicalKeyboardKey.arrowRight ||
+        key == LogicalKeyboardKey.mediaFastForward) {
+      final current = _controller!.value.position;
+      final max = _controller!.value.duration;
+      final target = current + const Duration(seconds: 10);
+      _controller!.seekTo(target > max ? max : target);
+      setState(() {
+        _showRightDoubleTap = true;
+        _showControls = true;
+      });
+      _startControlsTimer();
+      Future.delayed(const Duration(milliseconds: 650), () {
+        if (mounted) setState(() => _showRightDoubleTap = false);
+      });
+      return KeyEventResult.handled;
+    }
+
+    // Volumen ↑
+    if (key == LogicalKeyboardKey.arrowUp) {
+      try {
+        final newVol = (_volume + 0.1).clamp(0.0, 1.0);
+        VolumeController().setVolume(newVol);
+        setState(() {
+          _volume = newVol;
+          _showVolumeIndicator = true;
+          _showControls = true;
+        });
+        _indicatorTimer?.cancel();
+        _indicatorTimer = Timer(const Duration(seconds: 2), () {
+          if (mounted) setState(() => _showVolumeIndicator = false);
+        });
+      } catch (_) {}
+      return KeyEventResult.handled;
+    }
+
+    // Volumen ↓
+    if (key == LogicalKeyboardKey.arrowDown) {
+      try {
+        final newVol = (_volume - 0.1).clamp(0.0, 1.0);
+        VolumeController().setVolume(newVol);
+        setState(() {
+          _volume = newVol;
+          _showVolumeIndicator = true;
+          _showControls = true;
+        });
+        _indicatorTimer?.cancel();
+        _indicatorTimer = Timer(const Duration(seconds: 2), () {
+          if (mounted) setState(() => _showVolumeIndicator = false);
+        });
+      } catch (_) {}
+      return KeyEventResult.handled;
+    }
+
+    // Botón Atrás / Escape → ocultar controles o salir
+    if (key == LogicalKeyboardKey.escape ||
+        key == LogicalKeyboardKey.goBack) {
+      if (_showControls) {
+        setState(() => _showControls = false);
+        return KeyEventResult.handled;
+      }
+    }
+
+    return KeyEventResult.ignored;
   }
 
   void _onDragStart(DragStartDetails details, double screenWidth) {
@@ -600,7 +744,7 @@ class _NativeVideoPlayerState extends State<NativeVideoPlayer> {
                         height: 6,
                         child: LinearProgressIndicator(
                           value: value,
-                          color: AppTheme.primaryColor,
+                          color: Theme.of(context).colorScheme.primary,
                           backgroundColor: Colors.white24,
                         ),
                       ),
@@ -641,7 +785,7 @@ class _NativeVideoPlayerState extends State<NativeVideoPlayer> {
                 shape: const CircleBorder(),
                 child: IconButton(
                   iconSize: 28,
-                  icon: const Icon(Icons.lock, color: AppTheme.primaryColor),
+                  icon: Icon(Icons.lock, color: Theme.of(context).colorScheme.primary),
                   onPressed: () {
                     setState(() {
                       _isLocked = false;
@@ -842,10 +986,10 @@ class _NativeVideoPlayerState extends State<NativeVideoPlayer> {
                                 trackHeight: 3.5,
                                 thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
                                 overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
-                                activeTrackColor: AppTheme.primaryColor,
+                                activeTrackColor: Theme.of(context).colorScheme.primary,
                                 inactiveTrackColor: Colors.white30,
-                                thumbColor: AppTheme.primaryColor,
-                                overlayColor: AppTheme.primaryColor.withValues(alpha: 0.3),
+                                thumbColor: Theme.of(context).colorScheme.primary,
+                                overlayColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
                               ),
                               child: Slider(
                                 value: pos.inSeconds.toDouble().clamp(0.0, dur.inSeconds.toDouble()),

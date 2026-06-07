@@ -118,9 +118,9 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
         children: [
           // ── Lector de Páginas ──────────────────────────────────────────
           if (isLoading)
-            const Center(
+            Center(
               child: CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation(AppTheme.primaryColor),
+                valueColor: AlwaysStoppedAnimation(Theme.of(context).colorScheme.primary),
               ),
             )
           else if (error != null)

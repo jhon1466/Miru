@@ -12,6 +12,7 @@ import '../services/user_service.dart';
 import '../services/anilist_service.dart';
 import 'package:flutter/painting.dart';
 import '../utils/auth_ui.dart';
+import '../providers/supporter_provider.dart';
 import 'user_profile_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -133,42 +134,151 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ListTile(
                       contentPadding: EdgeInsets.zero,
                       leading: Icon(
-                        settings.themeMode == ThemeMode.dark
+                        settings.themeOption == AppThemeOption.dark
                             ? Icons.dark_mode
-                            : (settings.themeMode == ThemeMode.light ? Icons.light_mode : Icons.brightness_auto),
+                            : (settings.themeOption == AppThemeOption.light
+                                ? Icons.light_mode
+                                : Icons.palette_outlined),
                         color: context.primaryColor,
                       ),
                       title: const Text('Tema de la aplicación'),
                       subtitle: Text(
-                        settings.themeMode == ThemeMode.dark
+                        settings.themeOption == AppThemeOption.dark
                             ? 'Oscuro'
-                            : (settings.themeMode == ThemeMode.light ? 'Claro' : 'Sistema'),
+                            : (settings.themeOption == AppThemeOption.light
+                                ? 'Claro'
+                                : 'Personalizado'),
                         style: TextStyle(fontSize: 12, color: context.textSecondary),
                       ),
-                      trailing: DropdownButton<ThemeMode>(
-                        value: settings.themeMode,
+                      trailing: DropdownButton<AppThemeOption>(
+                        value: settings.themeOption,
                         dropdownColor: context.cardColor,
                         underline: const SizedBox(),
                         icon: Icon(Icons.arrow_drop_down, color: context.textSecondary),
                         items: [
                           DropdownMenuItem(
-                            value: ThemeMode.system,
-                            child: Text('Sistema', style: TextStyle(color: context.textPrimary)),
-                          ),
-                          DropdownMenuItem(
-                            value: ThemeMode.light,
+                            value: AppThemeOption.light,
                             child: Text('Claro', style: TextStyle(color: context.textPrimary)),
                           ),
                           DropdownMenuItem(
-                            value: ThemeMode.dark,
+                            value: AppThemeOption.dark,
                             child: Text('Oscuro', style: TextStyle(color: context.textPrimary)),
                           ),
+                          DropdownMenuItem(
+                            value: AppThemeOption.custom,
+                            child: Text('Personalizado', style: TextStyle(color: context.primaryColor)),
+                          ),
                         ],
-                        onChanged: (mode) {
-                          if (mode != null) {
-                            settings.setThemeMode(mode);
-                          }
+                        onChanged: (option) {
+                          if (option != null) settings.setThemeOption(option);
                         },
+                      ),
+                    ),
+                    // ── Color de acento (solo en modo Personalizado) ─────
+                    if (settings.themeOption == AppThemeOption.custom)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4, bottom: 12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.color_lens_outlined, color: context.primaryColor, size: 24),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Color de acento',
+                                      style: TextStyle(fontSize: 16, color: context.textPrimary),
+                                    ),
+                                    Text(
+                                      'Elige el color principal de la app',
+                                      style: TextStyle(fontSize: 12, color: context.textSecondary),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Consumer<SupporterProvider>(
+                            builder: (context, supporter, _) {
+                              final allColors = [
+                                ...AppTheme.accentColors.map((e) => (entry: e, exclusive: false)),
+                                ...AppTheme.supporterAccentColors.map((e) => (entry: e, exclusive: true)),
+                              ];
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  SizedBox(
+                                    height: 44,
+                                    child: ListView.separated(
+                                      scrollDirection: Axis.horizontal,
+                                      itemCount: allColors.length,
+                                      separatorBuilder: (_, __) => const SizedBox(width: 8),
+                                      itemBuilder: (context, i) {
+                                        final item = allColors[i];
+                                        final entry = item.entry;
+                                        final locked = item.exclusive && !supporter.isSupporter;
+                                        final isSelected = settings.seedColor.value == entry.color.value;
+                                        return Tooltip(
+                                          message: locked ? '${entry.label} (Supporter)' : entry.label,
+                                          child: GestureDetector(
+                                            onTap: locked
+                                                ? () => _showSupporterLockedSnack(context)
+                                                : () => settings.setSeedColor(entry.color),
+                                            child: AnimatedContainer(
+                                              duration: const Duration(milliseconds: 200),
+                                              width: 44,
+                                              height: 44,
+                                              decoration: BoxDecoration(
+                                                color: locked ? entry.color.withOpacity(0.35) : entry.color,
+                                                shape: BoxShape.circle,
+                                                border: Border.all(
+                                                  color: isSelected ? Colors.white : Colors.transparent,
+                                                  width: 3,
+                                                ),
+                                                boxShadow: isSelected
+                                                    ? [
+                                                        BoxShadow(
+                                                          color: entry.color.withOpacity(0.6),
+                                                          blurRadius: 8,
+                                                          spreadRadius: 2,
+                                                        ),
+                                                      ]
+                                                    : null,
+                                              ),
+                                              child: locked
+                                                  ? const Icon(Icons.lock_rounded, color: Colors.white70, size: 18)
+                                                  : isSelected
+                                                      ? const Icon(Icons.check, color: Colors.white, size: 20)
+                                                      : null,
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                  if (!supporter.isSupporter) ...[
+                                    const SizedBox(height: 6),
+                                    Row(
+                                      children: [
+                                        const Icon(Icons.lock_rounded, size: 12, color: Color(0xFFFFD93D)),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          '10 colores extra para supporters de Patreon',
+                                          style: TextStyle(fontSize: 11, color: context.textSecondary),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ],
+                              );
+                            },
+                          ),
+                        ],
                       ),
                     ),
                     Consumer<AnimeProvider>(
@@ -279,9 +389,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
             Divider(color: context.cardColor, height: 24),
             ListTile(
               contentPadding: EdgeInsets.zero,
+              leading: Icon(Icons.new_releases_outlined, color: context.accentColor),
+              title: const Text('¿Qué hay de nuevo?'),
+              subtitle: const Text('Novedades de la versión actual'),
+              trailing: Icon(Icons.chevron_right, color: context.textSecondary),
+              onTap: () => _showWhatsNewDialog(context),
+            ),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
               leading: Icon(Icons.info_outline, color: context.primaryColor),
               title: const Text('Versión de la app'),
-              subtitle: const Text('2.0.'),
+              subtitle: const Text('2.0.8'),
             ),
             ListTile(
               contentPadding: EdgeInsets.zero,
@@ -356,6 +474,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
         ),
       ],
+    );
+  }
+
+  void _showSupporterLockedSnack(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Row(
+          children: [
+            Icon(Icons.lock_rounded, color: Color(0xFFFFD93D), size: 16),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Color exclusivo para supporters de Patreon 👑',
+                style: TextStyle(fontSize: 13),
+              ),
+            ),
+          ],
+        ),
+        action: SnackBarAction(
+          label: 'Apoyar',
+          onPressed: () => launchUrl(Uri.parse('https://www.patreon.com')),
+        ),
+        duration: const Duration(seconds: 3),
+      ),
     );
   }
 
@@ -498,6 +640,104 @@ class _SettingsScreenState extends State<SettingsScreen> {
       userId: authProvider.userId!,
       displayName: authProvider.displayName ?? 'Usuario',
       photoUrl: authProvider.photoUrl,
+    );
+  }
+
+  void _showWhatsNewDialog(BuildContext context) {
+    const changelog = [
+      _ChangelogEntry(
+        version: '2.0.8',
+        date: 'Junio 2025',
+        highlights: [
+          '👑 Sistema de Supporters con beneficios exclusivos',
+          '🎨 10 colores de acento exclusivos para supporters',
+          '💬 Chat mejorado: cooldown, límite de caracteres y stickers VIP',
+          '🏆 Insignia de Supporter en perfil, comentarios y chat',
+          '🔎 Historial de búsquedas guardado localmente',
+          '📖 Tema del lector de novelas persistente entre capítulos',
+          '🖼️ Lector de novelas: eliminación de imágenes embebidas en texto',
+          '🔔 Markdown en notas de actualización (negritas, listas, etc.)',
+        ],
+      ),
+      _ChangelogEntry(
+        version: '2.0.7',
+        date: 'Mayo 2025',
+        highlights: [
+          '📚 Novelas con SkyNovels integrado',
+          '📺 Episodios con MonosChinos',
+          '🖼️ Mejoras de imágenes y caché',
+          '🌙 Modo OLED en el lector de novelas',
+        ],
+      ),
+    ];
+
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: context.cardColor,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Icon(Icons.auto_awesome_rounded, color: context.accentColor, size: 24),
+            const SizedBox(width: 10),
+            const Text('¿Qué hay de nuevo?', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: changelog.map((entry) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: context.primaryColor.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            'v${entry.version}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: context.primaryColor,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          entry.date,
+                          style: TextStyle(fontSize: 11, color: context.textSecondary),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    ...entry.highlights.map((h) => Padding(
+                      padding: const EdgeInsets.only(bottom: 5),
+                      child: Text(
+                        h,
+                        style: TextStyle(fontSize: 13, color: context.textPrimary, height: 1.4),
+                      ),
+                    )),
+                    const SizedBox(height: 16),
+                  ],
+                );
+              }).toList(),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cerrar'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -924,4 +1164,16 @@ class _ProfilePrivacyCardState extends State<_ProfilePrivacyCard> {
       },
     );
   }
+}
+
+class _ChangelogEntry {
+  final String version;
+  final String date;
+  final List<String> highlights;
+
+  const _ChangelogEntry({
+    required this.version,
+    required this.date,
+    required this.highlights,
+  });
 }

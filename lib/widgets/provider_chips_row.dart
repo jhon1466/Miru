@@ -31,11 +31,11 @@ class ProviderChipsRow extends StatelessWidget {
             label: Text(p['name'] ?? 'Todos'),
             selected: selected,
             onSelected: (_) => provider.selectProvider(domain),
-            selectedColor: AppTheme.primaryColor.withValues(alpha: 0.25),
-            checkmarkColor: AppTheme.primaryColor,
+            selectedColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.25),
+            checkmarkColor: Theme.of(context).colorScheme.primary,
             labelStyle: TextStyle(
               fontSize: 12,
-              color: selected ? AppTheme.primaryColor : AppTheme.textSecondary,
+              color: selected ? Theme.of(context).colorScheme.primary : AppTheme.textSecondary,
               fontWeight: selected ? FontWeight.bold : FontWeight.normal,
             ),
           );

@@ -18,6 +18,8 @@ import 'providers/chat_provider.dart';
 import 'providers/download_provider.dart';
 import 'providers/settings_provider.dart';
 import 'providers/connectivity_provider.dart';
+import 'providers/tv_provider.dart';
+import 'providers/supporter_provider.dart';
 import 'services/push_notification_service.dart';
 import 'services/deep_link_service.dart';
 import 'services/anilist_service.dart';
@@ -29,20 +31,26 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  // Pre-detección nativa (UiModeManager); MediaQuery refina en el primer build
+  final tvProvider = TVProvider();
+  await tvProvider.detectNative();
+
   unawaited(PushNotificationService.initialize());
   unawaited(DownloadNotificationService.initialize());
   unawaited(DeepLinkService.initialize());
   unawaited(AniListService.init());
-  runApp(const MyApp());
+  runApp(MyApp(tvProvider: tvProvider));
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  final TVProvider tvProvider;
+  const MyApp({super.key, required this.tvProvider});
 
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
+        ChangeNotifierProvider<TVProvider>.value(value: tvProvider),
         ChangeNotifierProvider(create: (_) => ConnectivityProvider()),
         ChangeNotifierProvider(create: (_) => AnimeProvider()),
         ChangeNotifierProvider(create: (_) => MangaProvider()),
@@ -55,6 +63,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => NotificationProvider()),
         ChangeNotifierProvider(create: (_) => ChatProvider()..startListening()),
         ChangeNotifierProvider(create: (_) => DownloadProvider()..loadLibrary()),
+        ChangeNotifierProvider(create: (_) => SupporterProvider()),
       ],
       child: Builder(
         builder: (context) {
@@ -64,8 +73,8 @@ class MyApp extends StatelessWidget {
             navigatorKey: AppNavigator.key,
             title: 'Miru Client',
             debugShowCheckedModeBanner: false,
-            theme: AppTheme.lightTheme,
-            darkTheme: AppTheme.darkTheme,
+            theme: AppTheme.lightTheme(settings.effectiveSeedColor),
+            darkTheme: AppTheme.darkTheme(settings.effectiveSeedColor),
             themeMode: settings.themeMode,
             builder: (context, child) {
               final isDark = Theme.of(context).brightness == Brightness.dark;

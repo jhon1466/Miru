@@ -15,6 +15,8 @@ import '../utils/image_utils.dart';
 import '../services/follow_service.dart';
 import '../widgets/media_rating_section.dart';
 import '../services/completed_service.dart';
+import '../providers/supporter_provider.dart';
+import '../providers/download_provider.dart';
 import 'player_screen.dart';
 
 class DetailScreen extends StatefulWidget {
@@ -58,6 +60,105 @@ class _DetailScreenState extends State<DetailScreen> {
         _scrollToComments();
       }
     });
+  }
+
+  void _showSupporterRequired(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Row(
+          children: [
+            Text('👑', style: TextStyle(fontSize: 16)),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Descarga en lote exclusivo para supporters de Patreon',
+                style: TextStyle(fontSize: 13),
+              ),
+            ),
+          ],
+        ),
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
+  void _showBatchDownloadDialog(BuildContext context, AnimeDetails details) {
+    final episodes = details.episodes;
+    if (episodes.isEmpty) return;
+
+    final preferSub = true;
+    showDialog<void>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          backgroundColor: Theme.of(context).cardTheme.color ?? Theme.of(context).colorScheme.surface,
+          title: Row(
+            children: [
+              const Text('👑 ', style: TextStyle(fontSize: 20)),
+              Expanded(
+                child: Text(
+                  'Descarga en lote',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurface,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          content: Text(
+            'Se intentará descargar los ${episodes.length} episodios de "${details.title}".\n\n'
+            'Las descargas se añadirán a la cola una a una. ¿Continuar?',
+            style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7)),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancelar'),
+            ),
+            ElevatedButton.icon(
+              icon: const Icon(Icons.download_rounded),
+              label: Text('Descargar ${episodes.length} eps'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.primary,
+              ),
+              onPressed: () {
+                Navigator.pop(ctx);
+                _startBatchDownload(context, details, preferSub);
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _startBatchDownload(
+    BuildContext context,
+    AnimeDetails details,
+    bool preferSub,
+  ) async {
+    final downloads = context.read<DownloadProvider>();
+    int queued = 0;
+    for (final ep in details.episodes) {
+      await downloads.startEpisodeDownload(
+        episodeUrl: ep.url,
+        episodeNumber: ep.number,
+        animeTitle: details.title,
+        animeUrl: widget.animeUrl,
+        animeImage: widget.animeImage ?? '',
+        preferSub: preferSub,
+      );
+      queued++;
+    }
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('$queued episodios añadidos a la cola de descarga'),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
   }
 
   void _scrollToComments() {
@@ -701,18 +802,41 @@ class _DetailScreenState extends State<DetailScreen> {
                         'Episodios (${details.episodes.length})',
                         style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: context.textPrimary),
                       ),
-                      // Botón para invertir orden
-                      IconButton(
-                        icon: Icon(
-                          _reverseEpisodeOrder ? Icons.arrow_downward : Icons.arrow_upward,
-                          color: context.primaryColor,
-                        ),
-                        tooltip: _reverseEpisodeOrder ? 'Mostrar del primero al último' : 'Mostrar del último al primero',
-                        onPressed: () {
-                          setState(() {
-                            _reverseEpisodeOrder = !_reverseEpisodeOrder;
-                          });
-                        },
+                      Row(
+                        children: [
+                          // Botón descarga en lote (supporter)
+                          Consumer<SupporterProvider>(
+                            builder: (context, supporter, _) {
+                              return IconButton(
+                                icon: Icon(
+                                  Icons.download_for_offline_rounded,
+                                  color: supporter.isSupporter
+                                      ? context.primaryColor
+                                      : context.textSecondary.withOpacity(0.5),
+                                ),
+                                tooltip: supporter.isSupporter
+                                    ? 'Descargar todos los episodios (Supporter)'
+                                    : 'Descarga en lote (exclusivo Supporter)',
+                                onPressed: supporter.isSupporter
+                                    ? () => _showBatchDownloadDialog(context, details)
+                                    : () => _showSupporterRequired(context),
+                              );
+                            },
+                          ),
+                          // Botón para invertir orden
+                          IconButton(
+                            icon: Icon(
+                              _reverseEpisodeOrder ? Icons.arrow_downward : Icons.arrow_upward,
+                              color: context.primaryColor,
+                            ),
+                            tooltip: _reverseEpisodeOrder ? 'Mostrar del primero al último' : 'Mostrar del último al primero',
+                            onPressed: () {
+                              setState(() {
+                                _reverseEpisodeOrder = !_reverseEpisodeOrder;
+                              });
+                            },
+                          ),
+                        ],
                       ),
                     ],
                   ),

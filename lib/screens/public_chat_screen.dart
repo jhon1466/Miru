@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 
 import '../core/theme.dart';
 import '../providers/auth_provider.dart' as app_auth;
+import '../providers/supporter_provider.dart';
 import '../widgets/sticker_picker_sheet.dart';
 import '../widgets/fullscreen_image_viewer.dart';
 import '../widgets/emoji_reaction_picker.dart';
@@ -28,6 +29,8 @@ class _PublicChatScreenState extends State<PublicChatScreen> {
 
   MessageModel? _replyToMessage;
   bool _isSending = false;
+  DateTime? _lastMessageTime;
+  int _cooldownRemaining = 0;
 
   final GlobalKey _targetMessageKey = GlobalKey();
   String? _scrollTargetId;
@@ -64,9 +67,9 @@ class _PublicChatScreenState extends State<PublicChatScreen> {
               stream: _chatStream,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(
+                  return Center(
                     child: CircularProgressIndicator(
-                      valueColor: AlwaysStoppedAnimation(AppTheme.primaryColor),
+                      valueColor: AlwaysStoppedAnimation(Theme.of(context).colorScheme.primary),
                     ),
                   );
                 }
@@ -146,8 +149,8 @@ class _PublicChatScreenState extends State<PublicChatScreen> {
 
           // Área de carga
           if (_isSending)
-            const LinearProgressIndicator(
-              valueColor: AlwaysStoppedAnimation(AppTheme.primaryColor),
+            LinearProgressIndicator(
+              valueColor: AlwaysStoppedAnimation(Theme.of(context).colorScheme.primary),
               minHeight: 2,
             ),
 
@@ -221,13 +224,44 @@ class _PublicChatScreenState extends State<PublicChatScreen> {
                     if (!isMe)
                       GestureDetector(
                         onTap: () => _navigateToProfile(context, msg),
-                        child: Text(
-                          msg.userName,
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: context.textSecondary,
-                          ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (msg.isSupporter) ...[
+                              const Text('👑', style: TextStyle(fontSize: 11)),
+                              const SizedBox(width: 3),
+                            ],
+                            Text(
+                              msg.userName,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: msg.isSupporter
+                                    ? const Color(0xFFFFD93D)
+                                    : context.textSecondary,
+                              ),
+                            ),
+                            if (msg.isSupporter) ...[
+                              const SizedBox(width: 4),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFFD93D).withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(5),
+                                  border: Border.all(color: const Color(0xFFFFD93D).withValues(alpha: 0.4), width: 0.5),
+                                ),
+                                child: const Text(
+                                  'Supporter',
+                                  style: TextStyle(
+                                    fontSize: 8,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFFFFD93D),
+                                    letterSpacing: 0.2,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                       ),
                     const SizedBox(height: 2),
@@ -370,13 +404,13 @@ class _PublicChatScreenState extends State<PublicChatScreen> {
     final initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
     return CircleAvatar(
       radius: radius,
-      backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.25),
+      backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.25),
       child: Text(
         initial,
         style: TextStyle(
           fontSize: radius * 0.9,
           fontWeight: FontWeight.bold,
-          color: AppTheme.primaryColor,
+          color: Theme.of(context).colorScheme.primary,
         ),
       ),
     );
@@ -432,6 +466,10 @@ class _PublicChatScreenState extends State<PublicChatScreen> {
   }
 
   Widget _buildInputBar(BuildContext context, app_auth.AuthProvider authProvider) {
+    final supporter = context.watch<SupporterProvider>();
+    final maxLength = supporter.maxMessageLength;
+    final isCooling = _cooldownRemaining > 0;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
@@ -441,50 +479,85 @@ class _PublicChatScreenState extends State<PublicChatScreen> {
         ),
       ),
       child: SafeArea(
-        child: Row(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            // Botón adjuntar imagen
-            IconButton(
-              icon: Icon(Icons.image, color: context.primaryColor),
-              onPressed: () => _pickAndUploadImage(authProvider),
-            ),
-            // Botón stickers
-            IconButton(
-              icon: Icon(Icons.emoji_emotions, color: context.accentColor),
-              onPressed: () => _pickSticker(authProvider),
-            ),
-            // Input texto
-            Expanded(
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                decoration: BoxDecoration(
-                  color: context.backgroundColor,
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(
-                    color: context.textSecondary.withValues(alpha: 0.15),
-                  ),
-                ),
-                child: TextField(
-                  controller: _messageController,
-                  maxLines: null,
-                  style: TextStyle(color: context.textPrimary, fontSize: 14),
-                  decoration: const InputDecoration(
-                    hintText: 'Escribe un mensaje...',
-                    filled: false,
-                    border: InputBorder.none,
-                    focusedBorder: InputBorder.none,
-                    enabledBorder: InputBorder.none,
-                    disabledBorder: InputBorder.none,
-                    contentPadding: EdgeInsets.symmetric(vertical: 8),
-                  ),
+            if (isCooling)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.timer_outlined, size: 12, color: context.textSecondary),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Espera $_cooldownRemaining s para enviar otro mensaje',
+                      style: TextStyle(fontSize: 11, color: context.textSecondary),
+                    ),
+                  ],
                 ),
               ),
-            ),
-            const SizedBox(width: 8),
-            // Botón enviar
-            IconButton(
-              icon: Icon(Icons.send_rounded, color: context.primaryColor),
-              onPressed: () => _sendMessage(authProvider),
+            Row(
+              children: [
+                // Botón adjuntar imagen
+                IconButton(
+                  icon: Icon(Icons.image, color: context.primaryColor),
+                  onPressed: () => _pickAndUploadImage(authProvider),
+                ),
+                // Botón stickers
+                IconButton(
+                  icon: Icon(Icons.emoji_emotions, color: context.accentColor),
+                  onPressed: () => _pickSticker(authProvider),
+                ),
+                // Input texto
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      color: context.backgroundColor,
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(
+                        color: context.textSecondary.withValues(alpha: 0.15),
+                      ),
+                    ),
+                    child: TextField(
+                      controller: _messageController,
+                      maxLines: null,
+                      maxLength: maxLength,
+                      style: TextStyle(color: context.textPrimary, fontSize: 14),
+                      decoration: InputDecoration(
+                        hintText: 'Escribe un mensaje...',
+                        filled: false,
+                        border: InputBorder.none,
+                        focusedBorder: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        disabledBorder: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                        counterStyle: TextStyle(fontSize: 10, color: context.textSecondary),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // Botón enviar
+                isCooling
+                    ? CircleAvatar(
+                        radius: 20,
+                        backgroundColor: context.textSecondary.withValues(alpha: 0.1),
+                        child: Text(
+                          '$_cooldownRemaining',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: context.textSecondary,
+                          ),
+                        ),
+                      )
+                    : IconButton(
+                        icon: Icon(Icons.send_rounded, color: context.primaryColor),
+                        onPressed: () => _sendMessage(authProvider),
+                      ),
+              ],
             ),
           ],
         ),
@@ -523,6 +596,19 @@ class _PublicChatScreenState extends State<PublicChatScreen> {
     final text = _messageController.text.trim();
     if (text.isEmpty && fileUrl == null && stickerCode == null) return;
 
+    final supporter = context.read<SupporterProvider>();
+
+    // Cooldown check
+    if (!supporter.isSupporter && _lastMessageTime != null) {
+      final elapsed = DateTime.now().difference(_lastMessageTime!);
+      final cooldown = supporter.messageCooldown;
+      if (elapsed < cooldown) {
+        final remaining = (cooldown - elapsed).inSeconds + 1;
+        _startCooldownTimer(remaining);
+        return;
+      }
+    }
+
     setState(() => _isSending = true);
 
     final docRef = _db.collection('public_chat').doc();
@@ -535,6 +621,7 @@ class _PublicChatScreenState extends State<PublicChatScreen> {
       'fileUrl': fileUrl,
       'stickerCode': stickerCode,
       'isEdited': false,
+      'isSupporter': supporter.isSupporter,
       'replyToId': _replyToMessage?.id,
       'replyToName': _replyToMessage?.userName,
       'replyToText': _replyToMessage != null
@@ -551,6 +638,7 @@ class _PublicChatScreenState extends State<PublicChatScreen> {
     try {
       await docRef.set(messageData);
       _messageController.clear();
+      _lastMessageTime = DateTime.now();
       setState(() {
         _replyToMessage = null;
       });
@@ -564,6 +652,16 @@ class _PublicChatScreenState extends State<PublicChatScreen> {
     } finally {
       setState(() => _isSending = false);
     }
+  }
+
+  void _startCooldownTimer(int seconds) {
+    setState(() => _cooldownRemaining = seconds);
+    Future.doWhile(() async {
+      await Future.delayed(const Duration(seconds: 1));
+      if (!mounted) return false;
+      setState(() => _cooldownRemaining--);
+      return _cooldownRemaining > 0;
+    });
   }
 
   Future<void> _pickAndUploadImage(
@@ -673,7 +771,7 @@ class _PublicChatScreenState extends State<PublicChatScreen> {
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
                             color: hasReacted
-                                ? AppTheme.primaryColor.withValues(alpha: 0.15)
+                                ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.15)
                                 : Colors.transparent,
                             borderRadius: BorderRadius.circular(12),
                           ),
@@ -901,6 +999,7 @@ class MessageModel {
   final String? replyToText;
   final DateTime? timestamp;
   final Map<String, String> reactions;
+  final bool isSupporter;
 
   MessageModel({
     required this.id,
@@ -916,6 +1015,7 @@ class MessageModel {
     this.replyToText,
     this.timestamp,
     required this.reactions,
+    this.isSupporter = false,
   });
 
   factory MessageModel.fromFirestore(DocumentSnapshot doc) {
@@ -934,6 +1034,7 @@ class MessageModel {
       replyToText: data['replyToText']?.toString(),
       timestamp: (data['timestamp'] as Timestamp?)?.toDate(),
       reactions: Map<String, String>.from(data['reactions'] is Map ? data['reactions'] : {}),
+      isSupporter: data['isSupporter'] == true,
     );
   }
 }

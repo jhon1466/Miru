@@ -48,3 +48,8 @@ app.*.map.json
 lib/core/firebase_options.dart
 lib/firebase_options.dart
 android/app/google-services.json
+node_modules/
+_firestore_tmp/
+package-lock.json
+package.json
+.firebase/

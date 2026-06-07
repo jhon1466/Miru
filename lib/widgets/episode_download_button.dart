@@ -38,7 +38,7 @@ class EpisodeDownloadButton extends StatelessWidget {
       SnackBar(
         content: const Text('Descarga iniciada. Revisa el progreso en Mis descargas.'),
         duration: const Duration(seconds: 3),
-        backgroundColor: AppTheme.primaryColor,
+        backgroundColor: Theme.of(context).colorScheme.primary,
         action: SnackBarAction(
           label: 'Ver',
           textColor: Colors.white,
@@ -122,7 +122,7 @@ class EpisodeDownloadButton extends StatelessWidget {
       return _buildControl(
         context,
         icon: Icons.downloading,
-        color: AppTheme.primaryColor,
+        color: Theme.of(context).colorScheme.primary,
         label: pct != null ? '$pct%' : '…',
         onPressed: () {
           Navigator.push(

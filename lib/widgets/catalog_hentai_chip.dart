@@ -32,11 +32,11 @@ class CatalogHentaiChip extends StatelessWidget {
                 );
                 provider.loadCatalog(forceNetwork: true);
               },
-              selectedColor: AppTheme.primaryColor.withValues(alpha: 0.25),
-              checkmarkColor: AppTheme.primaryColor,
+              selectedColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.25),
+              checkmarkColor: Theme.of(context).colorScheme.primary,
               labelStyle: TextStyle(
                 fontSize: 12,
-                color: isHentai ? AppTheme.primaryColor : AppTheme.textSecondary,
+                color: isHentai ? Theme.of(context).colorScheme.primary : AppTheme.textSecondary,
                 fontWeight: isHentai ? FontWeight.bold : FontWeight.normal,
               ),
             ),

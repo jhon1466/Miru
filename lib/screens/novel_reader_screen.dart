@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../core/theme.dart';
 import '../models/novel.dart';
 import '../providers/novel_provider.dart';
@@ -41,18 +42,42 @@ class _NovelReaderScreenState extends State<NovelReaderScreen> {
   final ScrollController _scrollController = ScrollController();
   bool _historyRegistered = false;
 
+  static const _keyFontSize = 'novel_reader_font_size';
+  static const _keyTheme    = 'novel_reader_theme';
+
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      final provider = context.read<NovelProvider>();
-      await provider.loadChapterContent(
-        widget.chapter.url,
-        novelId: widget.novelId,
-        chapterId: widget.chapter.id,
-      );
-      _registerHistory();
+    _loadPrefs().then((_) {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        final provider = context.read<NovelProvider>();
+        await provider.loadChapterContent(
+          widget.chapter.url,
+          novelId: widget.novelId,
+          chapterId: widget.chapter.id,
+        );
+        _registerHistory();
+      });
     });
+  }
+
+  Future<void> _loadPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() {
+      _fontSize = prefs.getDouble(_keyFontSize) ?? 16.0;
+      final saved = prefs.getString(_keyTheme);
+      _theme = ReaderTheme.values.firstWhere(
+        (t) => t.name == saved,
+        orElse: () => ReaderTheme.dark,
+      );
+    });
+  }
+
+  Future<void> _savePrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble(_keyFontSize, _fontSize);
+    await prefs.setString(_keyTheme, _theme.name);
   }
 
   void _registerHistory() {
@@ -85,12 +110,12 @@ class _NovelReaderScreenState extends State<NovelReaderScreen> {
         _fontSize -= 2.0;
       }
     });
+    _savePrefs();
   }
 
   void _setTheme(ReaderTheme targetTheme) {
-    setState(() {
-      _theme = targetTheme;
-    });
+    setState(() => _theme = targetTheme);
+    _savePrefs();
   }
 
   Color _getBgColor(BuildContext context) {
@@ -198,7 +223,13 @@ class _NovelReaderScreenState extends State<NovelReaderScreen> {
       appBar: AppBar(
         backgroundColor: bgColor,
         foregroundColor: textColor,
+        iconTheme: IconThemeData(color: textColor),
+        actionsIconTheme: IconThemeData(color: textColor),
         systemOverlayStyle: _getSystemOverlayStyle(),
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back_ios_new_rounded, color: textColor, size: 20),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

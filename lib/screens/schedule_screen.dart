@@ -80,7 +80,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
       ),
       body: RefreshIndicator(
         onRefresh: _loadSchedule,
-        color: AppTheme.primaryColor,
+        color: Theme.of(context).colorScheme.primary,
         child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
@@ -117,10 +117,10 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                             label: Text(day),
                             selected: selected,
                             onSelected: (_) => setState(() => _selectedDay = day),
-                            selectedColor: AppTheme.primaryColor.withValues(alpha: 0.25),
-                            checkmarkColor: AppTheme.primaryColor,
+                            selectedColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.25),
+                            checkmarkColor: Theme.of(context).colorScheme.primary,
                             labelStyle: TextStyle(
-                              color: selected ? AppTheme.primaryColor : context.textSecondary,
+                              color: selected ? Theme.of(context).colorScheme.primary : context.textSecondary,
                               fontWeight: selected ? FontWeight.bold : FontWeight.normal,
                             ),
                           );
@@ -133,8 +133,8 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
               ),
             ),
             if (_loading && _schedule == null)
-              const SliverFillRemaining(
-                child: Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
+              SliverFillRemaining(
+                child: Center(child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary)),
               )
             else if (_error != null && _schedule == null)
               SliverFillRemaining(

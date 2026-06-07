@@ -96,13 +96,13 @@ class _UpdateDialogContentState extends State<_UpdateDialogContent> {
       backgroundColor: context.cardColor,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(24),
-        side: BorderSide(color: AppTheme.primaryColor.withValues(alpha: 0.2), width: 1.5),
+        side: BorderSide(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2), width: 1.5),
       ),
-      title: const Row(
+      title: Row(
         children: [
-          Icon(Icons.system_update_rounded, color: AppTheme.primaryColor, size: 28),
-          SizedBox(width: 12),
-          Expanded(
+          Icon(Icons.system_update_rounded, color: Theme.of(context).colorScheme.primary, size: 28),
+          const SizedBox(width: 12),
+          const Expanded(
             child: Text(
               'Actualización disponible',
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.white),
@@ -117,14 +117,14 @@ class _UpdateDialogContentState extends State<_UpdateDialogContent> {
           children: [
             Text(
               'Versión ${widget.info.latestVersion}',
-              style: TextStyle(color: AppTheme.accentColor, fontWeight: FontWeight.bold),
+              style: TextStyle(color: Theme.of(context).colorScheme.secondary, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
             if (_isDownloading || _progress != null) ...[
               LinearProgressIndicator(
                 value: _progress != null ? _progress! / 100 : null,
                 backgroundColor: context.backgroundColor,
-                color: AppTheme.primaryColor,
+                color: Theme.of(context).colorScheme.primary,
               ),
               const SizedBox(height: 8),
               Text(
@@ -144,9 +144,9 @@ class _UpdateDialogContentState extends State<_UpdateDialogContent> {
                 borderRadius: BorderRadius.circular(10),
               ),
               child: SingleChildScrollView(
-                child: Text(
-                  widget.info.releaseNotes,
-                  style: TextStyle(fontSize: 12, color: context.textSecondary, height: 1.4),
+                child: _MarkdownText(
+                  text: widget.info.releaseNotes,
+                  baseStyle: TextStyle(fontSize: 12, color: context.textSecondary, height: 1.4),
                 ),
               ),
             ),
@@ -171,9 +171,87 @@ class _UpdateDialogContentState extends State<_UpdateDialogContent> {
             onPressed: _canInstallInApp ? _startDownload : _openBrowser,
             icon: Icon(_canInstallInApp ? Icons.download_rounded : Icons.open_in_browser, size: 18),
             label: Text(_canInstallInApp ? 'Actualizar ahora' : 'Abrir en navegador'),
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor),
+            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
           ),
       ],
     );
+  }
+}
+
+/// Renderiza texto con soporte básico de Markdown:
+/// **negrita**, *cursiva*, - listas, ### títulos
+class _MarkdownText extends StatelessWidget {
+  final String text;
+  final TextStyle baseStyle;
+
+  const _MarkdownText({required this.text, required this.baseStyle});
+
+  @override
+  Widget build(BuildContext context) {
+    final lines = text.split('\n');
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: lines.map((line) => _buildLine(line)).toList(),
+    );
+  }
+
+  Widget _buildLine(String line) {
+    if (line.trim().isEmpty) return const SizedBox(height: 4);
+
+    // Títulos: ### ## #
+    final headerMatch = RegExp(r'^(#{1,3})\s+(.+)$').firstMatch(line);
+    if (headerMatch != null) {
+      final level = headerMatch.group(1)!.length;
+      final content = headerMatch.group(2)!;
+      final size = level == 1 ? 15.0 : level == 2 ? 13.5 : 12.5;
+      return Padding(
+        padding: const EdgeInsets.only(top: 6, bottom: 2),
+        child: Text(
+          content,
+          style: baseStyle.copyWith(fontWeight: FontWeight.bold, fontSize: size),
+        ),
+      );
+    }
+
+    // Listas: - item o * item
+    final listMatch = RegExp(r'^\s*[-*•]\s+(.+)$').firstMatch(line);
+    if (listMatch != null) {
+      return Padding(
+        padding: const EdgeInsets.only(left: 4, top: 1),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('• ', style: baseStyle),
+            Expanded(child: _buildRichText(listMatch.group(1)!)),
+          ],
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 1),
+      child: _buildRichText(line),
+    );
+  }
+
+  Widget _buildRichText(String line) {
+    final spans = <InlineSpan>[];
+    final pattern = RegExp(r'\*\*(.+?)\*\*|\*(.+?)\*|([^*]+)');
+    for (final m in pattern.allMatches(line)) {
+      if (m.group(1) != null) {
+        spans.add(TextSpan(
+          text: m.group(1),
+          style: baseStyle.copyWith(fontWeight: FontWeight.bold),
+        ));
+      } else if (m.group(2) != null) {
+        spans.add(TextSpan(
+          text: m.group(2),
+          style: baseStyle.copyWith(fontStyle: FontStyle.italic),
+        ));
+      } else if (m.group(3) != null) {
+        spans.add(TextSpan(text: m.group(3), style: baseStyle));
+      }
+    }
+    return RichText(text: TextSpan(children: spans));
   }
 }
