@@ -18,6 +18,7 @@ import 'notifications_screen.dart';
 import 'public_chat_screen.dart';
 import '../providers/chat_provider.dart';
 import 'profile_tab_screen.dart';
+import '../providers/supporter_provider.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -64,8 +65,8 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             Container(
               padding: const EdgeInsets.all(6),
-              decoration: const BoxDecoration(
-                color: AppTheme.primaryColor,
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primary,
                 shape: BoxShape.circle,
               ),
               child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 18),
@@ -147,10 +148,10 @@ class _HomeScreenState extends State<HomeScreen> {
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: context.textPrimary),
             ),
           ),
-          const SizedBox(
+          SizedBox(
             height: 180,
             child: Center(
-              child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation(AppTheme.primaryColor)),
+              child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation(Theme.of(context).colorScheme.primary)),
             ),
           ),
         ],
@@ -265,10 +266,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildLatestPublishedSection(BuildContext context, AnimeProvider provider) {
     if (provider.isLoadingLatestEpisodes && provider.latestPublishedEpisodes.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.only(top: 24),
+      return Padding(
+        padding: const EdgeInsets.only(top: 24),
         child: Center(
-          child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation(AppTheme.primaryColor)),
+          child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation(Theme.of(context).colorScheme.primary)),
         ),
       );
     }
@@ -363,7 +364,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                   decoration: BoxDecoration(
-                                    color: AppTheme.primaryColor,
+                                    color: Theme.of(context).colorScheme.primary,
                                     borderRadius: BorderRadius.circular(6),
                                   ),
                                   child: Text(
@@ -706,11 +707,11 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           if (isLoading && items.isEmpty)
-            const Padding(
-              padding: EdgeInsets.all(24),
+            Padding(
+              padding: const EdgeInsets.all(24),
               child: Center(
                 child: CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation(AppTheme.primaryColor),
+                  valueColor: AlwaysStoppedAnimation(Theme.of(context).colorScheme.primary),
                 ),
               ),
             )
@@ -727,7 +728,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   Icon(
                     isFavorites ? Icons.bookmark_outline : Icons.notifications_none_outlined,
                     size: 40,
-                    color: AppTheme.primaryColor,
+                    color: Theme.of(context).colorScheme.primary,
                   ),
                   const SizedBox(height: 12),
                   Text(
@@ -879,9 +880,9 @@ class _NotificationsBell extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
               constraints: const BoxConstraints(minWidth: 16),
-              decoration: const BoxDecoration(
-                color: AppTheme.accentColor,
-                borderRadius: BorderRadius.all(Radius.circular(10)),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.secondary,
+                borderRadius: const BorderRadius.all(Radius.circular(10)),
               ),
               child: Text(
                 unread > 9 ? '9+' : '$unread',
@@ -954,22 +955,146 @@ class _ProfileIconButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final photoUrl = authProvider.photoUrl;
+    final isSupporter = context.watch<SupporterProvider>().isSupporter;
 
-    return IconButton(
-      tooltip: authProvider.isLoggedIn ? 'Mi Perfil' : 'Iniciar sesión',
-      onPressed: () {
-        Navigator.push(
+    void goToProfile() => Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const ProfileTabScreen()),
         );
-      },
-      icon: authProvider.isLoggedIn && photoUrl != null
-          ? CircleAvatar(
-              radius: 14,
-              backgroundImage: NetworkImage(photoUrl),
-              backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.2),
-            )
-          : const Icon(Icons.person_outline_rounded, size: 26),
+
+    if (authProvider.isLoggedIn && photoUrl != null) {
+      return Tooltip(
+        message: 'Mi Perfil',
+        child: GestureDetector(
+          onTap: goToProfile,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            child: _AvatarWithFrame(photoUrl: photoUrl, isSupporter: isSupporter),
+          ),
+        ),
+      );
+    }
+
+    return IconButton(
+      tooltip: 'Iniciar sesión',
+      onPressed: goToProfile,
+      icon: const Icon(Icons.person_outline_rounded, size: 26),
+    );
+  }
+}
+
+class _AvatarWithFrame extends StatelessWidget {
+  final String photoUrl;
+  final bool isSupporter;
+
+  const _AvatarWithFrame({required this.photoUrl, required this.isSupporter});
+
+  @override
+  Widget build(BuildContext context) {
+    const double size     = 34.0;   // diámetro total del avatar
+    const double ring     = 2.5;    // grosor del anillo
+    const double gap      = 2.0;    // gap entre anillo y foto
+    const double badgeD   = 16.0;   // diámetro del badge de corona
+    final bg = Theme.of(context).scaffoldBackgroundColor;
+
+    final photo = ClipOval(
+      child: CachedNetworkImage(
+        imageUrl: photoUrl,
+        width: size - (ring + gap) * 2,
+        height: size - (ring + gap) * 2,
+        fit: BoxFit.cover,
+      ),
+    );
+
+    if (!isSupporter) {
+      return ClipOval(
+        child: CachedNetworkImage(
+          imageUrl: photoUrl,
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+        ),
+      );
+    }
+
+    return SizedBox(
+      width: size,
+      height: size + badgeD * 0.5, // espacio extra arriba para la corona
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          // ── Posiciona el círculo en la parte inferior ─────
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: SizedBox(
+              width: size,
+              height: size,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  // Anillo degradado
+                  Container(
+                    width: size,
+                    height: size,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          Color(0xFFFFEC80),
+                          Color(0xFFFFD93D),
+                          Color(0xFFFF9A3C),
+                        ],
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFFFFD93D).withValues(alpha: 0.4),
+                          blurRadius: 8,
+                          spreadRadius: 0,
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Gap entre anillo y foto
+                  Container(
+                    width: size - ring * 2,
+                    height: size - ring * 2,
+                    decoration: BoxDecoration(shape: BoxShape.circle, color: bg),
+                  ),
+                  // Foto
+                  photo,
+                ],
+              ),
+            ),
+          ),
+          // ── Badge corona centrado arriba ──────────────────
+          Positioned(
+            top: 0,
+            left: size / 2 - badgeD / 2,
+            child: Container(
+              width: badgeD,
+              height: badgeD,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: const Color(0xFFFFD93D),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFFFFD93D).withValues(alpha: 0.6),
+                    blurRadius: 6,
+                    spreadRadius: 0,
+                  ),
+                ],
+              ),
+              child: const Center(
+                child: Text('👑', style: TextStyle(fontSize: 9, height: 1)),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

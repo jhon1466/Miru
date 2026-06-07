@@ -204,7 +204,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                         height: 8,
                         decoration: BoxDecoration(
                           color: active
-                              ? AppTheme.primaryColor
+                              ? Theme.of(context).colorScheme.primary
                               : textSec.withValues(alpha: 0.3),
                           borderRadius: BorderRadius.circular(4),
                         ),
@@ -221,7 +221,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                         ? ElevatedButton(
                             onPressed: _next,
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: AppTheme.primaryColor,
+                              backgroundColor: Theme.of(context).colorScheme.primary,
                               foregroundColor: Colors.white,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(16),
@@ -246,7 +246,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                         : ElevatedButton(
                             onPressed: _goHome,
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: AppTheme.primaryColor,
+                              backgroundColor: Theme.of(context).colorScheme.primary,
                               foregroundColor: Colors.white,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(16),
@@ -376,13 +376,13 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                   shape: BoxShape.circle,
                   gradient: LinearGradient(
                     colors: [
-                      AppTheme.primaryColor.withValues(alpha: 0.9),
+                      Theme.of(context).colorScheme.primary.withValues(alpha: 0.9),
                       const Color(0xFF0EA5E9).withValues(alpha: 0.8),
                     ],
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: AppTheme.primaryColor.withValues(alpha: 0.35),
+                      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.35),
                       blurRadius: 40,
                       spreadRadius: 8,
                     ),

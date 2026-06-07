@@ -144,7 +144,7 @@ class _AnimeTab extends StatelessWidget {
 
     return RefreshIndicator(
       onRefresh: downloads.loadLibrary,
-      color: AppTheme.primaryColor,
+      color: Theme.of(context).colorScheme.primary,
       child: active.isEmpty && failed.isEmpty && animeUrls.isEmpty
           ? _EmptyState(
               icon: Icons.download_for_offline_outlined,
@@ -214,7 +214,7 @@ class _MangaTab extends StatelessWidget {
     }
     return RefreshIndicator(
       onRefresh: onRefresh,
-      color: AppTheme.primaryColor,
+      color: Theme.of(context).colorScheme.primary,
       child: mangas.isEmpty
           ? _EmptyState(
               icon: Icons.menu_book_outlined,
@@ -281,8 +281,8 @@ class _MangaDownloadGroup extends StatelessWidget {
           final chapterId = ch['chapterId'] as String;
           final chapterNumber = ch['chapterNumber']?.toString() ?? '?';
           return ListTile(
-            leading: const Icon(Icons.chrome_reader_mode_outlined,
-                color: AppTheme.primaryColor),
+            leading: Icon(Icons.chrome_reader_mode_outlined,
+                color: Theme.of(context).colorScheme.primary),
             title: Text('Capítulo $chapterNumber'),
             subtitle: const Text('Sin conexión',
                 style: TextStyle(fontSize: 11, color: Colors.green)),
@@ -357,7 +357,7 @@ class _NovelTab extends StatelessWidget {
     }
     return RefreshIndicator(
       onRefresh: onRefresh,
-      color: AppTheme.primaryColor,
+      color: Theme.of(context).colorScheme.primary,
       child: novels.isEmpty
           ? _EmptyState(
               icon: Icons.auto_stories_outlined,
@@ -435,7 +435,7 @@ class _NovelDownloadGroup extends StatelessWidget {
 
           return ListTile(
             leading:
-                const Icon(Icons.auto_stories_outlined, color: AppTheme.primaryColor),
+                Icon(Icons.auto_stories_outlined, color: Theme.of(context).colorScheme.primary),
             title: Text(chapterTitle,
                 maxLines: 2, overflow: TextOverflow.ellipsis),
             subtitle: const Text('Sin conexión',
@@ -556,8 +556,8 @@ class _ActiveDownloadCard extends StatelessWidget {
 
     Color getStatusColor() {
       if (isFailed) return AppTheme.dangerColor;
-      if (isPaused) return AppTheme.accentColor;
-      return AppTheme.primaryColor;
+      if (isPaused) return Theme.of(context).colorScheme.secondary;
+      return Theme.of(context).colorScheme.primary;
     }
 
     String getStatusText() {
@@ -651,7 +651,7 @@ class _ActiveDownloadCard extends StatelessWidget {
                       );
                     },
                     style: FilledButton.styleFrom(
-                        backgroundColor: AppTheme.primaryColor),
+                        backgroundColor: Theme.of(context).colorScheme.primary),
                     child: const Text('Reintentar'),
                   ),
                 ],
@@ -679,7 +679,7 @@ class _ActiveDownloadCard extends StatelessWidget {
                       if (isDownloading)
                         IconButton(
                           icon: const Icon(Icons.pause, size: 20),
-                          color: AppTheme.primaryColor,
+                          color: Theme.of(context).colorScheme.primary,
                           onPressed: () =>
                               downloads.pauseDownload(task.episodeUrl, task.isSub),
                           padding: EdgeInsets.zero,
@@ -689,7 +689,7 @@ class _ActiveDownloadCard extends StatelessWidget {
                       if (isPaused)
                         IconButton(
                           icon: const Icon(Icons.play_arrow, size: 20),
-                          color: AppTheme.primaryColor,
+                          color: Theme.of(context).colorScheme.primary,
                           onPressed: () => downloads.resumeDownload(
                             episodeUrl: task.episodeUrl,
                             episodeNumber: task.episodeNumber,
@@ -760,8 +760,8 @@ class _AnimeDownloadGroup extends StatelessWidget {
         ),
         children: episodes.map((ep) {
           return ListTile(
-            leading: const Icon(Icons.play_circle_outline,
-                color: AppTheme.primaryColor),
+            leading: Icon(Icons.play_circle_outline,
+                color: Theme.of(context).colorScheme.primary),
             title: Text(ep.episodeTitle),
             subtitle: Text('${ep.languageLabel} · ${ep.sizeLabel}'),
             trailing: IconButton(

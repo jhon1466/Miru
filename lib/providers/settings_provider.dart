@@ -3,30 +3,52 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import '../utils/adult_content.dart';
+import '../core/theme.dart';
 
 class SettingsProvider extends ChangeNotifier {
   static const _keyAdult = 'settings_adult_content_enabled';
-  static const _keyTheme = 'settings_theme_mode';
+  static const _keyThemeOption = 'settings_theme_option';
   static const _keyUpdateNotif = 'settings_update_notifications_enabled';
   static const _keyAutoplay = 'settings_autoplay_next_episode';
   static const _keyBgDownload = 'settings_background_downloads_enabled';
   static const _keyFavoriteProvider = 'settings_favorite_provider_domain';
+  static const _keySeedColor = 'settings_seed_color';
 
   bool _adultContentEnabled = false;
-  ThemeMode _themeMode = ThemeMode.light; // Default to light theme
-  bool _updateNotificationsEnabled = true; // Default to true
+  AppThemeOption _themeOption = AppThemeOption.light;
+  bool _updateNotificationsEnabled = true;
   bool _autoplayNextEpisode = false;
-  bool _backgroundDownloadsEnabled = true; // Default to true
-  String _favoriteProviderDomain = ''; // Default is '' (Todos)
+  bool _backgroundDownloadsEnabled = true;
+  String _favoriteProviderDomain = '';
+  int _seedColorValue = AppTheme.defaultSeedColor.value;
   bool _loaded = false;
 
   bool get adultContentEnabled => _adultContentEnabled;
-  ThemeMode get themeMode => _themeMode;
+  AppThemeOption get themeOption => _themeOption;
   bool get updateNotificationsEnabled => _updateNotificationsEnabled;
   bool get autoplayNextEpisode => _autoplayNextEpisode;
   bool get backgroundDownloadsEnabled => _backgroundDownloadsEnabled;
   String get favoriteProviderDomain => _favoriteProviderDomain;
+  Color get seedColor => Color(_seedColorValue);
   bool get isLoaded => _loaded;
+
+  /// ThemeMode efectivo para MaterialApp.
+  ThemeMode get themeMode {
+    switch (_themeOption) {
+      case AppThemeOption.light:
+        return ThemeMode.light;
+      case AppThemeOption.dark:
+        return ThemeMode.dark;
+      case AppThemeOption.custom:
+        return ThemeMode.system; // sigue el brillo del sistema
+    }
+  }
+
+  /// Color semilla efectivo: fijo para Claro/Oscuro, personalizado para Custom.
+  Color get effectiveSeedColor {
+    if (_themeOption == AppThemeOption.custom) return Color(_seedColorValue);
+    return AppTheme.defaultSeedColor;
+  }
 
   Future<void> load() async {
     if (_loaded) return;
@@ -36,14 +58,20 @@ class SettingsProvider extends ChangeNotifier {
     _autoplayNextEpisode = prefs.getBool(_keyAutoplay) ?? false;
     _backgroundDownloadsEnabled = prefs.getBool(_keyBgDownload) ?? true;
     _favoriteProviderDomain = prefs.getString(_keyFavoriteProvider) ?? '';
-    
-    final themeString = prefs.getString(_keyTheme) ?? 'light';
-    _themeMode = ThemeMode.values.firstWhere(
-      (e) => e.name == themeString,
-      orElse: () => ThemeMode.light,
+    _seedColorValue = prefs.getInt(_keySeedColor) ?? AppTheme.defaultSeedColor.value;
+
+    final optionStr = prefs.getString(_keyThemeOption) ?? 'light';
+    _themeOption = AppThemeOption.values.firstWhere(
+      (e) => e.name == optionStr,
+      orElse: () => AppThemeOption.light,
     );
 
-    // Sincronizar subscripción a app_updates en base a esta preferencia
+    // Migración: si había una clave antigua de ThemeMode, respetarla
+    if (!prefs.containsKey(_keyThemeOption)) {
+      final legacy = prefs.getString('settings_theme_mode');
+      if (legacy == 'dark') _themeOption = AppThemeOption.dark;
+    }
+
     try {
       if (_updateNotificationsEnabled) {
         unawaited(FirebaseMessaging.instance.subscribeToTopic('app_updates'));
@@ -53,7 +81,7 @@ class SettingsProvider extends ChangeNotifier {
     } catch (e) {
       debugPrint('Error syncing app_updates topic subscription: $e');
     }
-    
+
     _loaded = true;
     notifyListeners();
   }
@@ -66,12 +94,24 @@ class SettingsProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> setThemeMode(ThemeMode mode) async {
-    if (_themeMode == mode) return;
-    _themeMode = mode;
+  Future<void> setThemeOption(AppThemeOption option) async {
+    if (_themeOption == option) return;
+    _themeOption = option;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_keyTheme, mode.name);
+    await prefs.setString(_keyThemeOption, option.name);
     notifyListeners();
+  }
+
+  /// Alias para compatibilidad con código existente que llama setThemeMode.
+  Future<void> setThemeMode(ThemeMode mode) async {
+    switch (mode) {
+      case ThemeMode.light:
+        await setThemeOption(AppThemeOption.light);
+      case ThemeMode.dark:
+        await setThemeOption(AppThemeOption.dark);
+      case ThemeMode.system:
+        await setThemeOption(AppThemeOption.custom);
+    }
   }
 
   Future<void> setUpdateNotificationsEnabled(bool enabled) async {
@@ -106,6 +146,14 @@ class SettingsProvider extends ChangeNotifier {
     _backgroundDownloadsEnabled = value;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_keyBgDownload, value);
+    notifyListeners();
+  }
+
+  Future<void> setSeedColor(Color color) async {
+    if (_seedColorValue == color.value) return;
+    _seedColorValue = color.value;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_keySeedColor, color.value);
     notifyListeners();
   }
 

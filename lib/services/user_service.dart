@@ -8,6 +8,7 @@ class UserProfile {
   final String? photoUrl;
   final String? email;
   final bool isPublic;
+  final bool isSupporter;
   final DateTime? createdAt;
 
   UserProfile({
@@ -16,6 +17,7 @@ class UserProfile {
     this.photoUrl,
     this.email,
     this.isPublic = true,
+    this.isSupporter = false,
     this.createdAt,
   });
 
@@ -32,6 +34,7 @@ class UserProfile {
       photoUrl: data['photoUrl']?.toString(),
       email: data['email']?.toString(),
       isPublic: isPublic,
+      isSupporter: data['isSupporter'] == true,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
     );
   }
@@ -51,6 +54,7 @@ class UserProfile {
     String? photoUrl,
     String? email,
     bool? isPublic,
+    bool? isSupporter,
   }) {
     return UserProfile(
       uid: uid,
@@ -58,6 +62,7 @@ class UserProfile {
       photoUrl: photoUrl ?? this.photoUrl,
       email: email ?? this.email,
       isPublic: isPublic ?? this.isPublic,
+      isSupporter: isSupporter ?? this.isSupporter,
       createdAt: createdAt,
     );
   }

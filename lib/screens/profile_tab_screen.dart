@@ -141,7 +141,7 @@ class _LoggedInBodyState extends State<_LoggedInBody> {
                     backgroundImage: photoUrl != null && photoUrl.isNotEmpty
                         ? NetworkImage(photoUrl)
                         : null,
-                    backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.3),
+                    backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
                     child: photoUrl == null || photoUrl.isEmpty
                         ? Text(
                             name.isNotEmpty ? name[0].toUpperCase() : 'U',
@@ -153,7 +153,7 @@ class _LoggedInBodyState extends State<_LoggedInBody> {
                     right: 0,
                     bottom: 0,
                     child: Material(
-                      color: AppTheme.primaryColor,
+                      color: Theme.of(context).colorScheme.primary,
                       shape: const CircleBorder(),
                       child: InkWell(
                         customBorder: const CircleBorder(),
@@ -222,7 +222,7 @@ class _LoggedInBodyState extends State<_LoggedInBody> {
                     style: TextStyle(fontSize: 12, color: context.textSecondary),
                   ),
                   value: isPublic,
-                  activeThumbColor: AppTheme.primaryColor,
+                  activeThumbColor: Theme.of(context).colorScheme.primary,
                   onChanged: (value) async {
                     setState(() => _isPublicLocal = value);
                     try {
@@ -257,11 +257,11 @@ class _LoggedInBodyState extends State<_LoggedInBody> {
                       MaterialPageRoute(builder: (_) => const DownloadsScreen()),
                     );
                   },
-                  icon: Icon(Icons.download_for_offline_outlined, color: AppTheme.accentColor),
-                  label: Text('Mis descargas', style: TextStyle(color: AppTheme.accentColor)),
+                  icon: Icon(Icons.download_for_offline_outlined, color: Theme.of(context).colorScheme.secondary),
+                  label: Text('Mis descargas', style: TextStyle(color: Theme.of(context).colorScheme.secondary)),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    side: BorderSide(color: AppTheme.accentColor.withValues(alpha: 0.5)),
+                    side: BorderSide(color: Theme.of(context).colorScheme.secondary.withValues(alpha: 0.5)),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                 ),
@@ -506,11 +506,11 @@ class _LoggedOutBody extends StatelessWidget {
                     MaterialPageRoute(builder: (_) => const DownloadsScreen()),
                   );
                 },
-                icon: Icon(Icons.download_for_offline_outlined, color: AppTheme.accentColor),
-                label: Text('Mis descargas', style: TextStyle(color: AppTheme.accentColor)),
+                icon: Icon(Icons.download_for_offline_outlined, color: Theme.of(context).colorScheme.secondary),
+                label: Text('Mis descargas', style: TextStyle(color: Theme.of(context).colorScheme.secondary)),
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 14),
-                  side: BorderSide(color: AppTheme.accentColor.withValues(alpha: 0.5)),
+                  side: BorderSide(color: Theme.of(context).colorScheme.secondary.withValues(alpha: 0.5)),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
               ),

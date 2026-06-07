@@ -134,24 +134,24 @@ class _SplashScreenState extends State<SplashScreen>
                   child: Container(
                     padding: const EdgeInsets.all(26),
                     decoration: BoxDecoration(
-                      color: AppTheme.primaryColor.withValues(alpha: isDark ? 0.12 : 0.1),
+                      color: Theme.of(context).colorScheme.primary.withValues(alpha: isDark ? 0.12 : 0.1),
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: AppTheme.primaryColor.withValues(alpha: 0.35),
+                        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.35),
                         width: 2,
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: AppTheme.primaryColor.withValues(alpha: isDark ? 0.25 : 0.15),
+                          color: Theme.of(context).colorScheme.primary.withValues(alpha: isDark ? 0.25 : 0.15),
                           blurRadius: 40,
                           spreadRadius: 6,
                         ),
                       ],
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.play_circle_filled_rounded,
                       size: 80,
-                      color: AppTheme.primaryColor,
+                      color: Theme.of(context).colorScheme.primary,
                     ),
                   ),
                 ),
@@ -166,7 +166,7 @@ class _SplashScreenState extends State<SplashScreen>
                     color: titleColor,
                     shadows: [
                       Shadow(
-                        color: AppTheme.primaryColor.withValues(alpha: 0.5),
+                        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
                         blurRadius: 16,
                       ),
                     ],
@@ -187,8 +187,8 @@ class _SplashScreenState extends State<SplashScreen>
 
                 if (!_connectionFailed) ...[
                   CircularProgressIndicator(
-                    valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
-                    backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.15),
+                    valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).colorScheme.primary),
+                    backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.15),
                   ),
                   const SizedBox(height: 20),
                   Text(
@@ -247,7 +247,7 @@ class _SplashScreenState extends State<SplashScreen>
                         icon: const Icon(Icons.settings),
                         label: const Text('Configurar'),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.primaryColor,
+                          backgroundColor: Theme.of(context).colorScheme.primary,
                           foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
@@ -264,11 +264,11 @@ class _SplashScreenState extends State<SplashScreen>
                         MaterialPageRoute(builder: (_) => const DownloadsScreen()),
                       );
                     },
-                    icon: const Icon(Icons.download_for_offline_rounded, color: AppTheme.primaryColor),
-                    label: const Text(
+                    icon: Icon(Icons.download_for_offline_rounded, color: Theme.of(context).colorScheme.primary),
+                    label: Text(
                       'Modo sin conexión (Ver descargas)',
                       style: TextStyle(
-                        color: AppTheme.primaryColor,
+                        color: Theme.of(context).colorScheme.primary,
                         fontWeight: FontWeight.bold,
                       ),
                     ),

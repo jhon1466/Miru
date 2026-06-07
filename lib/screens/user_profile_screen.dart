@@ -121,9 +121,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         stream: UserService.profileStream(widget.userId),
         builder: (context, profileSnap) {
           if (profileSnap.connectionState == ConnectionState.waiting) {
-            return const Center(
+            return Center(
               child: CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation(AppTheme.primaryColor),
+                valueColor: AlwaysStoppedAnimation(Theme.of(context).colorScheme.primary),
               ),
             );
           }
@@ -143,14 +143,50 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                     children: [
                       _buildAvatar(profile),
                       const SizedBox(height: 12),
-                      Text(
-                        profile?.displayName ?? widget.displayName,
-                        style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                          color: context.textPrimary,
-                        ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          if (profile?.isSupporter == true) ...[
+                            const Text('👑', style: TextStyle(fontSize: 20)),
+                            const SizedBox(width: 6),
+                          ],
+                          Text(
+                            profile?.displayName ?? widget.displayName,
+                            style: TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                              color: context.textPrimary,
+                            ),
+                          ),
+                        ],
                       ),
+                      if (profile?.isSupporter == true) ...[
+                        const SizedBox(height: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFD93D).withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: const Color(0xFFFFD93D).withOpacity(0.5)),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.favorite_rounded, color: Color(0xFFFFD93D), size: 12),
+                              SizedBox(width: 4),
+                              Text(
+                                'Supporter',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFFFFD93D),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                       if (isPrivate) ...[
                         const SizedBox(height: 10),
                         PrivateProfileBadge(isOwner: isOwner),
@@ -320,7 +356,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         : 'U';
     return CircleAvatar(
       radius: 48,
-      backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.3),
+      backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
       child: Text(
         initial,
         style: const TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: Colors.white),
@@ -470,7 +506,7 @@ class FavoritesGrid extends StatelessWidget {
       return StreamBuilder<List<CompletedMedia>>(
         stream: CompletedService.getCompleted(userId, mediaType),
         builder: (context, snap) {
-          if (snap.connectionState == ConnectionState.waiting) return _buildLoading();
+          if (snap.connectionState == ConnectionState.waiting) return _buildLoading(context);
           final items = snap.data ?? [];
           if (items.isEmpty) return _buildEmptyState(context);
 
@@ -529,7 +565,7 @@ class FavoritesGrid extends StatelessWidget {
             ? FavoriteService.getFavorites(userId)
             : FollowService.getFollowing(userId),
         builder: (context, snap) {
-          if (snap.connectionState == ConnectionState.waiting) return _buildLoading();
+          if (snap.connectionState == ConnectionState.waiting) return _buildLoading(context);
           final items = snap.data ?? [];
           if (items.isEmpty) return _buildEmptyState(context);
 
@@ -558,7 +594,7 @@ class FavoritesGrid extends StatelessWidget {
             ? MangaFavoriteService.getFavorites(userId)
             : MangaFollowService.getFollowing(userId),
         builder: (context, snap) {
-          if (snap.connectionState == ConnectionState.waiting) return _buildLoading();
+          if (snap.connectionState == ConnectionState.waiting) return _buildLoading(context);
           final items = snap.data ?? [];
           if (items.isEmpty) return _buildEmptyState(context);
 
@@ -583,7 +619,7 @@ class FavoritesGrid extends StatelessWidget {
             ? NovelFavoriteService.getFavorites(userId)
             : NovelFollowService.getFollowing(userId),
         builder: (context, snap) {
-          if (snap.connectionState == ConnectionState.waiting) return _buildLoading();
+          if (snap.connectionState == ConnectionState.waiting) return _buildLoading(context);
           final items = snap.data ?? [];
           if (items.isEmpty) return _buildEmptyState(context);
 
@@ -614,12 +650,12 @@ class FavoritesGrid extends StatelessWidget {
     }
   }
 
-  Widget _buildLoading() {
-    return const Center(
+  Widget _buildLoading(BuildContext context) {
+    return Center(
       child: Padding(
-        padding: EdgeInsets.all(32),
+        padding: const EdgeInsets.all(32),
         child: CircularProgressIndicator(
-          valueColor: AlwaysStoppedAnimation(AppTheme.primaryColor),
+          valueColor: AlwaysStoppedAnimation(Theme.of(context).colorScheme.primary),
         ),
       ),
     );

@@ -50,7 +50,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 context.read<NotificationProvider>().refreshUnread();
               }
             },
-            child: Text('Marcar leídas', style: TextStyle(color: AppTheme.primaryColor)),
+            child: Text('Marcar leídas', style: TextStyle(color: Theme.of(context).colorScheme.primary)),
           ),
         ],
       ),
@@ -58,9 +58,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         stream: NotificationService.watchNotifications(auth.userId!),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(
+            return Center(
               child: CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation(AppTheme.primaryColor),
+                valueColor: AlwaysStoppedAnimation(Theme.of(context).colorScheme.primary),
               ),
             );
           }
@@ -83,10 +83,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               final n = items[index];
               return ListTile(
                 leading: CircleAvatar(
-                  backgroundColor: n.read ? context.cardColor : AppTheme.primaryColor.withValues(alpha: 0.3),
+                  backgroundColor: n.read ? context.cardColor : Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
                   child: Icon(
                     Icons.reply_rounded,
-                    color: n.read ? context.textSecondary : AppTheme.primaryColor,
+                    color: n.read ? context.textSecondary : Theme.of(context).colorScheme.primary,
                   ),
                 ),
                 title: Text(

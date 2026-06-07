@@ -1,6 +1,8 @@
 package com.anime1v.app.anime_app
 
+import android.app.UiModeManager
 import android.content.Intent
+import android.content.res.Configuration
 import android.os.Build
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -19,6 +21,18 @@ class MainActivity : FlutterActivity() {
                 }
                 "stopService" -> {
                     stopForegroundDownloadService()
+                    result.success(null)
+                }
+                "isAndroidTV" -> {
+                    val uiModeManager = getSystemService(UI_MODE_SERVICE) as UiModeManager
+                    result.success(uiModeManager.currentModeType == Configuration.UI_MODE_TYPE_TELEVISION)
+                }
+                "keepScreenOn" -> {
+                    window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                    result.success(null)
+                }
+                "releaseScreenOn" -> {
+                    window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                     result.success(null)
                 }
                 else -> {

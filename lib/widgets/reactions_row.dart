@@ -38,12 +38,12 @@ class ReactionsRow extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
               color: hasReacted
-                  ? AppTheme.primaryColor.withValues(alpha: 0.15)
+                  ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.15)
                   : context.cardColor,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
                 color: hasReacted
-                    ? AppTheme.primaryColor
+                    ? Theme.of(context).colorScheme.primary
                     : context.textSecondary.withValues(alpha: 0.15),
                 width: 1,
               ),
@@ -59,7 +59,7 @@ class ReactionsRow extends StatelessWidget {
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
                     color: hasReacted
-                        ? AppTheme.primaryColor
+                        ? Theme.of(context).colorScheme.primary
                         : context.textPrimary,
                   ),
                 ),

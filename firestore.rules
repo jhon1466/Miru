@@ -1,0 +1,73 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helpers ──────────────────────────────────────────────────────────────
+    function isAuth()  { return request.auth != null; }
+    function isOwner(uid) { return isAuth() && request.auth.uid == uid; }
+
+    // Comprueba si el usuario actual es admin leyendo SU PROPIO doc en /admins.
+    // exists() en reglas usa la lectura interna de Firestore (no recursiva).
+    function isAdmin() {
+      return isAuth() &&
+             exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    // El primer admin puede registrarse si la colección /config/setup
+    // tiene active == true (lo habilitamos solo durante el setup).
+    function setupActive() {
+      return exists(/databases/$(database)/documents/config/setup) &&
+             get(/databases/$(database)/documents/config/setup).data.active == true;
+    }
+
+    // ── /config  (solo lectura pública; write solo admins o setup) ───────────
+    match /config/{docId} {
+      allow read:   if true;           // cualquiera puede leer si sabe el path
+      allow write:  if isAdmin();
+    }
+
+    // ── /users ────────────────────────────────────────────────────────────────
+    match /users/{uid} {
+      allow read:   if isAuth();
+      allow create: if isOwner(uid);
+      allow update: if isOwner(uid) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // ── /admins ───────────────────────────────────────────────────────────────
+    match /admins/{uid} {
+      // Cualquier usuario autenticado puede leer SU PROPIO doc (sin recursión).
+      // Esto es lo que permite que isAdmin() funcione correctamente.
+      allow read:   if isOwner(uid) || isAdmin();
+
+      // Solo admins existentes pueden gestionar la lista…
+      allow update, delete: if isAdmin();
+
+      // …EXCEPTO al registrar el primer admin cuando setupActive() == true.
+      allow create: if isOwner(uid) && (isAdmin() || setupActive());
+    }
+
+    // ── /public_chat ──────────────────────────────────────────────────────────
+    match /public_chat/{msgId} {
+      allow read:   if isAuth();
+      allow create: if isAuth();
+      allow update: if isAuth() && request.auth.uid == resource.data.userId;
+      allow delete: if isAdmin() ||
+                       (isAuth() && request.auth.uid == resource.data.userId);
+    }
+
+    // ── reactions sub-collection ──────────────────────────────────────────────
+    match /public_chat/{msgId}/reactions/{uid} {
+      allow read, write: if isAuth();
+    }
+
+    // ── /comments/{animeSlug}/entries ────────────────────────────────────────
+    match /comments/{animeSlug}/entries/{entryId} {
+      allow read:   if true;
+      allow create: if isAuth();
+      allow update: if isAuth() && request.auth.uid == resource.data.userId;
+      allow delete: if isAdmin() || (isAuth() && request.auth.uid == resource.data.userId);
+    }
+  }
+}

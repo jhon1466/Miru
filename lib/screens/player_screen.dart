@@ -16,6 +16,7 @@ import '../widgets/comments_section.dart';
 import '../widgets/episode_download_button.dart';
 import '../widgets/native_video_player.dart';
 import '../providers/connectivity_provider.dart';
+import '../providers/tv_provider.dart';
 import 'detail_screen.dart';
 
 class PlayerScreen extends StatefulWidget {
@@ -54,24 +55,38 @@ class _PlayerScreenState extends State<PlayerScreen> {
   Timer? _resolverTimeoutTimer;
   Timer? _jsExtractionTimer;
 
+  // Cacheado en el primer build para poder usarlo en dispose (sin contexto)
+  bool _cachedIsTV = false;
+
   @override
   void initState() {
     super.initState();
-    _unlockPlayerOrientations();
-
+    // Detectar TV después del primer frame (cuando MediaQuery ya está disponible)
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        final mq = MediaQuery.of(context);
+        _cachedIsTV = mq.navigationMode == NavigationMode.directional ||
+            mq.size.shortestSide > 480;
+        _unlockPlayerOrientations();
+      }
       _loadEpisodeAndAutoplay();
     });
   }
 
   void _unlockPlayerOrientations() {
-    unawaited(
-      SystemChrome.setPreferredOrientations([
+    if (_cachedIsTV) {
+      unawaited(SystemChrome.setPreferredOrientations([
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]));
+      unawaited(SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky));
+    } else {
+      unawaited(SystemChrome.setPreferredOrientations([
         DeviceOrientation.portraitUp,
         DeviceOrientation.landscapeLeft,
         DeviceOrientation.landscapeRight,
-      ]),
-    );
+      ]));
+    }
   }
 
   /// Sin setState: evita recrear el WebView y congelar la app.
@@ -100,7 +115,19 @@ class _PlayerScreenState extends State<PlayerScreen> {
       SystemUiMode.manual,
       overlays: SystemUiOverlay.values,
     );
-    await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+    // Usar el valor cacheado: nunca depende del contexto (ya puede estar muerto)
+    if (_cachedIsTV) {
+      await SystemChrome.setPreferredOrientations([
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+    } else {
+      await SystemChrome.setPreferredOrientations([
+        DeviceOrientation.portraitUp,
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+    }
   }
 
   Future<void> _loadEpisodeAndAutoplay() async {
@@ -383,7 +410,14 @@ class _PlayerScreenState extends State<PlayerScreen> {
     final connectivity = Provider.of<ConnectivityProvider>(context);
     final animeProvider = Provider.of<AnimeProvider>(context);
     final links = animeProvider.episodeLinks;
-    final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+    final mq = MediaQuery.of(context);
+    final isTV = mq.navigationMode == NavigationMode.directional ||
+        mq.size.shortestSide > 480;
+    // Actualizar caché en cada build (mientras el contexto es válido)
+    _cachedIsTV = isTV;
+    // En TV siempre es landscape/fullscreen
+    final isLandscape = isTV ||
+        MediaQuery.of(context).orientation == Orientation.landscape;
     final screenSize = MediaQuery.of(context).size;
     // playerHeight fijo en el árbol: evita que NativeVideoPlayer se descarte al rotar
     final padding = MediaQuery.of(context).padding;
@@ -489,8 +523,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
                                 padding: const EdgeInsets.all(40),
                                 child: Column(
                                   children: [
-                                    const CircularProgressIndicator(
-                                      valueColor: AlwaysStoppedAnimation(AppTheme.primaryColor),
+                                    CircularProgressIndicator(
+                                      valueColor: AlwaysStoppedAnimation(Theme.of(context).colorScheme.primary),
                                     ),
                                     const SizedBox(height: 12),
                                     Text(
@@ -583,8 +617,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
     if (_selectedServerUrl == null) {
       return Container(
         color: Colors.black,
-        child: const Center(
-          child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation(AppTheme.primaryColor)),
+        child: Center(
+          child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation(Theme.of(context).colorScheme.primary)),
         ),
       );
     }
@@ -742,8 +776,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const CircularProgressIndicator(
-                      valueColor: AlwaysStoppedAnimation(AppTheme.primaryColor),
+                    CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation(Theme.of(context).colorScheme.primary),
                     ),
                     const SizedBox(height: 16),
                     Text(
@@ -765,10 +799,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
                           });
                         }
                       },
-                      icon: const Icon(Icons.web, color: AppTheme.accentColor, size: 16),
-                      label: const Text(
+                      icon: Icon(Icons.web, color: Theme.of(context).colorScheme.secondary, size: 16),
+                      label: Text(
                         'Usar Web Player',
-                        style: TextStyle(color: AppTheme.accentColor, fontSize: 12),
+                        style: TextStyle(color: Theme.of(context).colorScheme.secondary, fontSize: 12),
                       ),
                     ),
                   ],
@@ -799,7 +833,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                   icon: const Icon(Icons.launch, size: 18),
                   label: const Text('Reproductor externo'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryColor,
+                    backgroundColor: Theme.of(context).colorScheme.primary,
                     padding: const EdgeInsets.symmetric(vertical: 10),
                   ),
                 ),
@@ -852,14 +886,14 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 padding: const EdgeInsets.only(bottom: 8),
                 child: Material(
                   color: isCurrent
-                      ? AppTheme.primaryColor.withValues(alpha: 0.15)
+                      ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.15)
                       : context.cardColor,
                   borderRadius: BorderRadius.circular(12),
                   child: ListTile(
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                       side: BorderSide(
-                        color: isCurrent ? AppTheme.primaryColor : Colors.transparent,
+                        color: isCurrent ? Theme.of(context).colorScheme.primary : Colors.transparent,
                         width: 1.5,
                       ),
                     ),
@@ -867,14 +901,14 @@ class _PlayerScreenState extends State<PlayerScreen> {
                       server.server,
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        color: isCurrent ? AppTheme.primaryColor : context.textPrimary,
+                        color: isCurrent ? Theme.of(context).colorScheme.primary : context.textPrimary,
                       ),
                     ),
                     subtitle: server.quality != null
                         ? Text(server.quality!, style: const TextStyle(fontSize: 11))
                         : null,
                     trailing: isCurrent
-                        ? const Icon(Icons.play_circle_fill, color: AppTheme.primaryColor)
+                        ? Icon(Icons.play_circle_fill, color: Theme.of(context).colorScheme.primary)
                         : Icon(Icons.play_circle_outline, color: context.textSecondary),
                     onTap: () {
                       _playServer(server.url, server.server, _isSub);
@@ -905,7 +939,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
               return Card(
                 margin: const EdgeInsets.only(bottom: 8),
                 child: ListTile(
-                  leading: const Icon(Icons.download, color: AppTheme.accentColor),
+                  leading: Icon(Icons.download, color: Theme.of(context).colorScheme.secondary),
                   title: Text(server.server, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                   subtitle: Text(server.quality ?? 'HD', style: const TextStyle(fontSize: 11)),
                   trailing: const Icon(Icons.open_in_new, size: 18),
@@ -935,10 +969,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
-          color: isSelected ? AppTheme.primaryColor.withValues(alpha: 0.2) : context.backgroundColor,
+          color: isSelected ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.2) : context.backgroundColor,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected ? AppTheme.primaryColor : context.textSecondary.withValues(alpha: 0.3),
+            color: isSelected ? Theme.of(context).colorScheme.primary : context.textSecondary.withValues(alpha: 0.3),
             width: 1.5,
           ),
         ),
@@ -947,7 +981,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
             text,
             style: TextStyle(
               fontWeight: FontWeight.bold,
-              color: isSelected ? AppTheme.primaryColor : context.textSecondary,
+              color: isSelected ? Theme.of(context).colorScheme.primary : context.textSecondary,
               fontSize: 13,
             ),
           ),
@@ -1016,8 +1050,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
                   const SizedBox(height: 16),
                   LinearProgressIndicator(
                     value: countdown / 5.0,
-                    color: AppTheme.primaryColor,
-                    backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.15),
+                    color: Theme.of(context).colorScheme.primary,
+                    backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.15),
                   ),
                 ],
               ),
@@ -1035,7 +1069,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                     Navigator.pop(dialogContext); // Reproducir de inmediato
                     _playNextEpisode(nextEp);
                   },
-                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor),
+                  style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
                   child: const Text('Reproducir ahora'),
                 ),
               ],
@@ -1076,13 +1110,13 @@ class _PlayerScreenState extends State<PlayerScreen> {
       return Container(
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
         color: context.backgroundColor,
-        child: const Center(
+        child: Center(
           child: SizedBox(
             width: 20,
             height: 20,
             child: CircularProgressIndicator(
               strokeWidth: 2,
-              valueColor: AlwaysStoppedAnimation(AppTheme.primaryColor),
+              valueColor: AlwaysStoppedAnimation(Theme.of(context).colorScheme.primary),
             ),
           ),
         ),

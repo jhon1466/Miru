@@ -65,8 +65,8 @@ class _OfflinePlayerScreenState extends State<OfflinePlayerScreen> {
       child: Scaffold(
         backgroundColor: Colors.black,
         body: _checking
-            ? const Center(
-                child: CircularProgressIndicator(color: AppTheme.primaryColor),
+            ? Center(
+                child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary),
               )
             : !_exists
                 ? Center(
@@ -85,7 +85,7 @@ class _OfflinePlayerScreenState extends State<OfflinePlayerScreen> {
                           const SizedBox(height: 16),
                           ElevatedButton(
                             onPressed: () => Navigator.pop(context),
-                            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor),
+                            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
                             child: const Text('Volver'),
                           ),
                         ],

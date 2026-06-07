@@ -576,9 +576,9 @@ class _MangaTabScreenState extends State<MangaTabScreen> {
           : MangaFollowService.getFollowing(userId),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Padding(
-            padding: EdgeInsets.all(20),
-            child: Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation(AppTheme.primaryColor))),
+          return Padding(
+            padding: const EdgeInsets.all(20),
+            child: Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation(Theme.of(context).colorScheme.primary))),
           );
         }
         final items = snapshot.data ?? [];

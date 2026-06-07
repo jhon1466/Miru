@@ -99,8 +99,8 @@ class _StickerCreatorSheetState extends State<StickerCreatorSheet> {
               future: _imageBytes,
               builder: (context, snap) {
                 if (!snap.hasData) {
-                  return const Center(
-                    child: CircularProgressIndicator(color: AppTheme.primaryColor),
+                  return Center(
+                    child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary),
                   );
                 }
                 return Crop(
@@ -151,7 +151,7 @@ class _StickerCreatorSheetState extends State<StickerCreatorSheet> {
                 Expanded(
                   child: ElevatedButton(
                     onPressed: _saving ? null : _save,
-                    style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor),
+                    style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
                     child: _saving
                         ? const SizedBox(
                             width: 22,

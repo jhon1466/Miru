@@ -144,27 +144,50 @@ class SkyNovelsService {
     return paragraphs;
   }
 
+  /// Limpieza pública — usada también para re-limpiar párrafos del caché.
+  static String cleanParagraph(String raw) => _decodeHtmlText(raw);
+
   static String _decodeHtmlText(String raw) {
-    return raw
-        .replaceAll(RegExp(r'<[^>]*>'), '')
-        .replaceAll('&emsp;', ' ')
-        .replaceAll('&nbsp;', ' ')
-        .replaceAll('&amp;', '&')
-        .replaceAll('&lt;', '<')
-        .replaceAll('&gt;', '>')
-        .replaceAll('&quot;', '"')
-        .replaceAll('&apos;', "'")
-        .replaceAll('&#8211;', '—')
+    // 1. Elimina <img> sin dejar espacio
+    var s = raw.replaceAll(RegExp(r'<img[^>]*>', caseSensitive: false), '');
+    // 2. <br> → espacio simple
+    s = s.replaceAll(RegExp(r'<br[^>]*>', caseSensitive: false), ' ');
+    // 3. Resto de tags HTML
+    s = s.replaceAll(RegExp(r'<[^>]+>'), '');
+    // 4. Entidades HTML
+    s = s
+        .replaceAll('&emsp;',  ' ')
+        .replaceAll('&ensp;',  ' ')
+        .replaceAll('&nbsp;',  ' ')
+        .replaceAll('&amp;',   '&')
+        .replaceAll('&lt;',    '<')
+        .replaceAll('&gt;',    '>')
+        .replaceAll('&quot;',  '"')
+        .replaceAll("&apos;",  "'")
+        .replaceAll('&#8211;', '–')
         .replaceAll('&#8212;', '—')
-        .replaceAll('&#8216;', "'")
-        .replaceAll('&#8217;', "'")
-        .replaceAll('&#8220;', '"')
-        .replaceAll('&#8221;', '"')
-        .replaceAll('&ldquo;', '"')
-        .replaceAll('&rdquo;', '"')
-        .replaceAll('&lsquo;', "'")
-        .replaceAll('&rsquo;', "'")
-        .trim();
+        .replaceAll('&#8216;', '‘')
+        .replaceAll('&#8217;', '’')
+        .replaceAll('&#8220;', '“')
+        .replaceAll('&#8221;', '”')
+        .replaceAll('&ldquo;', '“')
+        .replaceAll('&rdquo;', '”')
+        .replaceAll('&lsquo;', '‘')
+        .replaceAll('&rsquo;', '’');
+    // 5. Caracteres unicode de espacio especial → espacio normal o vacío
+    s = s
+        .replaceAll(' ', ' ')  // non-breaking space
+        .replaceAll('​', '')   // zero-width space
+        .replaceAll('‌', '')   // zero-width non-joiner
+        .replaceAll('‍', '')   // zero-width joiner
+        .replaceAll('﻿', '')   // BOM
+        .replaceAll(' ', ' ')  // em space
+        .replaceAll(' ', ' ')  // en space
+        .replaceAll(' ', ' ')  // thin space
+        .replaceAll('­', '');  // soft hyphen
+    // 6. Colapsa múltiples espacios/tabs en uno solo
+    s = s.replaceAll(RegExp(r'[ \t]+'), ' ');
+    return s.trim();
   }
 
   static bool _isSpamParagraph(String text) {

@@ -3,11 +3,30 @@ import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:provider/provider.dart';
 
 import '../core/theme.dart';
 import '../models/sticker.dart';
+import '../providers/supporter_provider.dart';
 import '../services/sticker_service.dart';
 import 'sticker_creator_sheet.dart';
+
+/// Stickers exclusivos para supporters (URLs de CDN públicas o assets locales).
+/// Reemplaza estas URLs con las reales cuando estén disponibles.
+const _kSupporterStickers = [
+  (id: 'sup_01', emoji: '👑', label: 'Corona'),
+  (id: 'sup_02', emoji: '🌟', label: 'Estrella'),
+  (id: 'sup_03', emoji: '💎', label: 'Diamante'),
+  (id: 'sup_04', emoji: '🔥', label: 'Fuego'),
+  (id: 'sup_05', emoji: '⚡', label: 'Rayo'),
+  (id: 'sup_06', emoji: '🦄', label: 'Unicornio'),
+  (id: 'sup_07', emoji: '🎭', label: 'Máscara'),
+  (id: 'sup_08', emoji: '🎪', label: 'Circo'),
+  (id: 'sup_09', emoji: '🐉', label: 'Dragón'),
+  (id: 'sup_10', emoji: '🌈', label: 'Arcoíris'),
+  (id: 'sup_11', emoji: '🎸', label: 'Guitarra'),
+  (id: 'sup_12', emoji: '🍣', label: 'Sushi'),
+];
 
 class StickerPickerSheet extends StatefulWidget {
   const StickerPickerSheet({super.key});
@@ -19,6 +38,7 @@ class StickerPickerSheet extends StatefulWidget {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
+      isScrollControlled: true,
       builder: (_) => const StickerPickerSheet(),
     );
   }
@@ -27,14 +47,23 @@ class StickerPickerSheet extends StatefulWidget {
   State<StickerPickerSheet> createState() => _StickerPickerSheetState();
 }
 
-class _StickerPickerSheetState extends State<StickerPickerSheet> {
+class _StickerPickerSheetState extends State<StickerPickerSheet>
+    with SingleTickerProviderStateMixin {
   List<StickerPack> _packs = [];
   bool _loading = true;
+  late final TabController _tabController;
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
     _load();
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -99,73 +128,98 @@ class _StickerPickerSheetState extends State<StickerPickerSheet> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const SizedBox(
+      return SizedBox(
         height: 250,
         child: Center(
-          child: CircularProgressIndicator(color: AppTheme.primaryColor),
+          child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary),
         ),
       );
     }
 
     final allStickers = _packs.expand((p) => p.stickers).toList();
+    final isSupporter = context.watch<SupporterProvider>().isSupporter;
 
     return SafeArea(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-            child: Row(
-              children: [
-                Text(
-                  'Stickers',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: context.textPrimary),
-                ),
-                const Spacer(),
-                TextButton.icon(
-                  onPressed: _create,
-                  icon: Icon(Icons.add_circle_outline, color: AppTheme.primaryColor),
-                  label: Text('Crear', style: TextStyle(color: AppTheme.primaryColor)),
-                ),
-              ],
-            ),
-          ),
-          if (allStickers.isEmpty)
+      child: SizedBox(
+        height: 320,
+        child: Column(
+          children: [
+            // Header
             Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+              child: Row(
                 children: [
                   Text(
-                    'Aún no tienes stickers.\nCrea uno con una imagen o GIF/WebP.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: context.textSecondary, height: 1.4),
+                    'Stickers',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: context.textPrimary),
                   ),
-                  const SizedBox(height: 12),
-                  ElevatedButton.icon(
+                  const Spacer(),
+                  TextButton.icon(
                     onPressed: _create,
-                    icon: const Icon(Icons.emoji_emotions_outlined),
-                    label: const Text('Crear sticker'),
-                    style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor),
+                    icon: Icon(Icons.add_circle_outline, color: Theme.of(context).colorScheme.primary),
+                    label: Text('Crear', style: TextStyle(color: Theme.of(context).colorScheme.primary)),
                   ),
                 ],
               ),
-            )
-          else
-            SizedBox(
-              height: 220,
-              child: GridView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 4,
-                  mainAxisSpacing: 8,
-                  crossAxisSpacing: 8,
+            ),
+            // Tabs
+            TabBar(
+              controller: _tabController,
+              labelColor: Theme.of(context).colorScheme.primary,
+              unselectedLabelColor: context.textSecondary,
+              indicatorColor: Theme.of(context).colorScheme.primary,
+              tabs: const [
+                Tab(text: 'Mis stickers'),
+                Tab(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('👑 Exclusivos'),
+                    ],
+                  ),
                 ),
-                itemCount: allStickers.length,
-                itemBuilder: (context, index) {
-                  final item = allStickers[index];
-                  return InkWell(
-                    onTap: () => Navigator.pop(context, item),
-                    onLongPress: () async {
+              ],
+            ),
+            // Tab content
+            Expanded(
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  // Tab 1: User stickers
+                  allStickers.isEmpty
+                      ? Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                'Aún no tienes stickers.\nCrea uno con una imagen o GIF/WebP.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(color: context.textSecondary, height: 1.4),
+                              ),
+                              const SizedBox(height: 12),
+                              ElevatedButton.icon(
+                                onPressed: _create,
+                                icon: const Icon(Icons.emoji_emotions_outlined),
+                                label: const Text('Crear sticker'),
+                                style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
+                              ),
+                            ],
+                          ),
+                        )
+                      : GridView.builder(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 4,
+                            mainAxisSpacing: 8,
+                            crossAxisSpacing: 8,
+                          ),
+                          itemCount: allStickers.length,
+                          itemBuilder: (context, index) {
+                            final item = allStickers[index];
+                            return InkWell(
+                              onTap: () => Navigator.pop(context, item),
+                              onLongPress: () async {
                       final uid = FirebaseAuth.instance.currentUser?.uid;
                       if (uid == null) return;
 
@@ -240,13 +294,80 @@ class _StickerPickerSheetState extends State<StickerPickerSheet> {
                                 child: Icon(Icons.broken_image_outlined, color: context.textSecondary),
                               ),
                             ),
-                    ),
-                  );
-                },
+                            ),
+                          );
+                          },
+                        ),
+
+                  // Tab 2: Supporter exclusive stickers
+                  isSupporter
+                      ? GridView.builder(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 4,
+                            mainAxisSpacing: 8,
+                            crossAxisSpacing: 8,
+                          ),
+                          itemCount: _kSupporterStickers.length,
+                          itemBuilder: (context, index) {
+                            final s = _kSupporterStickers[index];
+                            return InkWell(
+                              onTap: () => Navigator.pop(
+                                context,
+                                StickerItem(
+                                  id: s.id,
+                                  filePath: s.emoji, // emoji as "path" — renderer handles it
+                                  label: s.label,
+                                ),
+                              ),
+                              borderRadius: BorderRadius.circular(12),
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFFD93D).withOpacity(0.08),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: const Color(0xFFFFD93D).withOpacity(0.25),
+                                  ),
+                                ),
+                                child: Center(
+                                  child: Text(s.emoji, style: const TextStyle(fontSize: 32)),
+                                ),
+                              ),
+                            );
+                          },
+                        )
+                      : Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Text('👑', style: TextStyle(fontSize: 48)),
+                                const SizedBox(height: 12),
+                                Text(
+                                  'Stickers exclusivos para supporters de Patreon',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                    color: context.textPrimary,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Apoya el proyecto en Patreon y desbloquea estos stickers y mucho más.',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(fontSize: 12, color: context.textSecondary, height: 1.4),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                ],
               ),
             ),
-          const SizedBox(height: 8),
-        ],
+          ],
+        ),
       ),
     );
   }

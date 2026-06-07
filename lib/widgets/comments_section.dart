@@ -258,8 +258,8 @@ class _CommentsSectionState extends State<CommentsSection> {
                     final picked = await CommentImageService.pickImage();
                     if (picked != null) setDialog(() => newImage = picked);
                   },
-                  icon: Icon(Icons.image_outlined, color: AppTheme.primaryColor),
-                  label: Text('Cambiar imagen', style: TextStyle(color: AppTheme.primaryColor)),
+                  icon: Icon(Icons.image_outlined, color: Theme.of(context).colorScheme.primary),
+                  label: Text('Cambiar imagen', style: TextStyle(color: Theme.of(context).colorScheme.primary)),
                 ),
               ],
             ),
@@ -364,7 +364,7 @@ class _CommentsSectionState extends State<CommentsSection> {
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
                             color: hasReacted
-                                ? AppTheme.primaryColor.withValues(alpha: 0.15)
+                                ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.15)
                                 : Colors.transparent,
                             borderRadius: BorderRadius.circular(12),
                           ),
@@ -470,7 +470,7 @@ class _CommentsSectionState extends State<CommentsSection> {
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
             child: Row(
               children: [
-                Icon(Icons.chat_bubble_outline, color: AppTheme.primaryColor, size: 20),
+                Icon(Icons.chat_bubble_outline, color: Theme.of(context).colorScheme.primary, size: 20),
                 const SizedBox(width: 8),
                 Text(label, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: context.textPrimary)),
               ],
@@ -482,9 +482,9 @@ class _CommentsSectionState extends State<CommentsSection> {
             stream: _commentsStream,
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Padding(
-                  padding: EdgeInsets.all(24),
-                  child: Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation(AppTheme.primaryColor))),
+                return Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation(Theme.of(context).colorScheme.primary))),
                 );
               }
               if (snapshot.hasError) {
@@ -520,7 +520,7 @@ class _CommentsSectionState extends State<CommentsSection> {
                               size: const Size(20, double.infinity),
                               painter: RootThreadLinePainter(
                                 hasReplies: replies.isNotEmpty,
-                                color: AppTheme.primaryColor.withValues(alpha: 0.3),
+                                color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
                               ),
                             ),
                             Expanded(
@@ -548,7 +548,7 @@ class _CommentsSectionState extends State<CommentsSection> {
                                 size: const Size(56, double.infinity),
                                 painter: ThreadLinePainter(
                                   isLast: isLastReply,
-                                  color: AppTheme.primaryColor.withValues(alpha: 0.3),
+                                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
                                 ),
                               ),
                               Expanded(
@@ -592,7 +592,7 @@ class _CommentsSectionState extends State<CommentsSection> {
       decoration: BoxDecoration(
         color: context.cardColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.2)),
+        border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -607,7 +607,7 @@ class _CommentsSectionState extends State<CommentsSection> {
                       Expanded(
                         child: Text(
                           'Respondiendo a ${_replyTarget!.userDisplayName}',
-                          style: TextStyle(color: AppTheme.primaryColor, fontSize: 12),
+                          style: TextStyle(color: Theme.of(context).colorScheme.primary, fontSize: 12),
                         ),
                       ),
                       IconButton(
@@ -681,12 +681,12 @@ class _CommentsSectionState extends State<CommentsSection> {
             children: [
               IconButton(
                 onPressed: _isSending ? null : _pickSticker,
-                icon: Icon(Icons.emoji_emotions_outlined, color: AppTheme.accentColor),
+                icon: Icon(Icons.emoji_emotions_outlined, color: Theme.of(context).colorScheme.secondary),
                 tooltip: 'Sticker',
               ),
               IconButton(
                 onPressed: _isSending ? null : _pickImage,
-                icon: Icon(Icons.image_outlined, color: AppTheme.primaryColor),
+                icon: Icon(Icons.image_outlined, color: Theme.of(context).colorScheme.primary),
                 tooltip: 'Adjuntar imagen',
               ),
               const Spacer(),
@@ -696,7 +696,7 @@ class _CommentsSectionState extends State<CommentsSection> {
                     ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                     : const Icon(Icons.send_rounded, size: 16),
                 label: Text(_replyTarget != null ? 'Responder' : 'Publicar', style: const TextStyle(fontSize: 13)),
-                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor),
+                style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
               ),
             ],
           ),
@@ -769,7 +769,7 @@ class _CommentsSectionState extends State<CommentsSection> {
                     decoration: BoxDecoration(
                       color: context.cardColor,
                       borderRadius: BorderRadius.circular(16),
-                      border: isFocused ? Border.all(color: AppTheme.accentColor, width: 2) : null,
+                      border: isFocused ? Border.all(color: Theme.of(context).colorScheme.secondary, width: 2) : null,
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -777,13 +777,44 @@ class _CommentsSectionState extends State<CommentsSection> {
                         Row(
                           children: [
                             Expanded(
-                              child: Text(
-                                displayName,
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 13,
-                                  color: AppTheme.primaryColor,
-                                ),
+                              child: Row(
+                                children: [
+                                  Flexible(
+                                    child: Text(
+                                      displayName,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 13,
+                                        color: authorProfile?.isSupporter == true
+                                            ? const Color(0xFFFFD93D)
+                                            : Theme.of(context).colorScheme.primary,
+                                      ),
+                                    ),
+                                  ),
+                                  if (authorProfile?.isSupporter == true) ...[
+                                    const SizedBox(width: 4),
+                                    const Text('👑', style: TextStyle(fontSize: 11)),
+                                    const SizedBox(width: 4),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFFFD93D).withValues(alpha: 0.15),
+                                        borderRadius: BorderRadius.circular(6),
+                                        border: Border.all(color: const Color(0xFFFFD93D).withValues(alpha: 0.4), width: 0.5),
+                                      ),
+                                      child: const Text(
+                                        'Supporter',
+                                        style: TextStyle(
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.w600,
+                                          color: Color(0xFFFFD93D),
+                                          letterSpacing: 0.2,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ],
                               ),
                             ),
                             Text(
@@ -841,7 +872,7 @@ class _CommentsSectionState extends State<CommentsSection> {
                                 padding: const EdgeInsets.only(top: 2),
                                 child: Text(
                                   '→ $replyName',
-                                  style: TextStyle(fontSize: 11, color: AppTheme.accentColor),
+                                  style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.secondary),
                                 ),
                               );
                             },
@@ -851,7 +882,7 @@ class _CommentsSectionState extends State<CommentsSection> {
                             padding: const EdgeInsets.only(top: 2),
                             child: Text(
                               '→ ${liveComment.replyToUserName}',
-                              style: TextStyle(fontSize: 11, color: AppTheme.accentColor),
+                              style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.secondary),
                             ),
                           ),
                         if (isReply && repliedTo != null) ...[
@@ -864,7 +895,7 @@ class _CommentsSectionState extends State<CommentsSection> {
                               borderRadius: BorderRadius.circular(8),
                               border: Border(
                                 left: BorderSide(
-                                  color: AppTheme.accentColor,
+                                  color: Theme.of(context).colorScheme.secondary,
                                   width: 3,
                                 ),
                               ),
@@ -877,7 +908,7 @@ class _CommentsSectionState extends State<CommentsSection> {
                                   style: TextStyle(
                                     fontSize: 10,
                                     fontWeight: FontWeight.bold,
-                                    color: AppTheme.accentColor,
+                                    color: Theme.of(context).colorScheme.secondary,
                                   ),
                                 ),
                                 const SizedBox(height: 2),

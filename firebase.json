@@ -1,1 +1,46 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"serie-938f4","appId":"1:997417539791:android:100ba98c1b3f8ff65a3fba","fileOutput":"android/app/google-services.json"}},"dart":{"lib/core/firebase_options.dart":{"projectId":"serie-938f4","configurations":{"android":"1:997417539791:android:100ba98c1b3f8ff65a3fba"}},"lib/firebase_options.dart":{"projectId":"serie-938f4","configurations":{"android":"1:997417539791:android:100ba98c1b3f8ff65a3fba"}}}}}}
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "serie-938f4",
+          "appId": "1:997417539791:android:100ba98c1b3f8ff65a3fba",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/core/firebase_options.dart": {
+          "projectId": "serie-938f4",
+          "configurations": {
+            "android": "1:997417539791:android:100ba98c1b3f8ff65a3fba"
+          }
+        },
+        "lib/firebase_options.dart": {
+          "projectId": "serie-938f4",
+          "configurations": {
+            "android": "1:997417539791:android:100ba98c1b3f8ff65a3fba"
+          }
+        }
+      }
+    }
+  },
+  "firestore": {
+    "rules": "firestore.rules"
+  },
+  "hosting": [
+    {
+      "site":   "miru-df002",
+      "public": "web2",
+      "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+      "headers": [
+        {
+          "source": "**/*.js",
+          "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
+        }
+      ],
+      "rewrites": [
+        { "source": "**", "destination": "/index.html" }
+      ]
+    }
+  ]
+}
