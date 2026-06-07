@@ -247,4 +247,9 @@ extension AppThemeExtension on BuildContext {
 
   // Alias para mantener compatibilidad con widgets que usan Theme.of(context).colorScheme.primary
   Color get appPrimaryColor => Theme.of(this).colorScheme.primary;
+
+  /// Color del badge Supporter: amarillo dorado en oscuro, ámbar oscuro en claro
+  /// para que sea legible sobre cualquier fondo.
+  Color get supporterColor =>
+      isDarkMode ? const Color(0xFFFFD93D) : const Color(0xFFB45309);
 }

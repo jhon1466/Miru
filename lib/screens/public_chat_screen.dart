@@ -237,7 +237,7 @@ class _PublicChatScreenState extends State<PublicChatScreen> {
                                 fontSize: 11,
                                 fontWeight: FontWeight.bold,
                                 color: msg.isSupporter
-                                    ? const Color(0xFFFFD93D)
+                                    ? context.supporterColor
                                     : context.textSecondary,
                               ),
                             ),
@@ -246,16 +246,16 @@ class _PublicChatScreenState extends State<PublicChatScreen> {
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFFFFD93D).withValues(alpha: 0.15),
+                                  color: context.supporterColor.withValues(alpha: 0.15),
                                   borderRadius: BorderRadius.circular(5),
-                                  border: Border.all(color: const Color(0xFFFFD93D).withValues(alpha: 0.4), width: 0.5),
+                                  border: Border.all(color: context.supporterColor.withValues(alpha: 0.4), width: 0.5),
                                 ),
-                                child: const Text(
+                                child: Text(
                                   'Supporter',
                                   style: TextStyle(
                                     fontSize: 8,
                                     fontWeight: FontWeight.w600,
-                                    color: Color(0xFFFFD93D),
+                                    color: context.supporterColor,
                                     letterSpacing: 0.2,
                                   ),
                                 ),

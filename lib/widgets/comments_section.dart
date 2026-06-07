@@ -787,7 +787,7 @@ class _CommentsSectionState extends State<CommentsSection> {
                                         fontWeight: FontWeight.bold,
                                         fontSize: 13,
                                         color: authorProfile?.isSupporter == true
-                                            ? const Color(0xFFFFD93D)
+                                            ? context.supporterColor
                                             : Theme.of(context).colorScheme.primary,
                                       ),
                                     ),
@@ -799,16 +799,16 @@ class _CommentsSectionState extends State<CommentsSection> {
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                                       decoration: BoxDecoration(
-                                        color: const Color(0xFFFFD93D).withValues(alpha: 0.15),
+                                        color: context.supporterColor.withValues(alpha: 0.15),
                                         borderRadius: BorderRadius.circular(6),
-                                        border: Border.all(color: const Color(0xFFFFD93D).withValues(alpha: 0.4), width: 0.5),
+                                        border: Border.all(color: context.supporterColor.withValues(alpha: 0.4), width: 0.5),
                                       ),
-                                      child: const Text(
+                                      child: Text(
                                         'Supporter',
                                         style: TextStyle(
                                           fontSize: 9,
                                           fontWeight: FontWeight.w600,
-                                          color: Color(0xFFFFD93D),
+                                          color: context.supporterColor,
                                           letterSpacing: 0.2,
                                         ),
                                       ),
