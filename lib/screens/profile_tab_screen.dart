@@ -1,7 +1,11 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import '../core/theme.dart';
 import '../providers/auth_provider.dart' as app_auth;
+import '../providers/supporter_provider.dart';
 import '../services/user_service.dart';
 import '../utils/auth_ui.dart';
 import 'settings_screen.dart';
@@ -49,9 +53,41 @@ class _LoggedInBody extends StatefulWidget {
 
 class _LoggedInBodyState extends State<_LoggedInBody> {
   bool _uploadingPhoto = false;
+  bool _uploadingBanner = false;
   bool? _isPublicLocal;
   int _tabIndex = 0; // 0: Favorites, 1: Following
   String _mediaType = 'anime'; // 'anime' | 'manga' | 'novel'
+
+  Future<void> _pickAndUploadBanner(BuildContext context, String uid) async {
+    final picked = await ImagePicker().pickImage(source: ImageSource.gallery, maxWidth: 1200, imageQuality: 85);
+    if (picked == null || !mounted) return;
+    setState(() => _uploadingBanner = true);
+    try {
+      final url = await FirebaseStorage.instance
+          .ref('user_banners/$uid/banner.jpg')
+          .putFile(File(picked.path))
+          .then((t) => t.ref.getDownloadURL());
+      await UserService.updateBannerUrl(uid, url);
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: const Text('Banner actualizado'), backgroundColor: context.successColor));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: context.dangerColor));
+    } finally {
+      if (mounted) setState(() => _uploadingBanner = false);
+    }
+  }
+
+  Future<void> _removeBanner(BuildContext context, String uid) async {
+    setState(() => _uploadingBanner = true);
+    try {
+      await UserService.updateBannerUrl(uid, null);
+      try { await FirebaseStorage.instance.ref('user_banners/$uid/banner.jpg').delete(); } catch (_) {}
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: const Text('Banner eliminado'), backgroundColor: context.successColor));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: context.dangerColor));
+    } finally {
+      if (mounted) setState(() => _uploadingBanner = false);
+    }
+  }
 
   String _getSectionTitle() {
     final typeName = _mediaType == 'anime'
@@ -121,6 +157,7 @@ class _LoggedInBodyState extends State<_LoggedInBody> {
   @override
   Widget build(BuildContext context) {
     final uid = widget.authProvider.userId!;
+    final isSupporter = context.watch<SupporterProvider>().isSupporter;
 
     return StreamBuilder<UserProfile?>(
       stream: UserService.profileStream(uid),
@@ -129,83 +166,34 @@ class _LoggedInBodyState extends State<_LoggedInBody> {
         final isPublic = _isPublicLocal ?? profile?.isPublic ?? true;
         final photoUrl = profile?.photoUrl ?? widget.authProvider.photoUrl;
         final name = profile?.displayName ?? widget.authProvider.displayName ?? 'Usuario';
+        final hasBanner = profile?.bannerUrl != null && profile!.bannerUrl!.isNotEmpty;
 
         return SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Stack(
-                children: [
-                  CircleAvatar(
-                    radius: 52,
-                    backgroundImage: photoUrl != null && photoUrl.isNotEmpty
-                        ? NetworkImage(photoUrl)
-                        : null,
-                    backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
-                    child: photoUrl == null || photoUrl.isEmpty
-                        ? Text(
-                            name.isNotEmpty ? name[0].toUpperCase() : 'U',
-                            style: const TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: Colors.white),
-                          )
-                        : null,
-                  ),
-                  Positioned(
-                    right: 0,
-                    bottom: 0,
-                    child: Material(
-                      color: Theme.of(context).colorScheme.primary,
-                      shape: const CircleBorder(),
-                      child: InkWell(
-                        customBorder: const CircleBorder(),
-                        onTap: _uploadingPhoto ? null : () => _changePhoto(context),
-                        child: Padding(
-                          padding: const EdgeInsets.all(8),
-                          child: _uploadingPhoto
-                              ? const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                                )
-                              : const Icon(Icons.camera_alt, color: Colors.white, size: 18),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+              // ── Banner + Avatar header ──────────────────────────────────
+              _ProfileBannerHeader(
+                profile: profile,
+                photoUrl: photoUrl,
+                name: name,
+                isSupporter: isSupporter,
+                hasBanner: hasBanner,
+                uploadingBanner: _uploadingBanner,
+                uploadingPhoto: _uploadingPhoto,
+                onEditBanner: () => _pickAndUploadBanner(context, uid),
+                onRemoveBanner: hasBanner ? () => _removeBanner(context, uid) : null,
+                onEditPhoto: () => _changePhoto(context),
+                onEditName: () => _editDisplayName(context, name),
+                email: widget.authProvider.email,
               ),
-              const SizedBox(height: 12),
-              InkWell(
-                onTap: () => _editDisplayName(context, name),
-                borderRadius: BorderRadius.circular(8),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Flexible(
-                        child: Text(
-                          name,
-                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: context.textPrimary),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Icon(Icons.edit_outlined, size: 16, color: context.textSecondary),
-                    ],
-                  ),
-                ),
-              ),
-              Text(
-                widget.authProvider.email ?? '',
-                style: TextStyle(fontSize: 13, color: context.textSecondary),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Toca tu nombre para editarlo · cámara para cambiar la foto',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 12, color: context.textSecondary.withValues(alpha: 0.8)),
-              ),
-              const SizedBox(height: 28),
+
+              // ── Resto del contenido ──────────────────────────────────────
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                child: Column(
+                  children: [
+                    const SizedBox(height: 20),
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -370,9 +358,12 @@ class _LoggedInBodyState extends State<_LoggedInBody> {
                   ),
                 ),
               ),
-            ],
-          ),
-        );
+                  ],
+                ), // inner Column
+              ), // Padding
+            ], // outer Column children
+          ), // outer Column
+        ); // SingleChildScrollView
       },
     );
   }
@@ -533,4 +524,137 @@ class _LoggedOutBody extends StatelessWidget {
       ),
     );
   }
+}
+
+// ── Banner header editable ────────────────────────────────────────────────────
+class _ProfileBannerHeader extends StatelessWidget {
+  final UserProfile? profile;
+  final String? photoUrl;
+  final String name;
+  final String? email;
+  final bool isSupporter;
+  final bool hasBanner;
+  final bool uploadingBanner;
+  final bool uploadingPhoto;
+  final VoidCallback onEditBanner;
+  final VoidCallback? onRemoveBanner;
+  final VoidCallback onEditPhoto;
+  final VoidCallback onEditName;
+
+  static const double _bannerHeight = 140;
+  static const double _avatarRadius = 48;
+
+  const _ProfileBannerHeader({
+    required this.profile, required this.photoUrl, required this.name,
+    required this.email, required this.isSupporter, required this.hasBanner,
+    required this.uploadingBanner, required this.uploadingPhoto,
+    required this.onEditBanner, required this.onRemoveBanner,
+    required this.onEditPhoto, required this.onEditName,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(children: [
+      SizedBox(
+        height: _bannerHeight + _avatarRadius,
+        child: Stack(clipBehavior: Clip.none, children: [
+          GestureDetector(
+            onTap: isSupporter ? onEditBanner : null,
+            child: Container(
+              height: _bannerHeight, width: double.infinity,
+              decoration: BoxDecoration(color: context.cardColor),
+              child: hasBanner
+                  ? Image.network(profile!.bannerUrl!, fit: BoxFit.cover,
+                      width: double.infinity, height: _bannerHeight,
+                      errorBuilder: (_, __, ___) => _placeholder(context))
+                  : _placeholder(context),
+            ),
+          ),
+          if (isSupporter)
+            Positioned(right: 10, top: _bannerHeight - 42,
+              child: Row(children: [
+                if (onRemoveBanner != null) ...[
+                  _SmallBtn(icon: Icons.delete_outline_rounded, loading: false, onTap: onRemoveBanner!),
+                  const SizedBox(width: 6),
+                ],
+                _SmallBtn(
+                  icon: uploadingBanner ? null : Icons.add_photo_alternate_outlined,
+                  loading: uploadingBanner, onTap: onEditBanner),
+              ]),
+            ),
+          if (!isSupporter)
+            Positioned(right: 10, top: _bannerHeight - 34,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.45), borderRadius: BorderRadius.circular(20)),
+                child: Row(children: [
+                  Icon(Icons.lock_rounded, size: 11, color: context.supporterColor),
+                  const SizedBox(width: 4),
+                  Text('Banner · Supporter', style: TextStyle(fontSize: 10, color: context.supporterColor, fontWeight: FontWeight.w600)),
+                ]),
+              ),
+            ),
+          Positioned(bottom: 0, left: 0, right: 0,
+            child: Center(child: Stack(children: [
+              Container(
+                decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: context.backgroundColor, width: 4)),
+                child: CircleAvatar(
+                  radius: _avatarRadius,
+                  backgroundImage: photoUrl != null && photoUrl!.isNotEmpty ? NetworkImage(photoUrl!) : null,
+                  backgroundColor: context.primaryColor.withValues(alpha: 0.3),
+                  child: photoUrl == null || photoUrl!.isEmpty
+                      ? Text(name.isNotEmpty ? name[0].toUpperCase() : 'U',
+                          style: TextStyle(fontSize: _avatarRadius * 0.65, fontWeight: FontWeight.bold, color: Colors.white))
+                      : null,
+                ),
+              ),
+              Positioned(right: 2, bottom: 2,
+                child: Material(color: context.primaryColor, shape: const CircleBorder(),
+                  child: InkWell(customBorder: const CircleBorder(), onTap: uploadingPhoto ? null : onEditPhoto,
+                    child: Padding(padding: const EdgeInsets.all(8),
+                      child: uploadingPhoto
+                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                          : const Icon(Icons.camera_alt, color: Colors.white, size: 16))))),
+            ]))),
+        ]),
+      ),
+      const SizedBox(height: 12),
+      GestureDetector(
+        onTap: onEditName,
+        child: Padding(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            if (profile?.isSupporter == true) ...[const Text('👑', style: TextStyle(fontSize: 16)), const SizedBox(width: 6)],
+            Flexible(child: Text(name, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: context.textPrimary), textAlign: TextAlign.center)),
+            const SizedBox(width: 6),
+            Icon(Icons.edit_outlined, size: 16, color: context.textSecondary),
+          ])),
+      ),
+      if (email != null) Text(email!, style: TextStyle(fontSize: 13, color: context.textSecondary)),
+      const SizedBox(height: 4),
+      Text('Toca tu nombre · cámara para foto', textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 11, color: context.textSecondary.withValues(alpha: 0.7))),
+    ]);
+  }
+
+  Widget _placeholder(BuildContext context) => Container(
+    height: _bannerHeight,
+    decoration: BoxDecoration(gradient: LinearGradient(
+      colors: [context.primaryColor.withValues(alpha: 0.3), context.primaryColor.withValues(alpha: 0.08)],
+      begin: Alignment.topLeft, end: Alignment.bottomRight)),
+  );
+}
+
+class _SmallBtn extends StatelessWidget {
+  final IconData? icon;
+  final bool loading;
+  final VoidCallback onTap;
+  const _SmallBtn({required this.icon, required this.loading, required this.onTap});
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+    onTap: loading ? null : onTap,
+    child: Container(width: 32, height: 32,
+      decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.55), borderRadius: BorderRadius.circular(8)),
+      child: Center(child: loading
+          ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+          : Icon(icon, size: 16, color: Colors.white))));
 }
