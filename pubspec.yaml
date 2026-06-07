@@ -60,6 +60,7 @@ dependencies:
   app_links: ^7.0.0
   screen_brightness: ^1.0.1
   volume_controller: ^2.0.7
+  cast: ^2.1.0
 
 dev_dependencies:
   flutter_test:

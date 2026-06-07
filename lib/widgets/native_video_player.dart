@@ -7,6 +7,7 @@ import 'package:screen_brightness/screen_brightness.dart';
 import 'package:video_player/video_player.dart';
 import 'package:volume_controller/volume_controller.dart';
 import '../core/theme.dart';
+import '../widgets/cast_picker.dart';
 
 class NativeVideoPlayer extends StatefulWidget {
   final String url;
@@ -849,6 +850,15 @@ class _NativeVideoPlayerState extends State<NativeVideoPlayer> {
                             ),
                           ),
                           const SizedBox(width: 8),
+
+                          // Chromecast button
+                          CastIconButton(
+                            videoUrl: widget.url,
+                            videoTitle: widget.title,
+                            currentPositionSeconds: _controller != null
+                                ? _controller!.value.position.inSeconds.toDouble()
+                                : 0,
+                          ),
 
                           // Speed Multiplier Menu
                           PopupMenuButton<double>(
