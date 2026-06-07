@@ -33,6 +33,40 @@ service cloud.firestore {
       allow create: if isOwner(uid);
       allow update: if isOwner(uid) || isAdmin();
       allow delete: if isAdmin();
+
+      // Favoritos de anime/manga
+      match /favorites/{docId} {
+        allow read:   if isAuth();
+        allow write:  if isOwner(uid);
+      }
+
+      // Seguidos (following)
+      match /following/{docId} {
+        allow read:   if isAuth();
+        allow write:  if isOwner(uid);
+      }
+
+      // Notificaciones
+      match /notifications/{docId} {
+        allow read:   if isOwner(uid) || isAdmin();
+        allow create: if isAuth();           // cualquier usuario puede notificar a otro
+        allow update, delete: if isOwner(uid) || isAdmin();
+      }
+
+      // Historial de reproducción
+      match /history/{docId} {
+        allow read, write: if isOwner(uid);
+      }
+
+      // Historial de manga
+      match /manga_history/{docId} {
+        allow read, write: if isOwner(uid);
+      }
+
+      // Cualquier otra subcolección propia
+      match /{subcollection}/{docId} {
+        allow read, write: if isOwner(uid);
+      }
     }
 
     // ── /admins ───────────────────────────────────────────────────────────────
