@@ -330,6 +330,13 @@ class _PublicChatScreenState extends State<PublicChatScreen> {
                               borderRadius: BorderRadius.circular(10),
                             ),
                             if (msg.text.isNotEmpty) const SizedBox(height: 6),
+                          ] else if (isSticker) ...[
+                            // Sticker de emoji (sin imagen): mostrar emoji grande
+                            Text(
+                              msg.stickerCode!,
+                              style: const TextStyle(fontSize: 56),
+                            ),
+                            if (msg.text.isNotEmpty) const SizedBox(height: 6),
                           ],
                           if (msg.text.isNotEmpty)
                             Text(
@@ -566,6 +573,15 @@ class _PublicChatScreenState extends State<PublicChatScreen> {
   }
 
   Future<void> _toggleReaction(String messageId, String userId, String emoji) async {
+    if (userId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Inicia sesión para reaccionar'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
     final ref = _db.collection('public_chat').doc(messageId);
     try {
       await _db.runTransaction((transaction) async {
@@ -585,6 +601,14 @@ class _PublicChatScreenState extends State<PublicChatScreen> {
       });
     } catch (e) {
       debugPrint('Error toggling reaction: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('No se pudo reaccionar: $e'),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
     }
   }
 
@@ -711,19 +735,26 @@ class _PublicChatScreenState extends State<PublicChatScreen> {
     setState(() => _isSending = true);
 
     try {
-      String fileUrl = sticker.filePath;
+      String? fileUrl;
 
-      // Si el sticker está local, subirlo primero
-      if (!sticker.filePath.startsWith('http')) {
+      // Determinar si filePath es una URL remota o un archivo local real
+      final path = sticker.filePath;
+      final isRemoteUrl = path.startsWith('http');
+      final isLocalFile = !isRemoteUrl && await File(path).exists();
+
+      if (isRemoteUrl) {
+        fileUrl = path;
+      } else if (isLocalFile) {
+        // Sticker local: subir a Firebase Storage
         final docRef = _db.collection('public_chat').doc();
-        final extension = sticker.filePath.split('.').last;
+        final extension = path.split('.').last;
         final storageRef = FirebaseStorage.instance
             .ref()
             .child('public_chat/${docRef.id}.$extension');
-
-        final uploadTask = await storageRef.putFile(File(sticker.filePath));
+        final uploadTask = await storageRef.putFile(File(path));
         fileUrl = await uploadTask.ref.getDownloadURL();
       }
+      // Si no es URL ni archivo real (p.ej. emoji como 👑), se envía solo stickerCode
 
       await _sendMessage(
         authProvider,
