@@ -1,8 +1,12 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import '../core/theme.dart';
 import '../providers/auth_provider.dart' as app_auth;
 import '../providers/history_provider.dart';
+import '../providers/supporter_provider.dart';
 import '../services/user_service.dart';
 import '../services/favorite_service.dart';
 import '../services/follow_service.dart';
@@ -40,6 +44,77 @@ class UserProfileScreen extends StatefulWidget {
 class _UserProfileScreenState extends State<UserProfileScreen> {
   int _tabIndex = 0; // 0: Favorites, 1: Following
   String _mediaType = 'anime'; // 'anime' | 'manga' | 'novel'
+  bool _uploadingBanner = false;
+
+  Future<void> _pickAndUploadBanner(BuildContext context) async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1200,
+      imageQuality: 85,
+    );
+    if (picked == null || !mounted) return;
+
+    setState(() => _uploadingBanner = true);
+    try {
+      final file = File(picked.path);
+      final ref = FirebaseStorage.instance
+          .ref('user_banners/${widget.userId}/banner.jpg');
+      await ref.putFile(file);
+      final url = await ref.getDownloadURL();
+      await UserService.updateBannerUrl(widget.userId, url);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Banner actualizado'),
+            backgroundColor: context.successColor,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al subir banner: $e'),
+            backgroundColor: context.dangerColor,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _uploadingBanner = false);
+    }
+  }
+
+  Future<void> _removeBanner(BuildContext context) async {
+    setState(() => _uploadingBanner = true);
+    try {
+      await UserService.updateBannerUrl(widget.userId, null);
+      try {
+        await FirebaseStorage.instance
+            .ref('user_banners/${widget.userId}/banner.jpg')
+            .delete();
+      } catch (_) {}
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Banner eliminado'),
+            backgroundColor: context.successColor,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: context.dangerColor,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _uploadingBanner = false);
+    }
+  }
 
   String _getSectionTitle() {
     final typeName = _mediaType == 'anime'
@@ -111,12 +186,10 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     final authProvider = Provider.of<app_auth.AuthProvider>(context);
     final isOwner = authProvider.userId == widget.userId;
 
+    final isSupporter = context.watch<SupporterProvider>().isSupporter;
+
     return Scaffold(
       backgroundColor: context.backgroundColor,
-      appBar: AppBar(
-        title: Text(profileTitle(isOwner)),
-        backgroundColor: context.backgroundColor,
-      ),
       body: StreamBuilder<UserProfile?>(
         stream: UserService.profileStream(widget.userId),
         builder: (context, profileSnap) {
@@ -129,70 +202,26 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           }
 
           final profile = profileSnap.data;
-          // Perfil sin documento = público por compatibilidad; si existe, respetar isPublic
           final isPublic = profile?.isPublic ?? true;
           final isPrivate = !isPublic;
           final canViewFavorites = isOwner || isPublic;
+          final hasBanner = profile?.bannerUrl != null && profile!.bannerUrl!.isNotEmpty;
 
           return CustomScrollView(
             slivers: [
+              // ── Banner + Avatar header ─────────────────────────────────
               SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
-                  child: Column(
-                    children: [
-                      _buildAvatar(profile),
-                      const SizedBox(height: 12),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          if (profile?.isSupporter == true) ...[
-                            const Text('👑', style: TextStyle(fontSize: 20)),
-                            const SizedBox(width: 6),
-                          ],
-                          Text(
-                            profile?.displayName ?? widget.displayName,
-                            style: TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                              color: context.textPrimary,
-                            ),
-                          ),
-                        ],
-                      ),
-                      if (profile?.isSupporter == true) ...[
-                        const SizedBox(height: 4),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: context.supporterColor.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: context.supporterColor.withValues(alpha: 0.5)),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.favorite_rounded, color: context.supporterColor, size: 12),
-                              const SizedBox(width: 4),
-                              Text(
-                                'Supporter',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: context.supporterColor,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                      if (isPrivate) ...[
-                        const SizedBox(height: 10),
-                        PrivateProfileBadge(isOwner: isOwner),
-                      ],
-                    ],
-                  ),
+                child: _ProfileHeader(
+                  profile: profile,
+                  isOwner: isOwner,
+                  isSupporter: isSupporter,
+                  hasBanner: hasBanner,
+                  uploadingBanner: _uploadingBanner,
+                  displayName: widget.displayName,
+                  photoUrl: widget.photoUrl,
+                  onEditBanner: () => _pickAndUploadBanner(context),
+                  onRemoveBanner: hasBanner ? () => _removeBanner(context) : null,
+                  isPrivate: isPrivate,
                 ),
               ),
 
@@ -1098,6 +1127,323 @@ class ProfileStatsSection extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ── Profile Header with Banner ───────────────────────────────────────────────
+class _ProfileHeader extends StatelessWidget {
+  final UserProfile? profile;
+  final bool isOwner;
+  final bool isSupporter;
+  final bool hasBanner;
+  final bool uploadingBanner;
+  final String displayName;
+  final String? photoUrl;
+  final VoidCallback onEditBanner;
+  final VoidCallback? onRemoveBanner;
+  final bool isPrivate;
+
+  static const double _bannerHeight = 150;
+  static const double _avatarRadius = 44;
+
+  const _ProfileHeader({
+    required this.profile,
+    required this.isOwner,
+    required this.isSupporter,
+    required this.hasBanner,
+    required this.uploadingBanner,
+    required this.displayName,
+    required this.photoUrl,
+    required this.onEditBanner,
+    required this.onRemoveBanner,
+    required this.isPrivate,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final canEditBanner = isOwner && isSupporter;
+
+    return Column(
+      children: [
+        // ── Banner area ──────────────────────────────────────────────────
+        Stack(
+          clipBehavior: Clip.none,
+          children: [
+            // Banner image / placeholder
+            GestureDetector(
+              onTap: canEditBanner ? onEditBanner : null,
+              child: Container(
+                height: _bannerHeight,
+                width: double.infinity,
+                decoration: BoxDecoration(color: context.cardColor),
+                child: hasBanner
+                    ? Image.network(
+                        profile!.bannerUrl!,
+                        fit: BoxFit.cover,
+                        width: double.infinity,
+                        height: _bannerHeight,
+                        errorBuilder: (_, __, ___) => _bannerPlaceholder(context),
+                      )
+                    : _bannerPlaceholder(context),
+              ),
+            ),
+
+            // Back button
+            SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: CircleAvatar(
+                  radius: 18,
+                  backgroundColor: Colors.black.withValues(alpha: 0.45),
+                  child: IconButton(
+                    padding: EdgeInsets.zero,
+                    icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 16, color: Colors.white),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ),
+              ),
+            ),
+
+            // Edit / remove banner buttons (solo owner + supporter)
+            if (canEditBanner)
+              Positioned(
+                right: 10,
+                bottom: 10,
+                child: Row(
+                  children: [
+                    if (onRemoveBanner != null) ...[
+                      _BannerButton(
+                        icon: Icons.delete_outline_rounded,
+                        tooltip: 'Quitar banner',
+                        onTap: onRemoveBanner!,
+                      ),
+                      const SizedBox(width: 6),
+                    ],
+                    _BannerButton(
+                      icon: uploadingBanner ? null : Icons.add_photo_alternate_outlined,
+                      tooltip: 'Cambiar banner',
+                      loading: uploadingBanner,
+                      onTap: onEditBanner,
+                    ),
+                  ],
+                ),
+              ),
+
+            // Hint de desbloqueo si es owner pero no supporter
+            if (isOwner && !isSupporter)
+              Positioned(
+                right: 10,
+                bottom: 10,
+                child: GestureDetector(
+                  onTap: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('El banner personalizado es exclusivo para Supporters 👑'),
+                        duration: Duration(seconds: 3),
+                      ),
+                    );
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.lock_rounded, size: 12, color: context.supporterColor),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Banner · Supporter',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: context.supporterColor,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+
+            // Avatar superpuesto al borde inferior del banner
+            Positioned(
+              bottom: -_avatarRadius,
+              left: 20,
+              child: _ProfileAvatar(
+                profile: profile,
+                photoUrl: photoUrl,
+                radius: _avatarRadius,
+              ),
+            ),
+          ],
+        ),
+
+        // Espacio para el avatar que sobresale
+        const SizedBox(height: _avatarRadius + 10),
+
+        // Nombre + badges
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  if (profile?.isSupporter == true) ...[
+                    const Text('👑', style: TextStyle(fontSize: 18)),
+                    const SizedBox(width: 6),
+                  ],
+                  Expanded(
+                    child: Text(
+                      profile?.displayName ?? displayName,
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: context.textPrimary,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Wrap(
+                spacing: 6,
+                runSpacing: 4,
+                children: [
+                  if (profile?.isSupporter == true)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: context.supporterColor.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: context.supporterColor.withValues(alpha: 0.5)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.favorite_rounded, color: context.supporterColor, size: 11),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Supporter',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: context.supporterColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  if (isPrivate)
+                    PrivateProfileBadge(isOwner: isOwner),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+      ],
+    );
+  }
+
+  Widget _bannerPlaceholder(BuildContext context) {
+    return Container(
+      height: _bannerHeight,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            context.primaryColor.withValues(alpha: 0.3),
+            context.primaryColor.withValues(alpha: 0.08),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+    );
+  }
+}
+
+class _BannerButton extends StatelessWidget {
+  final IconData? icon;
+  final String tooltip;
+  final bool loading;
+  final VoidCallback onTap;
+
+  const _BannerButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onTap,
+    this.loading = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: GestureDetector(
+        onTap: loading ? null : onTap,
+        child: Container(
+          width: 34,
+          height: 34,
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.55),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Center(
+            child: loading
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                  )
+                : Icon(icon, size: 18, color: Colors.white),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ProfileAvatar extends StatelessWidget {
+  final UserProfile? profile;
+  final String? photoUrl;
+  final double radius;
+
+  const _ProfileAvatar({
+    required this.profile,
+    required this.photoUrl,
+    required this.radius,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final url = profile?.photoUrl ?? photoUrl;
+    return Container(
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: context.backgroundColor, width: 4),
+      ),
+      child: CircleAvatar(
+        radius: radius,
+        backgroundImage: url != null ? NetworkImage(url) : null,
+        backgroundColor: context.primaryColor.withValues(alpha: 0.3),
+        child: url == null
+            ? Text(
+                (profile?.displayName ?? 'U')[0].toUpperCase(),
+                style: TextStyle(
+                  fontSize: radius * 0.7,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              )
+            : null,
       ),
     );
   }

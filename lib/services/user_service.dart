@@ -6,6 +6,7 @@ class UserProfile {
   final String uid;
   final String displayName;
   final String? photoUrl;
+  final String? bannerUrl;
   final String? email;
   final bool isPublic;
   final bool isSupporter;
@@ -15,6 +16,7 @@ class UserProfile {
     required this.uid,
     required this.displayName,
     this.photoUrl,
+    this.bannerUrl,
     this.email,
     this.isPublic = true,
     this.isSupporter = false,
@@ -32,6 +34,7 @@ class UserProfile {
       uid: doc.id,
       displayName: data['displayName'] ?? 'Usuario',
       photoUrl: data['photoUrl']?.toString(),
+      bannerUrl: data['bannerUrl']?.toString(),
       email: data['email']?.toString(),
       isPublic: isPublic,
       isSupporter: data['isSupporter'] == true,
@@ -52,6 +55,7 @@ class UserProfile {
   UserProfile copyWith({
     String? displayName,
     String? photoUrl,
+    String? bannerUrl,
     String? email,
     bool? isPublic,
     bool? isSupporter,
@@ -60,6 +64,7 @@ class UserProfile {
       uid: uid,
       displayName: displayName ?? this.displayName,
       photoUrl: photoUrl ?? this.photoUrl,
+      bannerUrl: bannerUrl ?? this.bannerUrl,
       email: email ?? this.email,
       isPublic: isPublic ?? this.isPublic,
       isSupporter: isSupporter ?? this.isSupporter,
@@ -149,6 +154,14 @@ class UserService {
     final name = profile?.displayName ?? 'Usuario';
     await _userRef(uid).set({'photoUrl': photoUrl}, SetOptions(merge: true));
     await _syncCommentsAuthor(uid, name, photoUrl);
+  }
+
+  static Future<void> updateBannerUrl(String uid, String? bannerUrl) async {
+    if (bannerUrl != null) {
+      await _userRef(uid).set({'bannerUrl': bannerUrl}, SetOptions(merge: true));
+    } else {
+      await _userRef(uid).update({'bannerUrl': FieldValue.delete()});
+    }
   }
 
   static Future<void> addFcmToken(String uid, String token) async {
