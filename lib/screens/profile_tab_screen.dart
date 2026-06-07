@@ -583,14 +583,17 @@ class _ProfileBannerHeader extends StatelessWidget {
               ]),
             ),
           if (!isSupporter)
-            Positioned(right: 10, top: _bannerHeight - 34,
+            Positioned(right: 10, top: 10,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.45), borderRadius: BorderRadius.circular(20)),
-                child: Row(children: [
-                  Icon(Icons.lock_rounded, size: 11, color: context.supporterColor),
-                  const SizedBox(width: 4),
-                  Text('Banner · Supporter', style: TextStyle(fontSize: 10, color: context.supporterColor, fontWeight: FontWeight.w600)),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.65),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Row(children: [
+                  Icon(Icons.lock_rounded, size: 12, color: Colors.white),
+                  SizedBox(width: 5),
+                  Text('Banner exclusivo 👑', style: TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.w600)),
                 ]),
               ),
             ),
