@@ -20,6 +20,7 @@ import 'providers/settings_provider.dart';
 import 'providers/connectivity_provider.dart';
 import 'providers/tv_provider.dart';
 import 'providers/supporter_provider.dart';
+import 'providers/cast_provider.dart';
 import 'services/push_notification_service.dart';
 import 'services/deep_link_service.dart';
 import 'services/anilist_service.dart';
@@ -64,6 +65,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ChatProvider()..startListening()),
         ChangeNotifierProvider(create: (_) => DownloadProvider()..loadLibrary()),
         ChangeNotifierProvider(create: (_) => SupporterProvider()),
+        ChangeNotifierProvider(create: (_) => CastProvider()),
       ],
       child: Builder(
         builder: (context) {
