@@ -44,11 +44,9 @@ class SettingsProvider extends ChangeNotifier {
     }
   }
 
-  /// Color semilla efectivo: fijo para Claro/Oscuro, personalizado para Custom.
-  Color get effectiveSeedColor {
-    if (_themeOption == AppThemeOption.custom) return Color(_seedColorValue);
-    return AppTheme.defaultSeedColor;
-  }
+  /// Color semilla efectivo: siempre usa el color elegido por el usuario,
+  /// independientemente del modo claro/oscuro/sistema.
+  Color get effectiveSeedColor => Color(_seedColorValue);
 
   Future<void> load() async {
     if (_loaded) return;
