@@ -318,12 +318,12 @@ class _DetailScreenState extends State<DetailScreen> {
               background: Stack(
                 fit: StackFit.expand,
                 children: [
-                  // Imagen de fondo con posición ajustable
+                  // Imagen de fondo con posición ajustable (drag solo en modo ajuste)
                   if (posterImage.isNotEmpty)
                     GestureDetector(
+                      behavior: HitTestBehavior.translucent,
                       onVerticalDragUpdate: _adjustingBanner ? (d) {
                         setState(() {
-                          // 220px de altura → mapear delta a rango [-1, 1]
                           _bannerAlignY = (_bannerAlignY + d.delta.dy / 110).clamp(-1.0, 1.0);
                         });
                       } : null,
@@ -337,66 +337,53 @@ class _DetailScreenState extends State<DetailScreen> {
                     Container(color: context.backgroundColor),
                   // Gradiente oscuro sobre la portada
                   Positioned.fill(
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Colors.transparent,
-                            context.backgroundColor.withValues(alpha: 0.85),
-                            context.backgroundColor,
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  // Botón para activar/desactivar ajuste de banner
-                  if (posterImage.isNotEmpty)
-                    Positioned(
-                      top: 8,
-                      right: 8,
-                      child: SafeArea(
-                        child: GestureDetector(
-                          onTap: () => setState(() => _adjustingBanner = !_adjustingBanner),
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 200),
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: _adjustingBanner
-                                  ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.9)
-                                  : Colors.black.withValues(alpha: 0.45),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  _adjustingBanner ? Icons.check_rounded : Icons.crop_free_rounded,
-                                  color: Colors.white,
-                                  size: 14,
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  _adjustingBanner ? 'Listo' : 'Ajustar',
-                                  style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
-                                ),
-                              ],
-                            ),
+                    child: IgnorePointer(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Colors.transparent,
+                              context.backgroundColor.withValues(alpha: 0.85),
+                              context.backgroundColor,
+                            ],
                           ),
                         ),
                       ),
                     ),
-                  // Indicador de arrastre cuando está en modo ajuste
+                  ),
+                  // Borde de selección al ajustar
                   if (_adjustingBanner)
                     Positioned.fill(
                       child: IgnorePointer(
                         child: DecoratedBox(
                           decoration: BoxDecoration(
                             border: Border.all(
-                              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.6),
+                              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.7),
                               width: 2,
                             ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  // Hint de arrastre centrado
+                  if (_adjustingBanner)
+                    Center(
+                      child: IgnorePointer(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.55),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.swap_vert_rounded, color: Colors.white, size: 16),
+                              SizedBox(width: 6),
+                              Text('Arrastra para reposicionar', style: TextStyle(color: Colors.white, fontSize: 12)),
+                            ],
                           ),
                         ),
                       ),
@@ -409,6 +396,38 @@ class _DetailScreenState extends State<DetailScreen> {
             pinned: true,
             backgroundColor: context.backgroundColor,
             actions: [
+              // Botón ajustar posición del banner
+              if (posterImage.isNotEmpty)
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 2),
+                  decoration: BoxDecoration(
+                    color: _adjustingBanner
+                        ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.2)
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: TextButton.icon(
+                    onPressed: () => setState(() => _adjustingBanner = !_adjustingBanner),
+                    icon: Icon(
+                      _adjustingBanner ? Icons.check_rounded : Icons.crop_free_rounded,
+                      size: 16,
+                      color: _adjustingBanner
+                          ? Theme.of(context).colorScheme.primary
+                          : context.textSecondary,
+                    ),
+                    label: Text(
+                      _adjustingBanner ? 'Listo' : 'Ajustar',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: _adjustingBanner
+                            ? Theme.of(context).colorScheme.primary
+                            : context.textSecondary,
+                      ),
+                    ),
+                    style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 8)),
+                  ),
+                ),
               IconButton(
                 icon: Icon(Icons.share, color: context.textPrimary, size: 26),
                 tooltip: 'Compartir',
