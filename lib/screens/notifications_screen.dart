@@ -50,7 +50,32 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 context.read<NotificationProvider>().refreshUnread();
               }
             },
-            child: Text('Marcar leídas', style: TextStyle(color: Theme.of(context).colorScheme.primary)),
+            child: Text('Leídas', style: TextStyle(color: Theme.of(context).colorScheme.primary)),
+          ),
+          IconButton(
+            icon: const Icon(Icons.delete_sweep_rounded),
+            tooltip: 'Borrar todo',
+            onPressed: () async {
+              final confirm = await showDialog<bool>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  backgroundColor: context.cardColor,
+                  title: Text('Borrar notificaciones', style: TextStyle(color: context.textPrimary)),
+                  content: Text('¿Eliminar todas las notificaciones?', style: TextStyle(color: context.textSecondary)),
+                  actions: [
+                    TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      child: const Text('Borrar todo', style: TextStyle(color: Colors.red)),
+                    ),
+                  ],
+                ),
+              );
+              if (confirm == true && context.mounted) {
+                await NotificationService.deleteAllNotifications(auth.userId!);
+                if (context.mounted) context.read<NotificationProvider>().refreshUnread();
+              }
+            },
           ),
         ],
       ),
@@ -81,29 +106,43 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             separatorBuilder: (_, __) => Divider(height: 1, color: context.cardColor),
             itemBuilder: (context, index) {
               final n = items[index];
-              return ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: n.read ? context.cardColor : Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
-                  child: Icon(
-                    Icons.reply_rounded,
-                    color: n.read ? context.textSecondary : Theme.of(context).colorScheme.primary,
+              return Dismissible(
+                key: ValueKey(n.id),
+                direction: DismissDirection.endToStart,
+                background: Container(
+                  alignment: Alignment.centerRight,
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  color: Colors.red.shade700,
+                  child: const Icon(Icons.delete_rounded, color: Colors.white),
+                ),
+                onDismissed: (_) async {
+                  await NotificationService.deleteNotification(auth.userId!, n.id);
+                  if (context.mounted) context.read<NotificationProvider>().refreshUnread();
+                },
+                child: ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: n.read ? context.cardColor : Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
+                    child: Icon(
+                      Icons.reply_rounded,
+                      color: n.read ? context.textSecondary : Theme.of(context).colorScheme.primary,
+                    ),
                   ),
-                ),
-                title: Text(
-                  n.title,
-                  style: TextStyle(
-                    color: context.textPrimary,
-                    fontWeight: n.read ? FontWeight.normal : FontWeight.bold,
-                    fontSize: 14,
+                  title: Text(
+                    n.title,
+                    style: TextStyle(
+                      color: context.textPrimary,
+                      fontWeight: n.read ? FontWeight.normal : FontWeight.bold,
+                      fontSize: 14,
+                    ),
                   ),
+                  subtitle: Text(
+                    '${n.animeTitle}\n${n.body}',
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: context.textSecondary, fontSize: 12),
+                  ),
+                  onTap: () => _openNotification(context, auth, n),
                 ),
-                subtitle: Text(
-                  '${n.animeTitle}\n${n.body}',
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(color: context.textSecondary, fontSize: 12),
-                ),
-                onTap: () => _openNotification(context, auth, n),
               );
             },
           );

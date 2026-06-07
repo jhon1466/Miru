@@ -85,4 +85,22 @@ class NotificationService {
     }
     await batch.commit();
   }
+
+  static Future<void> deleteNotification(String userId, String notificationId) async {
+    await _notificationsRef(userId).doc(notificationId).delete();
+  }
+
+  static Future<void> deleteAllNotifications(String userId) async {
+    const batchSize = 50;
+    while (true) {
+      final snap = await _notificationsRef(userId).limit(batchSize).get();
+      if (snap.docs.isEmpty) break;
+      final batch = _db.batch();
+      for (final doc in snap.docs) {
+        batch.delete(doc.reference);
+      }
+      await batch.commit();
+      if (snap.docs.length < batchSize) break;
+    }
+  }
 }

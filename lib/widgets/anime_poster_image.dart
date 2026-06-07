@@ -11,6 +11,7 @@ class AnimePosterImage extends StatelessWidget {
   final double? height;
   final BoxFit fit;
   final BorderRadius? borderRadius;
+  final Alignment alignment;
 
   const AnimePosterImage({
     super.key,
@@ -21,6 +22,7 @@ class AnimePosterImage extends StatelessWidget {
     this.height,
     this.fit = BoxFit.cover,
     this.borderRadius,
+    this.alignment = Alignment.center,
   });
 
   /// Compatibilidad con código que pasa [fallbackUrls].
@@ -35,6 +37,7 @@ class AnimePosterImage extends StatelessWidget {
       height: height,
       fit: fit,
       borderRadius: borderRadius,
+      alignment: alignment,
     );
   }
 
@@ -68,6 +71,7 @@ class _NetworkImageWithFallback extends StatefulWidget {
   final double? height;
   final BoxFit fit;
   final BorderRadius? borderRadius;
+  final Alignment alignment;
 
   const _NetworkImageWithFallback({
     required this.urls,
@@ -75,6 +79,7 @@ class _NetworkImageWithFallback extends StatefulWidget {
     this.height,
     this.fit = BoxFit.cover,
     this.borderRadius,
+    this.alignment = Alignment.center,
   });
 
   @override
@@ -121,6 +126,7 @@ class _NetworkImageWithFallbackState extends State<_NetworkImageWithFallback> {
       width: widget.width,
       height: widget.height,
       fit: widget.fit,
+      alignment: widget.alignment,
       httpHeaders: headers,
       fadeInDuration: const Duration(milliseconds: 200),
       placeholder: (_, __) => loadingBox,

@@ -148,6 +148,14 @@ class PushNotificationService {
     final settings = await _messaging.requestPermission(alert: true, badge: true, sound: true);
     debugPrint('FCM permission: ${settings.authorizationStatus}');
 
+    // Suscribirse al topic de actualizaciones de la app (todos los dispositivos)
+    try {
+      await _messaging.subscribeToTopic('app_updates');
+      debugPrint('FCM: suscrito a app_updates');
+    } catch (e) {
+      debugPrint('FCM subscribeToTopic error: $e');
+    }
+
     // Escuchar mensajes en primer y segundo plano
     FirebaseMessaging.onMessage.listen(_onForegroundMessage);
     FirebaseMessaging.onMessageOpenedApp.listen(_onMessageOpenedApp);

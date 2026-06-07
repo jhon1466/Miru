@@ -45,6 +45,9 @@ class _DetailScreenState extends State<DetailScreen> {
   bool _reverseEpisodeOrder = false;
   final TextEditingController _episodeSearchController = TextEditingController();
   String _episodeSearchQuery = '';
+  // Posición vertical del banner: -1.0 = arriba, 0.0 = centro, 1.0 = abajo
+  double _bannerAlignY = 0.0;
+  bool _adjustingBanner = false;
 
   @override
   void dispose() {
@@ -315,11 +318,20 @@ class _DetailScreenState extends State<DetailScreen> {
               background: Stack(
                 fit: StackFit.expand,
                 children: [
-                  // Imagen de fondo
+                  // Imagen de fondo con posición ajustable
                   if (posterImage.isNotEmpty)
-                    AnimePosterImage(
-                      urlCandidates: posterCandidates,
-                      fit: BoxFit.cover,
+                    GestureDetector(
+                      onVerticalDragUpdate: _adjustingBanner ? (d) {
+                        setState(() {
+                          // 220px de altura → mapear delta a rango [-1, 1]
+                          _bannerAlignY = (_bannerAlignY + d.delta.dy / 110).clamp(-1.0, 1.0);
+                        });
+                      } : null,
+                      child: AnimePosterImage(
+                        urlCandidates: posterCandidates,
+                        fit: BoxFit.cover,
+                        alignment: Alignment(0, _bannerAlignY),
+                      ),
                     )
                   else
                     Container(color: context.backgroundColor),
@@ -339,6 +351,56 @@ class _DetailScreenState extends State<DetailScreen> {
                       ),
                     ),
                   ),
+                  // Botón para activar/desactivar ajuste de banner
+                  if (posterImage.isNotEmpty)
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: SafeArea(
+                        child: GestureDetector(
+                          onTap: () => setState(() => _adjustingBanner = !_adjustingBanner),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: _adjustingBanner
+                                  ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.9)
+                                  : Colors.black.withValues(alpha: 0.45),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  _adjustingBanner ? Icons.check_rounded : Icons.crop_free_rounded,
+                                  color: Colors.white,
+                                  size: 14,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  _adjustingBanner ? 'Listo' : 'Ajustar',
+                                  style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  // Indicador de arrastre cuando está en modo ajuste
+                  if (_adjustingBanner)
+                    Positioned.fill(
+                      child: IgnorePointer(
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            border: Border.all(
+                              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.6),
+                              width: 2,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
