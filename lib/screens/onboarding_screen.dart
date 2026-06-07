@@ -70,6 +70,13 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       description:
           'Visualiza tus favoritos, elementos seguidos, historial y tiempo dedicado de anime, manga y novelas.',
     ),
+    _OnboardPage(
+      icon: Icons.workspace_premium_rounded,
+      iconColor: Color(0xFFFFB300),
+      title: '¡Hazte Supporter! 👑',
+      description:
+          'Apoya la app y desbloquea ventajas exclusivas: colores de acento premium + rueda de colores ilimitada, stickers VIP en el chat, badge 👑 en tu perfil, sin cooldown de mensajes y hasta 2 000 caracteres por mensaje.',
+    ),
   ];
 
   // Índice de la última página real + 1 = pantalla de login
