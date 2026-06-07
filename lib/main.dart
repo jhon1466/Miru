@@ -66,7 +66,6 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => DownloadProvider()..loadLibrary()),
         ChangeNotifierProvider(create: (_) => SupporterProvider()),
         ChangeNotifierProvider(create: (_) => CastProvider()),
-        ChangeNotifierProvider(create: (_) => CastProvider()),
       ],
       child: Builder(
         builder: (context) {

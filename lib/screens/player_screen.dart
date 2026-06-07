@@ -19,6 +19,7 @@ import '../providers/connectivity_provider.dart';
 import '../providers/tv_provider.dart';
 import 'detail_screen.dart';
 import '../services/server_probe_service.dart';
+import '../services/server_extractor_service.dart';
 
 class PlayerScreen extends StatefulWidget {
   final String episodeUrl;
@@ -59,8 +60,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
   // Cacheado en el primer build para poder usarlo en dispose (sin contexto)
   bool _cachedIsTV = false;
 
-  // Resultados del escaneo de servidores: url → ProbeResult
+  // Resultados del escaneo: embedUrl → ProbeResult
   final Map<String, ProbeResult> _probeResults = {};
+  // URLs reales extraídas: embedUrl → directUrl
+  final Map<String, String> _extractedUrls = {};
   bool _isScanning = false;
 
   @override
@@ -170,31 +173,62 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _scanServers(allServers.map((s) => s.url).toList(), links);
   }
 
-  /// Escanea todos los servidores y cambia al primero que sea nativo
-  /// si el servidor actual no es nativo.
+  /// Escanea todos los servidores usando extractores específicos.
+  /// Primero verifica estáticamente, luego intenta extracción HTTP.
   Future<void> _scanServers(List<String> urls, EpisodeLinksResponse links) async {
     if (!mounted) return;
     setState(() => _isScanning = true);
 
-    // Pre-marcar las que ya sabemos estáticamente
-    for (final url in urls) {
-      final quick = await ServerProbeService.probe(url);
-      if (!mounted) return;
-      setState(() => _probeResults[url] = quick);
-
-      // Si encontramos una nativa y el reproductor actual está en WebView → cambiar
-      if (quick == ProbeResult.native && _useWebViewFallback) {
-        final allServers = [...links.subStream, ...links.dubStream];
-        final match = allServers.where((s) => s.url == url).firstOrNull;
-        if (match != null) {
-          _playServer(match.url, match.server,
-              links.subStream.any((s) => s.url == url),
-              logHistory: false);
-        }
-      }
-    }
+    await Future.wait(urls.map((embedUrl) => _probeOne(embedUrl, links)));
 
     if (mounted) setState(() => _isScanning = false);
+  }
+
+  Future<void> _probeOne(String embedUrl, EpisodeLinksResponse links) async {
+    if (!mounted) return;
+
+    // 1. Verificación rápida estática
+    final quick = ServerProbeService.quickCheck(embedUrl);
+    if (quick == ProbeResult.native) {
+      if (mounted) setState(() => _probeResults[embedUrl] = ProbeResult.native);
+      _autoSwitchIfBetter(embedUrl, embedUrl, links);
+      return;
+    }
+
+    // 2. Extracción HTTP específica por servidor
+    try {
+      final result = await ServerExtractorService.extract(embedUrl);
+      if (!mounted) return;
+
+      if (result != null && result.success) {
+        final directUrl = result.url!;
+        setState(() {
+          _probeResults[embedUrl] = ProbeResult.native;
+          _extractedUrls[embedUrl] = directUrl;
+        });
+        _autoSwitchIfBetter(embedUrl, directUrl, links);
+        debugPrint('[Scan] ✅ $embedUrl → $directUrl');
+      } else {
+        if (mounted) setState(() => _probeResults[embedUrl] = ProbeResult.webview);
+        debugPrint('[Scan] 🌐 $embedUrl: ${result?.error}');
+      }
+    } catch (e) {
+      if (mounted) setState(() => _probeResults[embedUrl] = ProbeResult.webview);
+    }
+  }
+
+  /// Cambia al servidor nativo si el actual está en WebView fallback
+  void _autoSwitchIfBetter(String embedUrl, String directUrl, EpisodeLinksResponse links) {
+    if (!mounted) return;
+    // Solo cambiar automáticamente si estamos atascados en WebView fallback
+    if (!_useWebViewFallback && !_isResolvingUrl) return;
+
+    final allServers = [...links.subStream, ...links.dubStream];
+    final match = allServers.where((s) => s.url == embedUrl).firstOrNull;
+    if (match == null) return;
+
+    final isSub = links.subStream.any((s) => s.url == embedUrl);
+    _playServer(directUrl, match.server, isSub, logHistory: false);
   }
 
   ({String url, String server, bool isSub})? _firstPlayableLink(
@@ -239,6 +273,12 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
     _resolverTimeoutTimer?.cancel();
     _jsExtractionTimer?.cancel();
+
+    // Si ya tenemos una URL directa extraída para este embed, usarla
+    final resolved = _extractedUrls[url];
+    if (resolved != null && resolved.isNotEmpty) {
+      url = resolved;
+    }
 
     final isDirect = _isDirectMediaUrl(url);
 
@@ -291,10 +331,14 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _resolverTimeoutTimer?.cancel();
     _jsExtractionTimer?.cancel();
     if (!mounted) return;
+    final embedUrl = _originalEmbedUrl ?? resolvedUrl;
     setState(() {
       _selectedServerUrl = resolvedUrl;
       _isResolvingUrl = false;
       _useWebViewFallback = false;
+      // Marcar el servidor como nativo ahora que tenemos la URL directa
+      _probeResults[embedUrl] = ProbeResult.native;
+      _extractedUrls[embedUrl] = resolvedUrl;
     });
   }
 
