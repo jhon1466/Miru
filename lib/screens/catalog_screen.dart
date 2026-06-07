@@ -149,9 +149,27 @@ class _CatalogScreenState extends State<CatalogScreen> {
       ),
       body: Column(
         children: [
-          if (!isTV) _buildFilters(context, provider),
+          if (isTV)
+            _buildTVProviderRow(context, provider)
+          else
+            _buildFilters(context, provider),
           Expanded(child: _buildBody(provider, isTV: isTV)),
         ],
+      ),
+    );
+  }
+
+  /// Fila de chips de proveedor para TV (sin TextField ni dropdowns)
+  Widget _buildTVProviderRow(BuildContext context, AnimeProvider provider) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      color: context.cardColor.withValues(alpha: 0.5),
+      child: SizedBox(
+        height: 40,
+        child: ProviderChipsRow(
+          provider: provider,
+          padding: const EdgeInsets.only(right: 8),
+        ),
       ),
     );
   }
