@@ -76,7 +76,8 @@ class _LoggedInBodyState extends State<_LoggedInBody> {
           .ref('user_banners/$uid/banner.jpg')
           .putFile(result.file)
           .then((t) => t.ref.getDownloadURL());
-      await UserService.updateBannerUrlAndAlign(uid, url, result.alignY);
+      await UserService.updateBannerUrl(uid, url);
+      await UserService.updateBannerAlign(uid, result.alignY);
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: const Text('Banner actualizado'), backgroundColor: context.successColor));
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: context.dangerColor));
