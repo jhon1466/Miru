@@ -139,8 +139,34 @@ class _DetailScreenState extends State<DetailScreen> {
     bool preferSub,
   ) async {
     final downloads = context.read<DownloadProvider>();
+    final total = details.episodes.length;
+
+    // Feedback inmediato al usuario
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.download_rounded, color: Colors.white, size: 18),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Añadiendo $total episodios a la cola…',
+                  style: const TextStyle(color: Colors.white),
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: Theme.of(context).colorScheme.primary,
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
+
     int queued = 0;
     for (final ep in details.episodes) {
+      if (!context.mounted) break;
       await downloads.startEpisodeDownload(
         episodeUrl: ep.url,
         episodeNumber: ep.number,
@@ -151,11 +177,25 @@ class _DetailScreenState extends State<DetailScreen> {
       );
       queued++;
     }
-    if (context.mounted) {
+
+    if (context.mounted && queued > 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('$queued episodios añadidos a la cola de descarga'),
-          duration: const Duration(seconds: 3),
+          content: Row(
+            children: [
+              const Icon(Icons.check_circle_rounded, color: Colors.white, size: 18),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  '$queued/${total} episodios en descarga',
+                  style: const TextStyle(color: Colors.white),
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: Colors.green.shade700,
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 4),
         ),
       );
     }
