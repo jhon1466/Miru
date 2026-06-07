@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../core/theme.dart';
 import '../providers/auth_provider.dart' as app_auth;
@@ -27,6 +28,7 @@ class _MainShellScreenState extends State<MainShellScreen> {
   int _currentIndex = 0;
   bool _welcomeChecked = false;
   String? _boundUserId;
+  DateTime? _lastBackPress;
 
   static const _tabs = [
     _NavItem(icon: Icons.home_rounded, label: 'Inicio'),
@@ -125,9 +127,32 @@ class _MainShellScreenState extends State<MainShellScreen> {
           )
         : null;
 
-    return isTV
-        ? _buildTV(context, offlineBanner)
-        : _buildMobile(context, offlineBanner);
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop) return;
+        final now = DateTime.now();
+        final lastPress = _lastBackPress;
+        if (lastPress != null && now.difference(lastPress) < const Duration(seconds: 2)) {
+          // Segunda pulsación: salir de la app
+          await SystemNavigator.pop();
+        } else {
+          _lastBackPress = now;
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Presiona atrás de nuevo para salir'),
+                duration: Duration(seconds: 2),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
+        }
+      },
+      child: isTV
+          ? _buildTV(context, offlineBanner)
+          : _buildMobile(context, offlineBanner),
+    );
   }
 
   // ── Vista móvil ────────────────────────────────────────────────────────────
