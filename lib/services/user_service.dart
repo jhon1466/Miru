@@ -7,6 +7,8 @@ class UserProfile {
   final String displayName;
   final String? photoUrl;
   final String? bannerUrl;
+  /// Alineación vertical del banner: -1.0 arriba, 0.0 centro, 1.0 abajo
+  final double bannerAlignY;
   final String? email;
   final bool isPublic;
   final bool isSupporter;
@@ -17,6 +19,7 @@ class UserProfile {
     required this.displayName,
     this.photoUrl,
     this.bannerUrl,
+    this.bannerAlignY = 0.0,
     this.email,
     this.isPublic = true,
     this.isSupporter = false,
@@ -35,6 +38,7 @@ class UserProfile {
       displayName: data['displayName'] ?? 'Usuario',
       photoUrl: data['photoUrl']?.toString(),
       bannerUrl: data['bannerUrl']?.toString(),
+      bannerAlignY: (data['bannerAlignY'] as num?)?.toDouble() ?? 0.0,
       email: data['email']?.toString(),
       isPublic: isPublic,
       isSupporter: data['isSupporter'] == true,
@@ -56,6 +60,7 @@ class UserProfile {
     String? displayName,
     String? photoUrl,
     String? bannerUrl,
+    double? bannerAlignY,
     String? email,
     bool? isPublic,
     bool? isSupporter,
@@ -65,6 +70,7 @@ class UserProfile {
       displayName: displayName ?? this.displayName,
       photoUrl: photoUrl ?? this.photoUrl,
       bannerUrl: bannerUrl ?? this.bannerUrl,
+      bannerAlignY: bannerAlignY ?? this.bannerAlignY,
       email: email ?? this.email,
       isPublic: isPublic ?? this.isPublic,
       isSupporter: isSupporter ?? this.isSupporter,
@@ -162,6 +168,17 @@ class UserService {
     } else {
       await _userRef(uid).update({'bannerUrl': FieldValue.delete()});
     }
+  }
+
+  static Future<void> updateBannerUrlAndAlign(String uid, String bannerUrl, double alignY) async {
+    await _userRef(uid).set({
+      'bannerUrl': bannerUrl,
+      'bannerAlignY': alignY,
+    }, SetOptions(merge: true));
+  }
+
+  static Future<void> updateBannerAlign(String uid, double alignY) async {
+    await _userRef(uid).set({'bannerAlignY': alignY}, SetOptions(merge: true));
   }
 
   static Future<void> addFcmToken(String uid, String token) async {

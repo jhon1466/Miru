@@ -61,13 +61,22 @@ class _LoggedInBodyState extends State<_LoggedInBody> {
   Future<void> _pickAndUploadBanner(BuildContext context, String uid) async {
     final picked = await ImagePicker().pickImage(source: ImageSource.gallery, maxWidth: 1200, imageQuality: 85);
     if (picked == null || !mounted) return;
+
+    // Mostrar diálogo de ajuste de posición antes de subir
+    final result = await showDialog<({double alignY, File file})>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => _BannerPositionDialog(imageFile: File(picked.path)),
+    );
+    if (result == null || !mounted) return;
+
     setState(() => _uploadingBanner = true);
     try {
       final url = await FirebaseStorage.instance
           .ref('user_banners/$uid/banner.jpg')
-          .putFile(File(picked.path))
+          .putFile(result.file)
           .then((t) => t.ref.getDownloadURL());
-      await UserService.updateBannerUrl(uid, url);
+      await UserService.updateBannerUrlAndAlign(uid, url, result.alignY);
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: const Text('Banner actualizado'), backgroundColor: context.successColor));
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: context.dangerColor));
@@ -186,6 +195,7 @@ class _LoggedInBodyState extends State<_LoggedInBody> {
                 onEditPhoto: () => _changePhoto(context),
                 onEditName: () => _editDisplayName(context, name),
                 email: widget.authProvider.email,
+                bannerAlignY: profile?.bannerAlignY ?? 0.0,
               ),
 
               // ── Resto del contenido ──────────────────────────────────────
@@ -540,6 +550,7 @@ class _ProfileBannerHeader extends StatelessWidget {
   final VoidCallback? onRemoveBanner;
   final VoidCallback onEditPhoto;
   final VoidCallback onEditName;
+  final double bannerAlignY;
 
   static const double _bannerHeight = 140;
   static const double _avatarRadius = 48;
@@ -550,6 +561,7 @@ class _ProfileBannerHeader extends StatelessWidget {
     required this.uploadingBanner, required this.uploadingPhoto,
     required this.onEditBanner, required this.onRemoveBanner,
     required this.onEditPhoto, required this.onEditName,
+    this.bannerAlignY = 0.0,
   });
 
   @override
@@ -564,9 +576,14 @@ class _ProfileBannerHeader extends StatelessWidget {
               height: _bannerHeight, width: double.infinity,
               decoration: BoxDecoration(color: context.cardColor),
               child: hasBanner
-                  ? Image.network(profile!.bannerUrl!, fit: BoxFit.cover,
-                      width: double.infinity, height: _bannerHeight,
-                      errorBuilder: (_, __, ___) => _placeholder(context))
+                  ? Image.network(
+                      profile!.bannerUrl!,
+                      fit: BoxFit.cover,
+                      alignment: Alignment(0, bannerAlignY),
+                      width: double.infinity,
+                      height: _bannerHeight,
+                      errorBuilder: (_, __, ___) => _placeholder(context),
+                    )
                   : _placeholder(context),
             ),
           ),
@@ -645,6 +662,146 @@ class _ProfileBannerHeader extends StatelessWidget {
       colors: [context.primaryColor.withValues(alpha: 0.3), context.primaryColor.withValues(alpha: 0.08)],
       begin: Alignment.topLeft, end: Alignment.bottomRight)),
   );
+}
+
+// ── Diálogo de ajuste de posición del banner antes de subir ──────────────────
+class _BannerPositionDialog extends StatefulWidget {
+  final File imageFile;
+  const _BannerPositionDialog({required this.imageFile});
+
+  @override
+  State<_BannerPositionDialog> createState() => _BannerPositionDialogState();
+}
+
+class _BannerPositionDialogState extends State<_BannerPositionDialog> {
+  double _alignY = 0.0;
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      insetPadding: const EdgeInsets.all(0),
+      backgroundColor: Colors.black,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Título
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: Row(
+              children: [
+                const Icon(Icons.crop_free_rounded, color: Colors.white, size: 18),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Text(
+                    'Ajusta la posición del banner',
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white54, size: 20),
+                  onPressed: () => Navigator.pop(context),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+              ],
+            ),
+          ),
+
+          // Preview con drag
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onVerticalDragUpdate: (d) {
+              setState(() {
+                _alignY = (_alignY + d.delta.dy / 90).clamp(-1.0, 1.0);
+              });
+            },
+            child: Stack(
+              children: [
+                SizedBox(
+                  height: 180,
+                  width: double.infinity,
+                  child: Image.file(
+                    widget.imageFile,
+                    fit: BoxFit.cover,
+                    alignment: Alignment(0, _alignY),
+                  ),
+                ),
+                // Hint de arrastre
+                Positioned.fill(
+                  child: Center(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.55),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.swap_vert_rounded, color: Colors.white, size: 16),
+                          SizedBox(width: 6),
+                          Text('Arrastra para reposicionar',
+                              style: TextStyle(color: Colors.white, fontSize: 12)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Slider + botones
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+            child: Row(
+              children: [
+                const Icon(Icons.arrow_upward_rounded, color: Colors.white54, size: 16),
+                Expanded(
+                  child: Slider(
+                    value: _alignY,
+                    min: -1.0,
+                    max: 1.0,
+                    activeColor: Theme.of(context).colorScheme.primary,
+                    inactiveColor: Colors.white24,
+                    onChanged: (v) => setState(() => _alignY = v),
+                  ),
+                ),
+                const Icon(Icons.arrow_downward_rounded, color: Colors.white54, size: 16),
+              ],
+            ),
+          ),
+
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: OutlinedButton.styleFrom(foregroundColor: Colors.white54, side: const BorderSide(color: Colors.white24)),
+                    child: const Text('Cancelar'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () => Navigator.pop(context, (alignY: _alignY, file: widget.imageFile)),
+                    icon: const Icon(Icons.check_rounded, size: 18),
+                    label: const Text('Guardar'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Theme.of(context).colorScheme.primary,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _SmallBtn extends StatelessWidget {
