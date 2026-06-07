@@ -18,6 +18,7 @@ import '../widgets/native_video_player.dart';
 import '../providers/connectivity_provider.dart';
 import '../providers/tv_provider.dart';
 import 'detail_screen.dart';
+import '../services/server_probe_service.dart';
 
 class PlayerScreen extends StatefulWidget {
   final String episodeUrl;
@@ -57,6 +58,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   // Cacheado en el primer build para poder usarlo en dispose (sin contexto)
   bool _cachedIsTV = false;
+
+  // Resultados del escaneo de servidores: url → ProbeResult
+  final Map<String, ProbeResult> _probeResults = {};
+  bool _isScanning = false;
 
   @override
   void initState() {
@@ -132,8 +137,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   Future<void> _loadEpisodeAndAutoplay() async {
     final provider = context.read<AnimeProvider>();
-    
-    // Cargar detalles del anime en segundo plano para conocer la lista de episodios
+
     if (provider.selectedAnime == null || provider.selectedAnime!.title != widget.animeTitle) {
       unawaited(provider.loadAnimeDetails(widget.animeUrl));
     }
@@ -144,10 +148,53 @@ class _PlayerScreenState extends State<PlayerScreen> {
     final links = provider.episodeLinks;
     if (links == null) return;
 
-    final first = _firstPlayableLink(links, preferSub: true);
-    if (first != null) {
-      _playServer(first.url, first.server, first.isSub, logHistory: false);
+    // Recopilar todas las URLs de stream disponibles
+    final allServers = [
+      ...links.subStream,
+      ...links.dubStream,
+    ];
+
+    if (allServers.isEmpty) {
+      final first = _firstPlayableLink(links, preferSub: true);
+      if (first != null) _playServer(first.url, first.server, first.isSub, logHistory: false);
+      return;
     }
+
+    // Reproducir el primer servidor disponible inmediatamente para no quedar en blanco
+    final firstAny = _firstPlayableLink(links, preferSub: true);
+    if (firstAny != null) {
+      _playServer(firstAny.url, firstAny.server, firstAny.isSub, logHistory: false);
+    }
+
+    // Escanear todos los servidores en paralelo buscando reproducción nativa
+    _scanServers(allServers.map((s) => s.url).toList(), links);
+  }
+
+  /// Escanea todos los servidores y cambia al primero que sea nativo
+  /// si el servidor actual no es nativo.
+  Future<void> _scanServers(List<String> urls, EpisodeLinksResponse links) async {
+    if (!mounted) return;
+    setState(() => _isScanning = true);
+
+    // Pre-marcar las que ya sabemos estáticamente
+    for (final url in urls) {
+      final quick = await ServerProbeService.probe(url);
+      if (!mounted) return;
+      setState(() => _probeResults[url] = quick);
+
+      // Si encontramos una nativa y el reproductor actual está en WebView → cambiar
+      if (quick == ProbeResult.native && _useWebViewFallback) {
+        final allServers = [...links.subStream, ...links.dubStream];
+        final match = allServers.where((s) => s.url == url).firstOrNull;
+        if (match != null) {
+          _playServer(match.url, match.server,
+              links.subStream.any((s) => s.url == url),
+              logHistory: false);
+        }
+      }
+    }
+
+    if (mounted) setState(() => _isScanning = false);
   }
 
   ({String url, String server, bool isSub})? _firstPlayableLink(
@@ -875,13 +922,32 @@ class _PlayerScreenState extends State<PlayerScreen> {
             ),
           const SizedBox(height: 24),
           if (currentStreamServers.isNotEmpty) ...[
-            Text(
-              'Servidores (${_isSub ? "SUB" : "DUB"})',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: context.textPrimary),
+            Row(
+              children: [
+                Text(
+                  'Servidores (${_isSub ? "SUB" : "DUB"})',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: context.textPrimary),
+                ),
+                if (_isScanning) ...[
+                  const SizedBox(width: 8),
+                  SizedBox(
+                    width: 12, height: 12,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 1.5,
+                      color: context.primaryColor,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Text('Escaneando…', style: TextStyle(fontSize: 11, color: context.textSecondary)),
+                ],
+              ],
             ),
             const SizedBox(height: 10),
             ...currentStreamServers.map((server) {
               final isCurrent = _selectedServerUrl == server.url;
+              final probe = _probeResults[server.url];
+              final isNative = probe == ProbeResult.native;
+              final isWebView = probe == ProbeResult.webview;
               return Padding(
                 padding: const EdgeInsets.only(bottom: 8),
                 child: Material(
@@ -897,12 +963,43 @@ class _PlayerScreenState extends State<PlayerScreen> {
                         width: 1.5,
                       ),
                     ),
-                    title: Text(
-                      server.server,
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: isCurrent ? Theme.of(context).colorScheme.primary : context.textPrimary,
-                      ),
+                    title: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            server.server,
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: isCurrent ? Theme.of(context).colorScheme.primary : context.textPrimary,
+                            ),
+                          ),
+                        ),
+                        if (isNative)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.green.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: Colors.green.withValues(alpha: 0.4)),
+                            ),
+                            child: const Text('📱 Nativo', style: TextStyle(fontSize: 10, color: Colors.green, fontWeight: FontWeight.bold)),
+                          )
+                        else if (isWebView)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.orange.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: Colors.orange.withValues(alpha: 0.35)),
+                            ),
+                            child: const Text('🌐 WebView', style: TextStyle(fontSize: 10, color: Colors.orange, fontWeight: FontWeight.bold)),
+                          )
+                        else if (_isScanning)
+                          SizedBox(
+                            width: 10, height: 10,
+                            child: CircularProgressIndicator(strokeWidth: 1.5, color: context.textSecondary),
+                          ),
+                      ],
                     ),
                     subtitle: server.quality != null
                         ? Text(server.quality!, style: const TextStyle(fontSize: 11))
