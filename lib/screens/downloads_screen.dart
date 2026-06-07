@@ -123,6 +123,44 @@ class _DownloadsScreenState extends State<DownloadsScreen>
 // ─── Anime Tab ─────────────────────────────────────────────────────────────
 
 class _AnimeTab extends StatelessWidget {
+  void _confirmCancelAll(BuildContext context, DownloadProvider downloads) {
+    showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: context.cardColor,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(children: [
+          Icon(Icons.cancel_outlined, color: context.dangerColor, size: 22),
+          const SizedBox(width: 10),
+          Text('Cancelar todo', style: TextStyle(color: context.textPrimary, fontWeight: FontWeight.bold)),
+        ]),
+        content: Text(
+          '¿Cancelar las ${downloads.activeTasks.length} descargas en progreso?',
+          style: TextStyle(color: context.textSecondary, height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('No', style: TextStyle(color: context.textSecondary)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              downloads.cancelAllDownloads();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: context.dangerColor,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              elevation: 0,
+            ),
+            child: const Text('Cancelar todo'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final downloads = context.watch<DownloadProvider>();
@@ -155,8 +193,23 @@ class _AnimeTab extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
               children: [
                 if (active.isNotEmpty) ...[
-                  const Text('En progreso',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('En progreso',
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      TextButton.icon(
+                        onPressed: () => _confirmCancelAll(context, downloads),
+                        icon: Icon(Icons.cancel_outlined, size: 16, color: context.dangerColor),
+                        label: Text('Cancelar todo',
+                            style: TextStyle(fontSize: 13, color: context.dangerColor)),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 8),
                   ...active.map((t) => _ActiveDownloadCard(task: t, isFailed: false)),
                   const SizedBox(height: 24),
