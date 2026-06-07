@@ -28,6 +28,8 @@ class PlayerScreen extends StatefulWidget {
   final String animeUrl;
   final String animeImage;
   final String? focusCommentId;
+  /// Lista de episodios del anime para la reproducción automática.
+  final List<Episode> episodes;
 
   const PlayerScreen({
     super.key,
@@ -37,6 +39,7 @@ class PlayerScreen extends StatefulWidget {
     required this.animeUrl,
     this.animeImage = '',
     this.focusCommentId,
+    this.episodes = const [],
   });
 
   @override
@@ -1234,25 +1237,21 @@ class _PlayerScreenState extends State<PlayerScreen> {
     final settings = context.read<SettingsProvider>();
     if (!settings.autoplayNextEpisode) return;
 
-    final animeProvider = context.read<AnimeProvider>();
-    final details = animeProvider.selectedAnime;
-    if (details == null || details.episodes.isEmpty) return;
+    // Usar la lista de episodios pasada directamente; como fallback usar el provider
+    List<Episode> allEpisodes = widget.episodes;
+    if (allEpisodes.isEmpty) {
+      final details = context.read<AnimeProvider>().selectedAnime;
+      allEpisodes = details?.episodes ?? [];
+    }
+    if (allEpisodes.isEmpty) return;
 
-    final currentEpNum = widget.episodeNumber;
-    Episode? nextEp;
-
-    // Asegurarse de ordenar los episodios por número ascendentemente
-    final sortedEpisodes = List<Episode>.from(details.episodes)
+    final sortedEpisodes = List<Episode>.from(allEpisodes)
       ..sort((a, b) => a.number.compareTo(b.number));
 
-    final currentIndex = sortedEpisodes.indexWhere((ep) => ep.number == currentEpNum);
-    if (currentIndex != -1 && currentIndex < sortedEpisodes.length - 1) {
-      nextEp = sortedEpisodes[currentIndex + 1];
-    }
+    final currentIndex = sortedEpisodes.indexWhere((ep) => ep.number == widget.episodeNumber);
+    if (currentIndex == -1 || currentIndex >= sortedEpisodes.length - 1) return;
 
-    if (nextEp != null) {
-      _showAutoplayDialog(nextEp);
-    }
+    _showAutoplayDialog(sortedEpisodes[currentIndex + 1]);
   }
 
   void _showAutoplayDialog(Episode nextEp) {
@@ -1321,6 +1320,12 @@ class _PlayerScreenState extends State<PlayerScreen> {
   }
 
   void _playEpisode(Episode ep) {
+    // Propagar la lista de episodios para que el siguiente reproductor
+    // también pueda usar la reproducción automática sin depender del provider
+    final episodes = widget.episodes.isNotEmpty
+        ? widget.episodes
+        : (context.read<AnimeProvider>().selectedAnime?.episodes ?? []);
+
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
@@ -1330,6 +1335,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
           animeTitle: widget.animeTitle,
           animeUrl: widget.animeUrl,
           animeImage: widget.animeImage,
+          episodes: episodes,
         ),
       ),
     );

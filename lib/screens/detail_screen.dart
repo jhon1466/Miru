@@ -1075,6 +1075,7 @@ class _DetailScreenState extends State<DetailScreen> {
                                     animeTitle: details.title,
                                     animeUrl: widget.animeUrl,
                                     animeImage: posterImage,
+                                    episodes: details.episodes,
                                   ),
                                 ),
                               );
