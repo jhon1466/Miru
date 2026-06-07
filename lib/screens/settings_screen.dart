@@ -284,13 +284,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                         decoration: BoxDecoration(
                                           gradient: LinearGradient(
                                             colors: [
-                                              const Color(0xFFFFD93D).withValues(alpha: 0.12),
+                                              context.supporterColor.withValues(alpha: 0.12),
                                               const Color(0xFFFF9A3C).withValues(alpha: 0.08),
                                             ],
                                           ),
                                           borderRadius: BorderRadius.circular(10),
                                           border: Border.all(
-                                            color: const Color(0xFFFFD93D).withValues(alpha: 0.35),
+                                            color: context.supporterColor.withValues(alpha: 0.35),
                                             width: 1,
                                           ),
                                         ),
@@ -317,12 +317,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                               ),
                                             ),
                                             const SizedBox(width: 8),
-                                            const Text(
+                                            Text(
                                               'Rueda de colores',
                                               style: TextStyle(
                                                 fontSize: 13,
                                                 fontWeight: FontWeight.w600,
-                                                color: Color(0xFFFFD93D),
+                                                color: context.supporterColor,
                                               ),
                                             ),
                                             const SizedBox(width: 4),
@@ -334,7 +334,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                   else ...[
                                     Row(
                                       children: [
-                                        const Icon(Icons.lock_rounded, size: 12, color: Color(0xFFFFD93D)),
+                                        Icon(Icons.lock_rounded, size: 12, color: context.supporterColor),
                                         const SizedBox(width: 4),
                                         Text(
                                           '10 colores extra + rueda de colores para supporters',
@@ -549,9 +549,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void _showSupporterLockedSnack(BuildContext context) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: const Row(
+        content: Row(
           children: [
-            Icon(Icons.lock_rounded, color: Color(0xFFFFD93D), size: 16),
+            Icon(Icons.lock_rounded, color: context.supporterColor, size: 16),
             SizedBox(width: 8),
             Expanded(
               child: Text(

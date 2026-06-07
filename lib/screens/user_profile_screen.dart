@@ -166,21 +166,21 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFFFD93D).withOpacity(0.15),
+                            color: context.supporterColor.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: const Color(0xFFFFD93D).withOpacity(0.5)),
+                            border: Border.all(color: context.supporterColor.withValues(alpha: 0.5)),
                           ),
-                          child: const Row(
+                          child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.favorite_rounded, color: Color(0xFFFFD93D), size: 12),
-                              SizedBox(width: 4),
+                              Icon(Icons.favorite_rounded, color: context.supporterColor, size: 12),
+                              const SizedBox(width: 4),
                               Text(
                                 'Supporter',
                                 style: TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.bold,
-                                  color: Color(0xFFFFD93D),
+                                  color: context.supporterColor,
                                 ),
                               ),
                             ],
