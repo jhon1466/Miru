@@ -8,6 +8,12 @@ import '../widgets/catalog_hentai_chip.dart';
 import '../widgets/provider_chips_row.dart';
 import 'detail_screen.dart';
 
+bool _isTVScreen(BuildContext context) {
+  final mq = MediaQuery.of(context);
+  return mq.navigationMode == NavigationMode.directional ||
+      mq.size.shortestSide > 480;
+}
+
 class CatalogScreen extends StatefulWidget {
   final bool embedded;
 
@@ -114,12 +120,26 @@ class _CatalogScreenState extends State<CatalogScreen> {
   @override
   Widget build(BuildContext context) {
     final provider = Provider.of<AnimeProvider>(context);
+    final isTV = _isTVScreen(context);
 
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: !widget.embedded,
         title: const Text('Catálogo'),
         actions: [
+          if (isTV) ...[
+            // En TV: botón de búsqueda que abre diálogo (no roba foco automáticamente)
+            IconButton(
+              icon: const Icon(Icons.search),
+              tooltip: 'Buscar',
+              onPressed: () => _showTVSearchDialog(context, provider),
+            ),
+            IconButton(
+              icon: const Icon(Icons.tune),
+              tooltip: 'Filtros',
+              onPressed: () => _showTVFiltersDialog(context, provider),
+            ),
+          ],
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: 'Recargar catálogo',
@@ -129,10 +149,162 @@ class _CatalogScreenState extends State<CatalogScreen> {
       ),
       body: Column(
         children: [
-          _buildFilters(context, provider),
-          Expanded(child: _buildBody(provider)),
+          if (!isTV) _buildFilters(context, provider),
+          Expanded(child: _buildBody(provider, isTV: isTV)),
         ],
       ),
+    );
+  }
+
+  /// Diálogo de búsqueda para TV — el teclado solo aparece cuando el usuario lo pide
+  void _showTVSearchDialog(BuildContext context, AnimeProvider provider) {
+    final ctrl = TextEditingController(text: provider.catalogQuery);
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Buscar anime'),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          decoration: const InputDecoration(
+            hintText: 'Título del anime...',
+            prefixIcon: Icon(Icons.search),
+          ),
+          onChanged: (v) {
+            provider.setCatalogQuery(v);
+            _reloadFromApi();
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              ctrl.clear();
+              provider.setCatalogQuery('');
+              _reloadFromApi();
+              Navigator.pop(ctx);
+            },
+            child: const Text('Limpiar'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Buscar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Diálogo de filtros para TV — género, año, tipo, estado
+  void _showTVFiltersDialog(BuildContext context, AnimeProvider provider) {
+    final genres = {
+      ..._defaultGenres,
+      ...provider.facetGenres,
+    }.where((s) => s.isNotEmpty).toList()
+      ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+
+    final types = {
+      ..._defaultTypes,
+      ...provider.facetTypes,
+    }.where((s) => s.isNotEmpty).toList()
+      ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+
+    final statuses = {
+      ..._defaultStatuses,
+      ...provider.facetStatuses,
+    }.where((s) => s.isNotEmpty).toList()
+      ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setD) => AlertDialog(
+          title: const Text('Filtros'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _dialogDropdown(ctx, setD, 'Género', provider.catalogGenre,
+                    ['', ...genres], (v) {
+                  provider.setCatalogGenre(v ?? '');
+                  _reloadFromApi();
+                }),
+                const SizedBox(height: 12),
+                _dialogDropdown(ctx, setD, 'Año', provider.catalogYear,
+                    ['', ..._yearOptions], (v) {
+                  provider.setCatalogYear(v ?? '');
+                  _reloadFromApi();
+                }),
+                const SizedBox(height: 12),
+                _dialogDropdown(ctx, setD, 'Tipo', provider.catalogType,
+                    ['', ...types], (v) {
+                  provider.setCatalogType(v ?? '');
+                  _reloadFromApi();
+                }),
+                const SizedBox(height: 12),
+                _dialogDropdown(ctx, setD, 'Estado', provider.catalogStatus,
+                    ['', ...statuses], (v) {
+                  provider.setCatalogStatus(v ?? '');
+                  _reloadFromApi();
+                }),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                provider.clearCatalogFilters();
+                provider.loadCatalog();
+                Navigator.pop(ctx);
+              },
+              child: const Text('Limpiar todo'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Aplicar'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _dialogDropdown(
+    BuildContext ctx,
+    StateSetter setD,
+    String label,
+    String value,
+    List<String> items,
+    ValueChanged<String?> onChanged,
+  ) {
+    return Row(
+      children: [
+        SizedBox(
+          width: 70,
+          child: Text(label,
+              style: TextStyle(
+                  fontWeight: FontWeight.bold, color: ctx.primaryColor)),
+        ),
+        Expanded(
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              isExpanded: true,
+              value: value.isEmpty ? '' : value,
+              dropdownColor: ctx.cardColor,
+              style: TextStyle(fontSize: 13, color: ctx.textPrimary),
+              items: items.map((item) => DropdownMenuItem(
+                    value: item,
+                    child: Text(item.isEmpty ? 'Todos' : item,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: ctx.textPrimary)),
+                  )).toList(),
+              onChanged: (v) {
+                setD(() {});
+                onChanged(v);
+              },
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -338,7 +510,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
     return '$loaded animes';
   }
 
-  Widget _buildBody(AnimeProvider provider) {
+  Widget _buildBody(AnimeProvider provider, {bool isTV = false}) {
     if (provider.isLoadingCatalog && provider.catalogResults.isEmpty) {
       final slowFilter = provider.catalogYear.isNotEmpty ||
           provider.catalogStatus.isNotEmpty ||
@@ -424,11 +596,11 @@ class _CatalogScreenState extends State<CatalogScreen> {
                     : 16.0,
               ),
               itemCount: itemCount,
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 3,
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: isTV ? 5 : 3,
                 childAspectRatio: 0.58,
-                crossAxisSpacing: 10,
-                mainAxisSpacing: 12,
+                crossAxisSpacing: isTV ? 14 : 10,
+                mainAxisSpacing: isTV ? 16 : 12,
               ),
               itemBuilder: (context, index) {
                 if (index >= results.length) {
@@ -444,6 +616,9 @@ class _CatalogScreenState extends State<CatalogScreen> {
                 }
 
                 final anime = results[index];
+                if (isTV) {
+                  return _TVAnimeCard(anime: anime);
+                }
                 return InkWell(
                   onTap: () => Navigator.push(
                     context,
@@ -488,6 +663,81 @@ class _CatalogScreenState extends State<CatalogScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ── Tarjeta de anime con foco D-pad para TV ────────────────────────────────
+
+class _TVAnimeCard extends StatefulWidget {
+  final dynamic anime; // AnimeResult
+  const _TVAnimeCard({required this.anime});
+
+  @override
+  State<_TVAnimeCard> createState() => _TVAnimeCardState();
+}
+
+class _TVAnimeCardState extends State<_TVAnimeCard> {
+  bool _focused = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final primary = Theme.of(context).colorScheme.primary;
+
+    return Focus(
+      onFocusChange: (f) => setState(() => _focused = f),
+      child: GestureDetector(
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => DetailScreen(
+              animeUrl: widget.anime.url,
+              animeTitle: widget.anime.title,
+              animeImage: widget.anime.image,
+            ),
+          ),
+        ),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 120),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: _focused ? primary : Colors.transparent,
+              width: 3,
+            ),
+            boxShadow: _focused
+                ? [BoxShadow(color: primary.withValues(alpha: 0.5), blurRadius: 12)]
+                : null,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: AnimePosterImage(
+                    imageUrl: widget.anime.image,
+                    fit: BoxFit.cover,
+                    width: double.infinity,
+                    height: double.infinity,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                widget.anime.title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 11,
+                  color: _focused ? primary : context.textPrimary,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
