@@ -83,6 +83,7 @@ class HistoryProvider extends ChangeNotifier {
   List<AnimeSearchResult> _favorites = [];
   List<HistoryItem> _recentEpisodes = [];
   bool _isInitialized = false;
+  final Completer<void> _initCompleter = Completer<void>();
   StreamSubscription<List<HistoryItem>>? _cloudHistorySub;
   String? _syncedUserId;
 
@@ -121,6 +122,7 @@ class HistoryProvider extends ChangeNotifier {
     _recentEpisodes.sort((a, b) => b.timestamp.compareTo(a.timestamp));
 
     _isInitialized = true;
+    if (!_initCompleter.isCompleted) _initCompleter.complete();
     notifyListeners();
   }
 
@@ -131,16 +133,37 @@ class HistoryProvider extends ChangeNotifier {
 
     if (userId == null || userId.isEmpty) return;
 
+    // Esperar a que init() cargue los datos locales antes de mergear
+    await _initCompleter.future;
+
     if (_recentEpisodes.isNotEmpty) {
-      await HistoryService.mergeLocalToCloud(userId, _recentEpisodes);
+      try {
+        await HistoryService.mergeLocalToCloud(userId, _recentEpisodes);
+      } catch (e) {
+        debugPrint('[HistoryProvider] mergeLocalToCloud error: $e');
+      }
     }
 
-    _cloudHistorySub = HistoryService.watchHistoryStream(userId).listen((cloudItems) {
-      if (cloudItems.isEmpty && _recentEpisodes.isNotEmpty) return;
-      _recentEpisodes = cloudItems;
-      _persistRecentLocal();
-      notifyListeners();
-    });
+    _cloudHistorySub = HistoryService.watchHistoryStream(userId).listen(
+      (cloudItems) {
+        if (cloudItems.isEmpty && _recentEpisodes.isNotEmpty) return;
+        // Merge: por animeUrl conserva el ítem con timestamp más reciente
+        // Evita sobreescribir ítems añadidos localmente que aún no llegaron a Firestore
+        final byUrl = <String, HistoryItem>{};
+        for (final item in [...cloudItems, ..._recentEpisodes]) {
+          final existing = byUrl[item.animeUrl];
+          if (existing == null || item.timestamp.isAfter(existing.timestamp)) {
+            byUrl[item.animeUrl] = item;
+          }
+        }
+        final merged = byUrl.values.toList()
+          ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+        _recentEpisodes = merged.take(30).toList();
+        _persistRecentLocal();
+        notifyListeners();
+      },
+      onError: (e) => debugPrint('[HistoryProvider] stream error: $e'),
+    );
   }
 
   // --- MÉTODOS DE FAVORITOS ---
@@ -221,7 +244,11 @@ class HistoryProvider extends ChangeNotifier {
 
     final uid = userId ?? _syncedUserId;
     if (uid != null && uid.isNotEmpty) {
-      await HistoryService.upsertEntry(uid, newItem);
+      try {
+        await HistoryService.upsertEntry(uid, newItem);
+      } catch (e) {
+        debugPrint('[HistoryProvider] upsertEntry error: $e');
+      }
     }
 
     notifyListeners();
