@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/manga_history_item.dart';
@@ -10,6 +11,7 @@ class MangaHistoryProvider extends ChangeNotifier {
 
   List<MangaHistoryItem> _history = [];
   bool _isInitialized = false;
+  final Completer<void> _initCompleter = Completer<void>();
   StreamSubscription<List<MangaHistoryItem>>? _cloudHistorySub;
   String? _syncedUserId;
 
@@ -29,6 +31,7 @@ class MangaHistoryProvider extends ChangeNotifier {
     _history.sort((a, b) => b.timestamp.compareTo(a.timestamp));
 
     _isInitialized = true;
+    if (!_initCompleter.isCompleted) _initCompleter.complete();
     notifyListeners();
   }
 
@@ -39,16 +42,34 @@ class MangaHistoryProvider extends ChangeNotifier {
 
     if (userId == null || userId.isEmpty) return;
 
+    await _initCompleter.future;
+
     if (_history.isNotEmpty) {
-      await MangaHistoryService.mergeLocalToCloud(userId, _history);
+      try {
+        await MangaHistoryService.mergeLocalToCloud(userId, _history);
+      } catch (e) {
+        debugPrint('[MangaHistoryProvider] mergeLocalToCloud error: $e');
+      }
     }
 
-    _cloudHistorySub = MangaHistoryService.historyStream(userId).listen((cloudItems) {
-      if (cloudItems.isEmpty && _history.isNotEmpty) return;
-      _history = cloudItems;
-      _persistRecentLocal();
-      notifyListeners();
-    });
+    _cloudHistorySub = MangaHistoryService.historyStream(userId).listen(
+      (cloudItems) {
+        if (cloudItems.isEmpty && _history.isNotEmpty) return;
+        final byId = <String, MangaHistoryItem>{};
+        for (final item in [...cloudItems, ..._history]) {
+          final existing = byId[item.mangaId];
+          if (existing == null || item.timestamp.isAfter(existing.timestamp)) {
+            byId[item.mangaId] = item;
+          }
+        }
+        final merged = byId.values.toList()
+          ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+        _history = merged.take(30).toList();
+        _persistRecentLocal();
+        notifyListeners();
+      },
+      onError: (e) => debugPrint('[MangaHistoryProvider] stream error: $e'),
+    );
   }
 
   Future<void> _persistRecentLocal() async {
@@ -87,7 +108,11 @@ class MangaHistoryProvider extends ChangeNotifier {
 
     final uid = userId ?? _syncedUserId;
     if (uid != null && uid.isNotEmpty) {
-      await MangaHistoryService.upsertEntry(uid, newItem);
+      try {
+        await MangaHistoryService.upsertEntry(uid, newItem);
+      } catch (e) {
+        debugPrint('[MangaHistoryProvider] upsertEntry error: $e');
+      }
     }
 
     notifyListeners();

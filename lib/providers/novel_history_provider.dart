@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/novel_history_item.dart';
@@ -10,6 +11,7 @@ class NovelHistoryProvider extends ChangeNotifier {
 
   List<NovelHistoryItem> _history = [];
   bool _isInitialized = false;
+  final Completer<void> _initCompleter = Completer<void>();
   StreamSubscription<List<NovelHistoryItem>>? _cloudSub;
   String? _syncedUserId;
 
@@ -36,6 +38,7 @@ class NovelHistoryProvider extends ChangeNotifier {
         .toList();
     _history.sort((a, b) => b.timestamp.compareTo(a.timestamp));
     _isInitialized = true;
+    if (!_initCompleter.isCompleted) _initCompleter.complete();
     notifyListeners();
   }
 
@@ -46,17 +49,36 @@ class NovelHistoryProvider extends ChangeNotifier {
 
     if (userId == null || userId.isEmpty) return;
 
-    // Fusionar historial local a la nube al iniciar sesión
+    // Esperar a que _init() cargue SharedPreferences antes de mergear
+    await _initCompleter.future;
+
     if (_history.isNotEmpty) {
-      await NovelHistoryService.mergeLocalToCloud(userId, _history);
+      try {
+        await NovelHistoryService.mergeLocalToCloud(userId, _history);
+      } catch (e) {
+        debugPrint('[NovelHistoryProvider] mergeLocalToCloud error: $e');
+      }
     }
 
-    _cloudSub = NovelHistoryService.historyStream(userId).listen((cloudItems) {
-      if (cloudItems.isEmpty && _history.isNotEmpty) return;
-      _history = cloudItems;
-      _persistLocal();
-      notifyListeners();
-    });
+    _cloudSub = NovelHistoryService.historyStream(userId).listen(
+      (cloudItems) {
+        if (cloudItems.isEmpty && _history.isNotEmpty) return;
+        // Merge: por novelId conserva el ítem con timestamp más reciente
+        final byId = <String, NovelHistoryItem>{};
+        for (final item in [...cloudItems, ..._history]) {
+          final existing = byId[item.novelId];
+          if (existing == null || item.timestamp.isAfter(existing.timestamp)) {
+            byId[item.novelId] = item;
+          }
+        }
+        final merged = byId.values.toList()
+          ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+        _history = merged.take(30).toList();
+        _persistLocal();
+        notifyListeners();
+      },
+      onError: (e) => debugPrint('[NovelHistoryProvider] stream error: $e'),
+    );
   }
 
   Future<void> _persistLocal() async {
@@ -95,7 +117,11 @@ class NovelHistoryProvider extends ChangeNotifier {
 
     final uid = userId ?? _syncedUserId;
     if (uid != null && uid.isNotEmpty) {
-      await NovelHistoryService.upsertEntry(uid, newItem);
+      try {
+        await NovelHistoryService.upsertEntry(uid, newItem);
+      } catch (e) {
+        debugPrint('[NovelHistoryProvider] upsertEntry error: $e');
+      }
     }
 
     notifyListeners();
