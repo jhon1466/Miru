@@ -86,7 +86,12 @@ service cloud.firestore {
     match /public_chat/{msgId} {
       allow read:   if isAuth();
       allow create: if isAuth();
-      allow update: if isAuth() && request.auth.uid == resource.data.userId;
+      // El autor puede editar cualquier campo; cualquier usuario autenticado
+      // puede tocar SOLO el campo 'reactions' (para reaccionar a mensajes ajenos).
+      allow update: if isAuth() && (
+        request.auth.uid == resource.data.userId ||
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions'])
+      );
       allow delete: if isAdmin() ||
                        (isAuth() && request.auth.uid == resource.data.userId);
     }
