@@ -1294,7 +1294,9 @@ class _ProfileHeader extends StatelessWidget {
         ),
         ),
 
-        const SizedBox(height: 10),
+        // El avatar sobresale _avatarRadius hacia abajo del Stack,
+        // así que el nombre debe quedar debajo del avatar completo.
+        const SizedBox(height: _avatarRadius + 10),
 
         // Nombre + badges
         Padding(
