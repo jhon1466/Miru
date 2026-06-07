@@ -382,6 +382,30 @@ class DownloadProvider extends ChangeNotifier {
     });
   }
 
+  /// Cancela todas las descargas activas (en cola, descargando o pausadas).
+  void cancelAllDownloads() {
+    final ids = _active.keys.toList();
+    for (final id in ids) {
+      _cancelled.add(id);
+      _paused.remove(id);
+      final task = _active[id];
+      if (task != null) {
+        if (task.status == DownloadTaskStatus.paused) {
+          _active.remove(id);
+        } else {
+          task.statusMessage = 'Cancelando…';
+        }
+      }
+      final notificationId = id.hashCode & 0x7FFFFFFF;
+      SharedPreferences.getInstance().then((prefs) {
+        final bg = prefs.getBool('settings_background_downloads_enabled') ?? true;
+        if (bg) unawaited(DownloadNotificationService.cancel(notificationId));
+      });
+    }
+    notifyListeners();
+    _updateForegroundService();
+  }
+
   Future<void> deleteDownload(DownloadedEpisode item) async {
     await EpisodeDownloadService.deleteDownload(item);
     await loadLibrary();
