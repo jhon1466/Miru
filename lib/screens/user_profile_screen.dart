@@ -1195,6 +1195,7 @@ class _ProfileHeader extends StatelessWidget {
                           fit: BoxFit.cover,
                           width: double.infinity,
                           height: _bannerHeight,
+                          alignment: Alignment(0, profile!.bannerAlignY),
                           errorBuilder: (_, __, ___) => _bannerPlaceholder(context),
                         )
                       : _bannerPlaceholder(context),
@@ -1307,6 +1308,10 @@ class _ProfileHeader extends StatelessWidget {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
+                  if (profile?.isAdmin == true) ...[
+                    const Text('🛡️', style: TextStyle(fontSize: 18)),
+                    const SizedBox(width: 4),
+                  ],
                   if (profile?.isSupporter == true) ...[
                     const Text('👑', style: TextStyle(fontSize: 18)),
                     const SizedBox(width: 6),
@@ -1330,6 +1335,30 @@ class _ProfileHeader extends StatelessWidget {
                 spacing: 6,
                 runSpacing: 4,
                 children: [
+                  if (profile?.isAdmin == true)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: Colors.blue.withValues(alpha: 0.5)),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.shield_rounded, color: Colors.blue, size: 11),
+                          SizedBox(width: 4),
+                          Text(
+                            'Admin',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.blue,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   if (profile?.isSupporter == true)
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),

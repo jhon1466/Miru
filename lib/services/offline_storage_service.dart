@@ -38,25 +38,28 @@ class OfflineStorageService {
   }
 
   static List<String> _parseZonaTmoPages(String html) {
-    // 1. JSON en script
-    final jsonScript = RegExp(
-        r'(?:var\s+chapter\s*=\s*|Pages\.init\()\s*(\{[\s\S]*?\}|\[[\s\S]*?\])(?:;|\))');
-    for (final m in jsonScript.allMatches(html)) {
-      try {
-        final decoded = jsonDecode(m.group(1)!);
-        final List pages = decoded is List ? decoded : (decoded['pages'] ?? decoded['images'] ?? []);
-        final urls = pages.map<String>((u) =>
-            u is Map ? (u['url'] ?? u['src'] ?? '').toString() : u.toString()
-        ).where((u) => u.startsWith('http')).toList();
-        if (urls.isNotEmpty) return urls;
-      } catch (_) {}
-    }
-    // 2. Imágenes directas
-    final imgRegex = RegExp(r'<img[^>]+class="[^"]*page[^"]*"[^>]+src="([^"]+)"');
-    return imgRegex.allMatches(html)
+    // 1. data-src (ZonaTMO carga imágenes lazy: data-src="https://storage.zonatmo.org/chapters/...")
+    final dataSrc = RegExp(r'data-src="(https?://[^"]+)"')
+        .allMatches(html)
+        .map((m) => m.group(1)!)
+        .where((u) => u.contains('storage.zonatmo') || u.contains('/chapters/'))
+        .toList();
+    if (dataSrc.isNotEmpty) return dataSrc;
+
+    // 2. src en img del lector
+    final imgSrc = RegExp(r'<img[^>]+src="(https?://[^"]*(?:storage\.zonatmo|/chapters/)[^"]*)"')
+        .allMatches(html)
+        .map((m) => m.group(1)!)
+        .toList();
+    if (imgSrc.isNotEmpty) return imgSrc;
+
+    // 3. Cualquier data-src con URL absoluta
+    final anyDataSrc = RegExp(r'data-src="(https?://[^"]+)"')
+        .allMatches(html)
         .map((m) => m.group(1)!)
         .where((u) => u.startsWith('http'))
         .toList();
+    return anyDataSrc;
   }
 
   static Future<void> saveMangaChapter({
@@ -80,7 +83,10 @@ class OfflineStorageService {
         final url = pageUrls[i];
         final file = File('${chapterDir.path}/page_$i.jpg');
         final res = await client.get(Uri.parse(url), headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'User-Agent': 'Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.6367.82 Mobile Safari/537.36',
+          'Referer': 'https://zonatmo.org/',
+          'Origin': 'https://zonatmo.org',
+          'Accept': 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
         });
         if (res.statusCode == 200) {
           await file.writeAsBytes(res.bodyBytes);

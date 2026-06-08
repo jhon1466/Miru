@@ -2,9 +2,12 @@ import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../core/theme.dart';
 import '../providers/auth_provider.dart' as app_auth;
@@ -37,6 +40,7 @@ class _PublicChatScreenState extends State<PublicChatScreen> {
   String? _highlightedMessageId;
 
   late final Stream<QuerySnapshot> _chatStream;
+  Set<String> _adminUids = {};
 
   @override
   void initState() {
@@ -46,6 +50,20 @@ class _PublicChatScreenState extends State<PublicChatScreen> {
         .orderBy('timestamp', descending: true)
         .limit(100)
         .snapshots();
+    _loadAdminUids();
+  }
+
+  Future<void> _loadAdminUids() async {
+    try {
+      final snap = await _db.collection('admins').get();
+      final uids = <String>{};
+      for (final doc in snap.docs) {
+        uids.add(doc.id); // docId == uid
+        final fieldUid = doc.data()['uid']?.toString();
+        if (fieldUid != null && fieldUid.isNotEmpty) uids.add(fieldUid);
+      }
+      if (mounted) setState(() => _adminUids = uids);
+    } catch (_) {}
   }
 
   @override
@@ -227,6 +245,10 @@ class _PublicChatScreenState extends State<PublicChatScreen> {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
+                            if (_adminUids.contains(msg.userId)) ...[
+                              const Text('🛡️', style: TextStyle(fontSize: 11)),
+                              const SizedBox(width: 3),
+                            ],
                             if (msg.isSupporter) ...[
                               const Text('👑', style: TextStyle(fontSize: 11)),
                               const SizedBox(width: 3),
@@ -236,11 +258,33 @@ class _PublicChatScreenState extends State<PublicChatScreen> {
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.bold,
-                                color: msg.isSupporter
-                                    ? context.supporterColor
-                                    : context.textSecondary,
+                                color: _adminUids.contains(msg.userId)
+                                    ? Colors.blue
+                                    : msg.isSupporter
+                                        ? context.supporterColor
+                                        : context.textSecondary,
                               ),
                             ),
+                            if (_adminUids.contains(msg.userId)) ...[
+                              const SizedBox(width: 4),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(5),
+                                  border: Border.all(color: Colors.blue.withValues(alpha: 0.4), width: 0.5),
+                                ),
+                                child: const Text(
+                                  'Admin',
+                                  style: TextStyle(
+                                    fontSize: 8,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.blue,
+                                    letterSpacing: 0.2,
+                                  ),
+                                ),
+                              ),
+                            ],
                             if (msg.isSupporter) ...[
                               const SizedBox(width: 4),
                               Container(
@@ -339,13 +383,9 @@ class _PublicChatScreenState extends State<PublicChatScreen> {
                             if (msg.text.isNotEmpty) const SizedBox(height: 6),
                           ],
                           if (msg.text.isNotEmpty)
-                            Text(
-                              msg.text,
-                              style: TextStyle(
-                                color: isMe ? Colors.white : context.textPrimary,
-                                fontSize: 14,
-                                height: 1.3,
-                              ),
+                            _ChatMessageText(
+                              text: msg.text,
+                              isMe: isMe,
                             ),
                         ],
                       ),
@@ -646,6 +686,7 @@ class _PublicChatScreenState extends State<PublicChatScreen> {
       'stickerCode': stickerCode,
       'isEdited': false,
       'isSupporter': supporter.isSupporter,
+      'isAdmin': authProvider.isAdmin,
       'replyToId': _replyToMessage?.id,
       'replyToName': _replyToMessage?.userName,
       'replyToText': _replyToMessage != null
@@ -847,6 +888,21 @@ class _PublicChatScreenState extends State<PublicChatScreen> {
                   });
                 },
               ),
+              if (msg.text.isNotEmpty)
+                ListTile(
+                  leading: const Icon(Icons.copy),
+                  title: const Text('Copiar texto'),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    Clipboard.setData(ClipboardData(text: msg.text));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Texto copiado'),
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                  },
+                ),
               if (isMe) ...[
                 ListTile(
                   leading: const Icon(Icons.edit, color: Colors.amber),
@@ -1037,6 +1093,7 @@ class MessageModel {
   final DateTime? timestamp;
   final Map<String, String> reactions;
   final bool isSupporter;
+  final bool isAdmin;
 
   MessageModel({
     required this.id,
@@ -1053,6 +1110,7 @@ class MessageModel {
     this.timestamp,
     required this.reactions,
     this.isSupporter = false,
+    this.isAdmin = false,
   });
 
   factory MessageModel.fromFirestore(DocumentSnapshot doc) {
@@ -1072,6 +1130,63 @@ class MessageModel {
       timestamp: (data['timestamp'] as Timestamp?)?.toDate(),
       reactions: Map<String, String>.from(data['reactions'] is Map ? data['reactions'] : {}),
       isSupporter: data['isSupporter'] == true,
+      isAdmin: data['isAdmin'] == true,
+    );
+  }
+}
+
+// ── Widget de texto con links tapeables y copiado ─────────────────────────────
+class _ChatMessageText extends StatelessWidget {
+  final String text;
+  final bool isMe;
+
+  const _ChatMessageText({required this.text, required this.isMe});
+
+  static final _urlRegex = RegExp(
+    r'https?://[^\s]+',
+    caseSensitive: false,
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final spans = <InlineSpan>[];
+    int last = 0;
+    final baseColor = isMe ? Colors.white : Theme.of(context).colorScheme.onSurface;
+    final linkColor = isMe ? Colors.white70 : Theme.of(context).colorScheme.primary;
+
+    for (final match in _urlRegex.allMatches(text)) {
+      // texto normal antes del link
+      if (match.start > last) {
+        spans.add(TextSpan(text: text.substring(last, match.start)));
+      }
+      final url = match.group(0)!;
+      spans.add(TextSpan(
+        text: url,
+        style: TextStyle(
+          color: linkColor,
+          decoration: TextDecoration.underline,
+          decorationColor: linkColor,
+        ),
+        recognizer: TapGestureRecognizer()
+          ..onTap = () async {
+            final uri = Uri.tryParse(url);
+            if (uri != null && await canLaunchUrl(uri)) {
+              await launchUrl(uri, mode: LaunchMode.externalApplication);
+            }
+          },
+      ));
+      last = match.end;
+    }
+    // resto de texto después del último link
+    if (last < text.length) {
+      spans.add(TextSpan(text: text.substring(last)));
+    }
+
+    return RichText(
+      text: TextSpan(
+        style: TextStyle(color: baseColor, fontSize: 14, height: 1.3),
+        children: spans,
+      ),
     );
   }
 }

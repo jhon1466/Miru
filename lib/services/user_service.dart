@@ -12,6 +12,7 @@ class UserProfile {
   final String? email;
   final bool isPublic;
   final bool isSupporter;
+  final bool isAdmin;
   final DateTime? createdAt;
 
   UserProfile({
@@ -23,6 +24,7 @@ class UserProfile {
     this.email,
     this.isPublic = true,
     this.isSupporter = false,
+    this.isAdmin = false,
     this.createdAt,
   });
 
@@ -42,6 +44,7 @@ class UserProfile {
       email: data['email']?.toString(),
       isPublic: isPublic,
       isSupporter: data['isSupporter'] == true,
+      isAdmin: data['isAdmin'] == true,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
     );
   }
@@ -64,6 +67,7 @@ class UserProfile {
     String? email,
     bool? isPublic,
     bool? isSupporter,
+    bool? isAdmin,
   }) {
     return UserProfile(
       uid: uid,
@@ -74,6 +78,7 @@ class UserProfile {
       email: email ?? this.email,
       isPublic: isPublic ?? this.isPublic,
       isSupporter: isSupporter ?? this.isSupporter,
+      isAdmin: isAdmin ?? this.isAdmin,
       createdAt: createdAt,
     );
   }
@@ -127,16 +132,33 @@ class UserService {
     }
   }
 
+  static Future<bool> _isAdminUid(String uid) async {
+    // 1. docId == uid
+    final doc = await _db.collection('admins').doc(uid).get();
+    if (doc.exists) return true;
+    // 2. campo uid == uid (estructura web)
+    final q = await _db.collection('admins').where('uid', isEqualTo: uid).limit(1).get();
+    return q.docs.isNotEmpty;
+  }
+
   static Future<UserProfile?> getProfile(String uid) async {
-    final doc = await _userRef(uid).get();
+    final results = await Future.wait([
+      _userRef(uid).get(),
+      _isAdminUid(uid),
+    ]);
+    final doc = results[0] as DocumentSnapshot;
     if (!doc.exists) return null;
-    return UserProfile.fromFirestore(doc);
+    final isAdmin = results[1] as bool;
+    final profile = UserProfile.fromFirestore(doc);
+    return isAdmin ? profile.copyWith(isAdmin: true) : profile;
   }
 
   static Stream<UserProfile?> profileStream(String uid) {
-    return _userRef(uid).snapshots().map((doc) {
+    return _userRef(uid).snapshots().asyncMap((doc) async {
       if (!doc.exists) return null;
-      return UserProfile.fromFirestore(doc);
+      final isAdmin = await _isAdminUid(uid);
+      final profile = UserProfile.fromFirestore(doc);
+      return isAdmin ? profile.copyWith(isAdmin: true) : profile;
     });
   }
 

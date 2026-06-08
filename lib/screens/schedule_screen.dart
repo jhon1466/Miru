@@ -21,12 +21,39 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
   bool _loading = false;
   String? _error;
   late String _selectedDay;
+  final ScrollController _chipsScrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
     _selectedDay = scheduleDayForDate(DateTime.now());
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadSchedule());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadSchedule();
+      _scrollToSelectedChip();
+    });
+  }
+
+  @override
+  void dispose() {
+    _chipsScrollController.dispose();
+    super.dispose();
+  }
+
+  void _scrollToSelectedChip() {
+    final idx = scheduleDayLabels.indexOf(_selectedDay);
+    if (idx <= 0) return; // ya visible si es el primero
+    // Ancho aproximado de cada chip (~80px) + separador (8px)
+    const chipWidth = 88.0;
+    final offset = (idx * chipWidth) - chipWidth / 2;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_chipsScrollController.hasClients) {
+        _chipsScrollController.animateTo(
+          offset.clamp(0.0, _chipsScrollController.position.maxScrollExtent),
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
   }
 
   Future<void> _loadSchedule() async {
@@ -107,6 +134,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                     SizedBox(
                       height: 40,
                       child: ListView.separated(
+                        controller: _chipsScrollController,
                         scrollDirection: Axis.horizontal,
                         itemCount: scheduleDayLabels.length,
                         separatorBuilder: (context, index) => const SizedBox(width: 8),

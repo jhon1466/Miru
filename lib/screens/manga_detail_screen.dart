@@ -4,6 +4,7 @@ import 'package:share_plus/share_plus.dart';
 import '../core/theme.dart';
 import '../providers/manga_provider.dart';
 import '../providers/auth_provider.dart' as app_auth;
+import '../providers/supporter_provider.dart';
 import '../widgets/anime_poster_image.dart';
 import '../models/manga.dart';
 import '../services/manga_favorite_service.dart';
@@ -12,6 +13,7 @@ import '../services/offline_storage_service.dart';
 import '../widgets/media_rating_section.dart';
 import '../services/completed_service.dart';
 import 'manga_reader_screen.dart';
+import 'downloads_screen.dart';
 import '../widgets/comments_section.dart';
 
 class MangaDetailScreen extends StatefulWidget {
@@ -51,7 +53,9 @@ class _MangaDetailScreenState extends State<MangaDetailScreen> {
   }
 
   Future<void> _loadProgress() async {
-    final progress = await context.read<MangaProvider>().getReadingProgress(widget.mangaId);
+    if (!mounted) return;
+    final provider = context.read<MangaProvider>();
+    final progress = await provider.getReadingProgress(widget.mangaId);
     if (mounted) {
       setState(() {
         _readingProgress = progress;
@@ -60,6 +64,7 @@ class _MangaDetailScreenState extends State<MangaDetailScreen> {
   }
 
   Future<void> _loadOfflineStatus() async {
+    if (!mounted) return;
     final provider = context.read<MangaProvider>();
     final chapters = provider.chapters;
     final Set<String> downloaded = {};
@@ -130,10 +135,134 @@ class _MangaDetailScreenState extends State<MangaDetailScreen> {
     }
   }
 
+  // ── Descarga en lote (Supporter) ──────────────────────────────────────────
+  bool _isBatchDownloading = false;
+  int _batchTotal = 0;
+  int _batchDone = 0;
+
+  void _showSupporterRequired(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Row(children: [
+          Icon(Icons.download_for_offline_rounded, color: Colors.white, size: 18),
+          SizedBox(width: 8),
+          Expanded(child: Text('Descarga en lote exclusivo para Supporters de Patreon')),
+        ]),
+        duration: Duration(seconds: 3),
+      ),
+    );
+  }
+
+  void _showBatchDownloadDialog(
+    BuildContext context,
+    List<MangaChapter> chapters,
+    String mangaTitle,
+    String coverUrl,
+  ) {
+    final notDownloaded = chapters
+        .where((c) => !_downloadedChapterIds.contains(c.id))
+        .toList();
+    if (notDownloaded.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Todos los capítulos ya están descargados')),
+      );
+      return;
+    }
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(children: [
+          Text('👑 ', style: TextStyle(fontSize: 20)),
+          Text('Descarga en lote', style: TextStyle(fontWeight: FontWeight.bold)),
+        ]),
+        content: Text(
+          'Se descargarán ${notDownloaded.length} capítulos de "$mangaTitle" '
+          'que aún no tienes offline.\n\n¿Continuar?',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+          ElevatedButton.icon(
+            icon: const Icon(Icons.download_rounded),
+            label: Text('Descargar ${notDownloaded.length} caps'),
+            onPressed: () {
+              Navigator.pop(ctx);
+              _startBatchDownload(context, notDownloaded, mangaTitle, coverUrl);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _startBatchDownload(
+    BuildContext context,
+    List<MangaChapter> chapters,
+    String mangaTitle,
+    String coverUrl,
+  ) async {
+    setState(() {
+      _isBatchDownloading = true;
+      _batchTotal = chapters.length;
+      _batchDone = 0;
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(children: [
+          const Icon(Icons.download_rounded, color: Colors.white, size: 18),
+          const SizedBox(width: 10),
+          Expanded(child: Text('Descargando ${chapters.length} capítulos…')),
+        ]),
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        duration: const Duration(seconds: 4),
+        action: SnackBarAction(
+          label: 'Ver',
+          textColor: Colors.white,
+          onPressed: () => Navigator.push(
+            context, MaterialPageRoute(builder: (_) => const DownloadsScreen()),
+          ),
+        ),
+      ),
+    );
+
+    for (final chapter in chapters) {
+      if (!mounted) break;
+      try {
+        final pageUrls = await OfflineStorageService.fetchMangaPages(widget.mangaId, chapter.id);
+        if (pageUrls.isEmpty) throw Exception('Sin páginas');
+        await OfflineStorageService.saveMangaChapter(
+          mangaId: widget.mangaId,
+          mangaTitle: mangaTitle,
+          coverUrl: coverUrl,
+          chapterId: chapter.id,
+          chapterNumber: chapter.chapterNumber,
+          pageUrls: pageUrls,
+        );
+        if (mounted) setState(() {
+          _downloadedChapterIds.add(chapter.id);
+          _batchDone++;
+        });
+      } catch (_) {
+        if (mounted) setState(() => _batchDone++);
+      }
+    }
+
+    if (mounted) {
+      setState(() => _isBatchDownloading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Lote completado: $_batchDone/${_batchTotal} capítulos'),
+          backgroundColor: Theme.of(context).colorScheme.primary,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final mangaProvider = Provider.of<MangaProvider>(context);
     final authProvider = Provider.of<app_auth.AuthProvider>(context);
+    final supporter = Provider.of<SupporterProvider>(context, listen: false);
     final details = mangaProvider.selectedManga;
     final isLoading = mangaProvider.isLoadingDetails || mangaProvider.isLoadingChapters;
     final error = mangaProvider.detailsError ?? mangaProvider.chaptersError;
@@ -656,6 +785,39 @@ class _MangaDetailScreenState extends State<MangaDetailScreen> {
                             'Capítulos (${displayedChapters.length})',
                             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: context.textPrimary),
                           ),
+                          // Descarga en lote (Supporter)
+                          if (mangaProvider.chapters.isNotEmpty)
+                            _isBatchDownloading
+                                ? Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                                    child: SizedBox(
+                                      width: 20, height: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        value: _batchTotal > 0 ? _batchDone / _batchTotal : null,
+                                        valueColor: AlwaysStoppedAnimation(context.primaryColor),
+                                      ),
+                                    ),
+                                  )
+                                : IconButton(
+                                    icon: Icon(
+                                      Icons.download_for_offline_rounded,
+                                      color: supporter.isSupporter
+                                          ? context.primaryColor
+                                          : context.textSecondary.withValues(alpha: 0.5),
+                                    ),
+                                    tooltip: supporter.isSupporter
+                                        ? 'Descargar todos los capítulos (Supporter)'
+                                        : 'Descarga en lote (exclusivo Supporter)',
+                                    onPressed: supporter.isSupporter
+                                        ? () => _showBatchDownloadDialog(
+                                              context,
+                                              mangaProvider.chapters,
+                                              details.title,
+                                              details.coverUrl ?? '',
+                                            )
+                                        : () => _showSupporterRequired(context),
+                                  ),
                           IconButton(
                             icon: Icon(
                               _reverseChapterOrder ? Icons.arrow_downward : Icons.arrow_upward,

@@ -7,17 +7,30 @@ import '../services/offline_storage_service.dart';
 
 class MangaProvider extends ChangeNotifier {
   static const String _baseUrl = 'https://zonatmo.org';
+  static const String _keyAdult = 'settings_adult_content_enabled';
 
-  // Géneros a excluir (yaoi, BL, shounen-ai y equivalentes)
+  // Lee la preferencia +18 directo de SharedPreferences
+  Future<bool> _isAdultEnabled() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_keyAdult) ?? false;
+  }
+
+  // Géneros a excluir siempre (yaoi, BL, shounen-ai y equivalentes)
   static const List<String> _excludedGenres = [
     'yaoi', 'boys love', 'boys-love', 'bl', 'shounen ai', 'shounen-ai',
     'bara', 'gay', 'yuri', 'girls love', 'girls-love', 'shoujo ai', 'shoujo-ai',
   ];
+  // Géneros +18 (excluidos salvo que adultContentEnabled = true)
+  static const List<String> _adultGenres = [
+    'adulto', 'adult', 'smut', 'hentai', 'erotico', 'erótico',
+  ];
 
   // Filtra un Manga según género/slug/título
-  static bool _isExcluded(Manga m) {
+  bool _isExcluded(Manga m, {bool adultEnabled = false}) {
     final check = '${m.title} ${m.slug} ${m.genres.join(' ')}'.toLowerCase();
-    return _excludedGenres.any((g) => check.contains(g));
+    if (_excludedGenres.any((g) => check.contains(g))) return true;
+    if (!adultEnabled && _adultGenres.any((g) => check.contains(g))) return true;
+    return false;
   }
 
   // Headers que simulan un navegador Android Chrome real
@@ -117,32 +130,48 @@ class MangaProvider extends ChangeNotifier {
 
       http.Response response;
 
-      if (_popularPage == 1) {
+      final bool isHomepage = (_popularPage == 1);
+      final bool adultEnabled = await _isAdultEnabled();
+      if (isHomepage) {
         // Homepage: tiene las 3 pestañas separadas (Populares / Boys / Girls)
         // Parseamos SOLO la pestaña general
         response = await http.get(Uri.parse(_baseUrl), headers: _headers);
       } else {
-        // Paginación: /biblioteca filtrado
-        final uri = Uri.parse('$_baseUrl/biblioteca').replace(queryParameters: {
-          'order_item': 'likes_count',
-          'order_dir': 'desc',
-          'filter_by': 'title',
-          '_': ts.toString(),
-          'page': _popularPage.toString(),
-        });
+        // Paginación: /biblioteca — excluir BL/yaoi y opcionalmente adulto
+        final excludeIds = ['30', '31', '33', if (!adultEnabled) '32'];
+        final excludeQs = excludeIds.map((id) => 'exclude_genders%5B%5D=$id').join('&');
+        final qs = 'order_item=likes_count&order_dir=desc&filter_by=title'
+            '&_=$ts&page=$_popularPage&$excludeQs';
+        final uri = Uri.parse('$_baseUrl/biblioteca?$qs');
         response = await http.get(uri, headers: _headers);
       }
 
       if (response.statusCode == 200) {
-        final items = _parseMangaList(response.body);
+        int rawCount = 0; // items antes del filtro de géneros
+        List<Manga> items;
+        if (isHomepage) {
+          items = _parseMangaList(response.body, adultEnabled: adultEnabled);
+          rawCount = items.length; // homepage ya viene pre-filtrado por pills
+        } else {
+          final result = _parseMangaListFull(response.body, adultEnabled: adultEnabled);
+          rawCount = result.rawCount;
+          items    = result.items;
+        }
+        debugPrint('[POP] page=$_popularPage raw=$rawCount filtered=${items.length} loadMore=$loadMore');
         if (loadMore) {
           _popularManga.addAll(items);
         } else {
           _popularManga = items;
         }
-        _hasMorePopular = items.length >= _pageSize;
-        if (_hasMorePopular) _popularPage++;
-        if (items.isEmpty && !loadMore) {
+        // Hay más páginas si el servidor devolvió items (aunque el filtro los elimine)
+        if (!loadMore && _popularPage == 1) {
+          _hasMorePopular = true;
+          _popularPage = 2;
+        } else {
+          _hasMorePopular = rawCount > 0; // continuar mientras el servidor dé contenido
+          if (_hasMorePopular) _popularPage++;
+        }
+        if (items.isEmpty && !loadMore && rawCount == 0) {
           _popularError = 'No se encontraron mangas.';
         }
       } else {
@@ -187,24 +216,23 @@ class MangaProvider extends ChangeNotifier {
 
     try {
       final ts = DateTime.now().millisecondsSinceEpoch;
-      final uri = Uri.parse('$_baseUrl/biblioteca').replace(queryParameters: {
-        'title': _lastSearchQuery,
-        'filter_by': 'title',
-        'exclude_genders[]': '17',
-        '_': ts.toString(),
-        'page': _searchPage.toString(),
-      });
+      final adultEnabled = await _isAdultEnabled();
+      final excludeIds = ['30', '31', '33', if (!adultEnabled) '32'];
+      final excludeQs = excludeIds.map((id) => 'exclude_genders%5B%5D=$id').join('&');
+      final encodedQuery = Uri.encodeQueryComponent(_lastSearchQuery);
+      final qs = 'title=$encodedQuery&filter_by=title&_=$ts&page=$_searchPage&$excludeQs';
+      final uri = Uri.parse('$_baseUrl/biblioteca?$qs');
 
       final response = await http.get(uri, headers: _headers);
 
       if (response.statusCode == 200) {
-        final items = _parseMangaList(response.body);
+        final items = _parseMangaList(response.body, adultEnabled: adultEnabled);
         if (loadMore) {
           _searchResults.addAll(items);
         } else {
           _searchResults = items;
         }
-        _hasMoreSearch = items.length >= _pageSize;
+        _hasMoreSearch = items.isNotEmpty;
         if (_hasMoreSearch) _searchPage++;
       } else {
         _searchError = 'Error ${response.statusCode} en búsqueda';
@@ -373,7 +401,7 @@ class MangaProvider extends ChangeNotifier {
 
   // ── Parsers internos ──────────────────────────────────────────────────────
 
-  List<Manga> _parseMangaList(String html) {
+  List<Manga> _parseMangaList(String html, {bool adultEnabled = false}) {
     // Extraer solo la pestaña "Populares" — ignorar Boys (BL) y Girls (yuri)
     String parseTarget = _extractGeneralPopularSection(html);
 
@@ -448,9 +476,76 @@ class MangaProvider extends ChangeNotifier {
         coverUrl: covers[id],
       );
 
-      if (!_isExcluded(manga)) items.add(manga);
+      if (!_isExcluded(manga, adultEnabled: adultEnabled)) items.add(manga);
     }
     return items;
+  }
+
+  /// Parsea el catálogo completo de /biblioteca (sin filtrado por pestañas pills).
+  /// Retorna rawCount (antes del filtro de géneros excluidos) + items filtrados.
+  ({List<Manga> items, int rawCount}) _parseMangaListFull(String html, {bool adultEnabled = false}) {
+    final Map<String, String> covers = {};
+    final Map<String, List<String>> allTitles = {};
+    final Map<String, String> slugs = {};
+
+    final anchorRegex = RegExp(
+      r'<a\b([^>]*href="(?:https://zonatmo\.org)?/library/(?:manga|manhwa|manhua|doujinshi)/(\d+)/([^/"?#\s]+)"[^>]*)>([\s\S]*?)</a>',
+    );
+
+    for (final m in anchorRegex.allMatches(html)) {
+      final attrs = m.group(1)!;
+      final id    = m.group(2)!;
+      final slug  = m.group(3)!;
+      final inner = m.group(4)!;
+
+      slugs[id] = slug;
+      allTitles.putIfAbsent(id, () => []);
+
+      if (!covers.containsKey(id)) {
+        final dataBg = RegExp(r'data-bg="(https?://[^"\s]+)"').firstMatch(inner);
+        if (dataBg != null) {
+          covers[id] = dataBg.group(1)!;
+        } else {
+          final img = RegExp(r'<img[^>]+(?:data-src|src)="(https?://[^"\s]+)"').firstMatch(inner);
+          if (img != null) covers[id] = img.group(1)!;
+        }
+      }
+
+      final h4title = RegExp(r'<h[2-5][^>]*\btitle="([^"]+)"').firstMatch(inner);
+      if (h4title != null) allTitles[id]!.add(_decodeEntities(h4title.group(1)!.trim()));
+
+      final aTitle = RegExp(r'\btitle="([^"]+)"').firstMatch(attrs);
+      if (aTitle != null) allTitles[id]!.add(_decodeEntities(aTitle.group(1)!.trim()));
+
+      final alt = RegExp(r'<img[^>]+\balt="([^"]+)"').firstMatch(inner);
+      if (alt != null) allTitles[id]!.add(_decodeEntities(alt.group(1)!.trim()));
+
+      final h4text = RegExp(r'<h[2-5][^>]*>([\s\S]*?)</h[2-5]>').firstMatch(inner);
+      if (h4text != null) {
+        final t = _decodeEntities(h4text.group(1)!.replaceAll(RegExp(r'<[^>]*>'), '').trim());
+        if (t.isNotEmpty) allTitles[id]!.add(t);
+      }
+    }
+
+    final List<Manga> all = [];
+    for (final id in allTitles.keys) {
+      final candidates = allTitles[id]!.where((t) => t.isNotEmpty).toList();
+      if (candidates.isEmpty) continue;
+      final title = candidates.firstWhere((t) => !_isChapter(t), orElse: () => '');
+      if (title.isEmpty) continue;
+      all.add(Manga(
+        id: id,
+        slug: slugs[id] ?? '',
+        title: title,
+        description: '',
+        genres: [],
+        availableLanguages: ['es'],
+        coverUrl: covers[id],
+      ));
+    }
+    final filtered = all.where((m) => !_isExcluded(m, adultEnabled: adultEnabled)).toList();
+    debugPrint('[POP_FULL] raw=${all.length} filtered=${filtered.length}');
+    return (items: filtered, rawCount: all.length);
   }
 
   /// Extrae solo el HTML de la pestaña "Populares" general.

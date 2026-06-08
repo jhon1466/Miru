@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -9,11 +10,13 @@ import '../services/push_notification_service.dart';
 
 class AuthProvider with ChangeNotifier {
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _db = FirebaseFirestore.instance;
   final GoogleSignIn _googleSignIn = GoogleSignIn();
   final ImagePicker _imagePicker = ImagePicker();
 
   User? _user;
   String? _pendingWelcomeName;
+  bool _isAdmin = false;
 
   User? get currentUser => _user;
   bool get isLoggedIn => _user != null;
@@ -21,13 +24,41 @@ class AuthProvider with ChangeNotifier {
   String? get displayName => _user?.displayName;
   String? get photoUrl => _user?.photoURL;
   String? get email => _user?.email;
+  bool get isAdmin => _isAdmin;
 
   AuthProvider() {
     _user = _auth.currentUser;
     _auth.authStateChanges().listen((user) {
       _user = user;
+      _isAdmin = false;
+      if (user != null) {
+        _checkAdminStatus(user.uid);
+      }
       notifyListeners();
     });
+    if (_user != null) _checkAdminStatus(_user!.uid);
+  }
+
+  Future<void> _checkAdminStatus(String uid) async {
+    try {
+      // 1. Buscar por docId == uid (estructura nueva)
+      final doc = await _db.collection('admins').doc(uid).get();
+      debugPrint('[ADMIN] uid=$uid docId.exists=${doc.exists}');
+      if (doc.exists) {
+        _isAdmin = true;
+        notifyListeners();
+        return;
+      }
+      // 2. Buscar por campo uid == uid (estructura de la web)
+      final query = await _db.collection('admins').where('uid', isEqualTo: uid).limit(1).get();
+      debugPrint('[ADMIN] uid=$uid query.size=${query.size}');
+      final wasAdmin = _isAdmin;
+      _isAdmin = query.docs.isNotEmpty;
+      if (_isAdmin != wasAdmin) notifyListeners();
+    } catch (e) {
+      debugPrint('[ADMIN] Error checking admin: $e');
+      _isAdmin = false;
+    }
   }
 
   /// Inicia sesión con Google. Devuelve el nombre para mensaje de bienvenida, o null si canceló/falló.

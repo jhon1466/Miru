@@ -646,6 +646,7 @@ class _ProfileBannerHeader extends StatelessWidget {
         onTap: onEditName,
         child: Padding(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           child: Row(mainAxisSize: MainAxisSize.min, children: [
+            if (profile?.isAdmin == true) ...[const Text('🛡️', style: TextStyle(fontSize: 16)), const SizedBox(width: 4)],
             if (profile?.isSupporter == true) ...[const Text('👑', style: TextStyle(fontSize: 16)), const SizedBox(width: 6)],
             Flexible(child: Text(name, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: context.textPrimary), textAlign: TextAlign.center)),
             const SizedBox(width: 6),

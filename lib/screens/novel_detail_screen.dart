@@ -5,6 +5,7 @@ import '../models/novel.dart';
 import '../providers/novel_provider.dart';
 import '../providers/auth_provider.dart' as app_auth;
 import '../providers/novel_history_provider.dart';
+import '../providers/supporter_provider.dart';
 import '../widgets/anime_poster_image.dart';
 import '../services/novel_favorite_service.dart';
 import '../services/novel_follow_service.dart';
@@ -13,6 +14,7 @@ import '../utils/auth_ui.dart';
 import '../widgets/media_rating_section.dart';
 import '../services/completed_service.dart';
 import 'novel_reader_screen.dart';
+import 'downloads_screen.dart';
 import '../widgets/comments_section.dart';
 
 class NovelDetailScreen extends StatefulWidget {
@@ -110,6 +112,106 @@ class _NovelDetailScreenState extends State<NovelDetailScreen> {
     }
   }
 
+  // ── Descarga en lote (Supporter) ──────────────────────────────────────────
+  bool _isBatchDownloading = false;
+  int _batchTotal = 0;
+  int _batchDone = 0;
+
+  void _showSupporterRequired(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Row(children: [
+          Icon(Icons.download_for_offline_rounded, color: Colors.white, size: 18),
+          SizedBox(width: 8),
+          Expanded(child: Text('Descarga en lote exclusivo para Supporters de Patreon')),
+        ]),
+        duration: Duration(seconds: 3),
+      ),
+    );
+  }
+
+  void _showBatchDownloadDialog(BuildContext context, Novel details, List<NovelChapter> chapters) {
+    final notDownloaded = chapters.where((c) => !_downloadedChapterIds.contains(c.id)).toList();
+    if (notDownloaded.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Todos los capítulos ya están descargados')),
+      );
+      return;
+    }
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(children: [
+          Text('👑 ', style: TextStyle(fontSize: 20)),
+          Text('Descarga en lote', style: TextStyle(fontWeight: FontWeight.bold)),
+        ]),
+        content: Text(
+          'Se descargarán ${notDownloaded.length} capítulos de "${details.title}".\n\n¿Continuar?',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+          ElevatedButton.icon(
+            icon: const Icon(Icons.download_rounded),
+            label: Text('Descargar ${notDownloaded.length} caps'),
+            onPressed: () {
+              Navigator.pop(ctx);
+              _startBatchDownload(context, details, notDownloaded);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _startBatchDownload(BuildContext context, Novel details, List<NovelChapter> chapters) async {
+    setState(() { _isBatchDownloading = true; _batchTotal = chapters.length; _batchDone = 0; });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(children: [
+          const Icon(Icons.download_rounded, color: Colors.white, size: 18),
+          const SizedBox(width: 10),
+          Expanded(child: Text('Descargando ${chapters.length} capítulos…')),
+        ]),
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        duration: const Duration(seconds: 4),
+        action: SnackBarAction(
+          label: 'Ver',
+          textColor: Colors.white,
+          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const DownloadsScreen())),
+        ),
+      ),
+    );
+    for (final chapter in chapters) {
+      if (!mounted) break;
+      try {
+        final paragraphs = await OfflineStorageService.fetchNovelParagraphs(chapter.url);
+        await OfflineStorageService.saveNovelChapter(
+          novelId: details.id,
+          novelTitle: details.title,
+          coverUrl: details.coverUrl ?? '',
+          novelUrl: details.url,
+          chapterId: chapter.id,
+          chapterNumber: chapter.number,
+          chapterTitle: chapter.title,
+          chapterUrl: chapter.url,
+          paragraphs: paragraphs,
+        );
+        if (mounted) setState(() { _downloadedChapterIds.add(chapter.id); _batchDone++; });
+      } catch (_) {
+        if (mounted) setState(() => _batchDone++);
+      }
+    }
+    if (mounted) {
+      setState(() => _isBatchDownloading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Lote completado: $_batchDone/$_batchTotal capítulos'),
+          backgroundColor: Theme.of(context).colorScheme.primary,
+        ),
+      );
+    }
+  }
+
   Future<void> _deleteNovelChapter(NovelChapter chapter) async {
     await OfflineStorageService.deleteNovelChapter(widget.novel.id, chapter.id);
     if (mounted) {
@@ -164,6 +266,7 @@ class _NovelDetailScreenState extends State<NovelDetailScreen> {
   Widget build(BuildContext context) {
     final novelProvider = Provider.of<NovelProvider>(context);
     final authProvider = Provider.of<app_auth.AuthProvider>(context);
+    final supporter = Provider.of<SupporterProvider>(context, listen: false);
     final details = novelProvider.selectedNovel;
     final isLoading = novelProvider.isLoadingDetails;
     final error = novelProvider.detailsError;
@@ -278,23 +381,23 @@ class _NovelDetailScreenState extends State<NovelDetailScreen> {
                 ],
               ),
             ),
-            // ── Botones Favorito y Seguir en AppBar ──────────────
-            actions: isLoggedIn && userId != null
-                ? [
-                    _FavButton(userId: userId, novel: details, onTap: _toggleFavorite),
-                    _FollowButton(userId: userId, novel: details, onTap: _toggleFollow),
-                    const SizedBox(width: 8),
-                  ]
-                : [
-                    IconButton(
-                      icon: const Icon(Icons.login),
-                      tooltip: 'Iniciar sesión para guardar',
-                      onPressed: () => signInWithGoogleAndWelcome(
-                        context,
-                        context.read<app_auth.AuthProvider>(),
-                      ),
-                    ),
-                  ],
+            // ── Botones Favorito, Seguir en AppBar ──────────────
+            actions: [
+              if (isLoggedIn && userId != null) ...[
+                _FavButton(userId: userId, novel: details, onTap: _toggleFavorite),
+                _FollowButton(userId: userId, novel: details, onTap: _toggleFollow),
+                const SizedBox(width: 8),
+              ] else ...[
+                IconButton(
+                  icon: const Icon(Icons.login),
+                  tooltip: 'Iniciar sesión para guardar',
+                  onPressed: () => signInWithGoogleAndWelcome(
+                    context,
+                    context.read<app_auth.AuthProvider>(),
+                  ),
+                ),
+              ],
+            ],
           ),
 
           // ── Info ─────────────────────────────────────────────────
@@ -532,6 +635,34 @@ class _NovelDetailScreenState extends State<NovelDetailScreen> {
                             fontWeight: FontWeight.bold,
                             color: context.textPrimary),
                       ),
+                      // Descarga en lote (Supporter)
+                      if (novelProvider.chapters.isNotEmpty)
+                        _isBatchDownloading
+                            ? Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 8),
+                                child: SizedBox(
+                                  width: 20, height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    value: _batchTotal > 0 ? _batchDone / _batchTotal : null,
+                                    valueColor: AlwaysStoppedAnimation(context.primaryColor),
+                                  ),
+                                ),
+                              )
+                            : IconButton(
+                                icon: Icon(
+                                  Icons.download_for_offline_rounded,
+                                  color: supporter.isSupporter
+                                      ? context.primaryColor
+                                      : context.textSecondary.withValues(alpha: 0.5),
+                                ),
+                                tooltip: supporter.isSupporter
+                                    ? 'Descargar todos los capítulos (Supporter)'
+                                    : 'Descarga en lote (exclusivo Supporter)',
+                                onPressed: supporter.isSupporter
+                                    ? () => _showBatchDownloadDialog(context, details!, novelProvider.chapters)
+                                    : () => _showSupporterRequired(context),
+                              ),
                       IconButton(
                         icon: Icon(
                           _reverseChapterOrder
