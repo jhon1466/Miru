@@ -156,7 +156,10 @@ class UserService {
   static Stream<UserProfile?> profileStream(String uid) {
     return _userRef(uid).snapshots().asyncMap((doc) async {
       if (!doc.exists) return null;
-      final isAdmin = await _isAdminUid(uid);
+      bool isAdmin = false;
+      try {
+        isAdmin = await _isAdminUid(uid);
+      } catch (_) {}
       final profile = UserProfile.fromFirestore(doc);
       return isAdmin ? profile.copyWith(isAdmin: true) : profile;
     });

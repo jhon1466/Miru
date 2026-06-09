@@ -338,6 +338,24 @@ class MangaProvider extends ChangeNotifier {
     }
   }
 
+  // Carga la lista de capítulos SIN mutar el estado del provider.
+  // Útil para el lector cuando se abre desde "Continuar leyendo" (sin lista).
+  Future<List<MangaChapter>> fetchChapters(String mangaId, {String? slug}) async {
+    try {
+      final resolvedSlug = (_selectedManga?.slug.isNotEmpty == true)
+          ? _selectedManga!.slug
+          : (slug?.isNotEmpty == true ? slug! : 'a');
+      final uri = Uri.parse('$_baseUrl/library/manga/$mangaId/$resolvedSlug');
+      final response = await http.get(uri, headers: _headers);
+      if (response.statusCode == 200) {
+        return _parseChapters(response.body);
+      }
+    } catch (e) {
+      debugPrint('[CHAP] fetchChapters error: $e');
+    }
+    return [];
+  }
+
   // ── Páginas de capítulo ───────────────────────────────────────────────────
   // GET /viewer/{chapterId}/cascade  → imágenes en JSON embebido o <img>
   Future<void> loadChapterPages(String chapterId, String mangaId) async {

@@ -978,8 +978,12 @@ class _ProfileIconButton extends StatelessWidget {
     if (authProvider.isLoggedIn && photoUrl != null) {
       return Tooltip(
         message: 'Mi Perfil',
-        child: GestureDetector(
+        // InkWell es enfocable con el D-pad (Android TV) y responde a OK/Enter,
+        // a diferencia de GestureDetector que el control remoto no puede seleccionar.
+        child: InkWell(
           onTap: goToProfile,
+          focusColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.4),
+          borderRadius: BorderRadius.circular(24),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             child: _AvatarWithFrame(photoUrl: photoUrl, isSupporter: isSupporter),

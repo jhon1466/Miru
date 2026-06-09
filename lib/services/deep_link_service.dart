@@ -2,7 +2,10 @@ import 'dart:async';
 import 'package:app_links/app_links.dart';
 import 'package:flutter/material.dart';
 import '../core/app_navigator.dart';
+import '../models/novel.dart';
 import '../screens/detail_screen.dart';
+import '../screens/manga_detail_screen.dart';
+import '../screens/novel_detail_screen.dart';
 
 class DeepLinkService {
   static final _appLinks = AppLinks();
@@ -13,22 +16,17 @@ class DeepLinkService {
     if (_initialized) return;
     _initialized = true;
 
-    // 1. Handle the initial link (if the app was launched via a link)
     try {
       final initialLink = await _appLinks.getInitialLink();
-      if (initialLink != null) {
-        _handleDeepLink(initialLink);
-      }
+      if (initialLink != null) _handleDeepLink(initialLink);
     } catch (e) {
       debugPrint('DeepLinkService getInitialLink error: $e');
     }
 
-    // 2. Subscribe to link events (for warm/foreground state)
-    _linkSubscription = _appLinks.uriLinkStream.listen((Uri uri) {
-      _handleDeepLink(uri);
-    }, onError: (err) {
-      debugPrint('DeepLinkService stream error: $err');
-    });
+    _linkSubscription = _appLinks.uriLinkStream.listen(
+      (Uri uri) => _handleDeepLink(uri),
+      onError: (err) => debugPrint('DeepLinkService stream error: $err'),
+    );
   }
 
   static void dispose() {
@@ -37,61 +35,107 @@ class DeepLinkService {
     _initialized = false;
   }
 
-  static bool _isValidAnimeUrl(String url) {
+  // ── Anime provider hosts ──────────────────────────────────────────────────
+  static bool _isAnimeProviderUrl(String url) {
     try {
-      final uri = Uri.parse(url);
-      final host = uri.host.toLowerCase();
-      // Verificamos si es un host de los proveedores soportados
+      final host = Uri.parse(url).host.toLowerCase();
       return host.contains('animeav1.com') ||
-             host.contains('animeflv.net') ||
-             host.contains('tioanime.com') ||
-             host.contains('jkanime.net') ||
-             host.contains('monoschinos') ||
-             host.contains('latanime.org') ||
-             host.contains('hentaila.com');
+          host.contains('animeflv.net') ||
+          host.contains('tioanime.com') ||
+          host.contains('jkanime.net') ||
+          host.contains('monoschinos') ||
+          host.contains('latanime.org') ||
+          host.contains('hentaila.com');
     } catch (_) {
       return false;
     }
   }
 
+  // ── Main handler ──────────────────────────────────────────────────────────
   static void _handleDeepLink(Uri uri) async {
-    String urlString = uri.toString();
-    debugPrint('Deep Link recibido: $urlString');
+    debugPrint('[DeepLink] recibido: $uri');
 
-    // Si viene del custom scheme (ej: miru://anime?url=https://...)
-    if (uri.scheme == 'miru' || uri.scheme == 'miruapp') {
-      final paramUrl = uri.queryParameters['url'];
-      if (paramUrl != null && paramUrl.isNotEmpty) {
-        urlString = paramUrl;
+    final scheme = uri.scheme;
+
+    // ── miru:// o miruapp:// ───────────────────────────────────────────────
+    if (scheme == 'miru' || scheme == 'miruapp') {
+      final host = uri.host; // "anime", "manga", "novel"
+      final params = uri.queryParameters;
+
+      switch (host) {
+        case 'anime':
+          final animeUrl = params['url'] ?? '';
+          final title    = params['title'] ?? 'Cargando...';
+          if (animeUrl.isNotEmpty) {
+            await _navigate((nav) => nav.push(MaterialPageRoute(
+              builder: (_) => DetailScreen(
+                animeUrl: Uri.decodeComponent(animeUrl),
+                animeTitle: Uri.decodeComponent(title),
+              ),
+            )));
+          }
+
+        case 'manga':
+          final id   = params['id'] ?? '';
+          final slug = params['slug'] ?? '';
+          if (id.isNotEmpty) {
+            debugPrint('[DeepLink] abriendo manga id=$id slug=$slug');
+            await _navigate((nav) => nav.push(MaterialPageRoute(
+              builder: (_) => MangaDetailScreen(
+                mangaId: id,
+                slug: Uri.decodeComponent(slug),
+              ),
+            )));
+          }
+
+        case 'novel':
+          final id    = params['id'] ?? '';
+          final url   = params['url'] ?? '';
+          final title = params['title'] ?? '';
+          if (id.isNotEmpty && url.isNotEmpty) {
+            debugPrint('[DeepLink] abriendo novel id=$id');
+            final novel = Novel(
+              id: id,
+              title: Uri.decodeComponent(title),
+              url: Uri.decodeComponent(url),
+            );
+            await _navigate((nav) => nav.push(MaterialPageRoute(
+              builder: (_) => NovelDetailScreen(novel: novel),
+            )));
+          }
+
+        default:
+          debugPrint('[DeepLink] host desconocido: $host');
       }
+      return;
     }
 
-    if (!_isValidAnimeUrl(urlString)) return;
+    // ── http/https → proveedor de anime (compatibilidad legacy) ───────────
+    final urlString = uri.toString();
+    if (_isAnimeProviderUrl(urlString)) {
+      await _navigate((nav) => nav.push(MaterialPageRoute(
+        builder: (_) => DetailScreen(
+          animeUrl: urlString,
+          animeTitle: 'Cargando...',
+        ),
+      )));
+    }
+  }
 
-    // Buscamos el NavigatorState
+  // ── Navigator helper ──────────────────────────────────────────────────────
+  static Future<void> _navigate(void Function(NavigatorState nav) action) async {
     var nav = AppNavigator.key.currentState;
     if (nav == null) {
-      // Esperamos a que esté listo (similar a NotificationRouting)
       for (int i = 0; i < 20; i++) {
         await Future.delayed(const Duration(milliseconds: 150));
         nav = AppNavigator.key.currentState;
         if (nav != null) break;
       }
     }
-
     if (nav == null) {
-      debugPrint('No se pudo obtener el NavigatorState para procesar el deep link');
+      debugPrint('[DeepLink] NavigatorState no disponible');
       return;
     }
-
-    // Navegar a la pantalla de detalle del anime
-    nav.push(
-      MaterialPageRoute(
-        builder: (_) => DetailScreen(
-          animeUrl: urlString,
-          animeTitle: 'Cargando...',
-        ),
-      ),
-    );
+    action(nav);
   }
 }

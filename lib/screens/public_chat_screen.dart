@@ -229,7 +229,7 @@ class _PublicChatScreenState extends State<PublicChatScreen> {
             if (!isMe) ...[
               GestureDetector(
                 onTap: () => _navigateToProfile(context, msg),
-                child: _buildAvatar(msg.userAvatar, msg.userName, radius: 18),
+                child: _buildAvatar(msg.userAvatar, msg.userName, radius: 18, isSupporter: msg.isSupporter),
               ),
               const SizedBox(width: 8),
             ],
@@ -432,7 +432,7 @@ class _PublicChatScreenState extends State<PublicChatScreen> {
             ),
             if (isMe) ...[
               const SizedBox(width: 8),
-              _buildAvatar(msg.userAvatar, msg.userName, radius: 18),
+              _buildAvatar(msg.userAvatar, msg.userName, radius: 18, isSupporter: msg.isSupporter),
             ],
           ],
         ),
@@ -440,25 +440,128 @@ class _PublicChatScreenState extends State<PublicChatScreen> {
     );
   }
 
-  Widget _buildAvatar(String? photoUrl, String name, {double radius = 16}) {
+  Widget _buildAvatar(String? photoUrl, String name, {double radius = 16, bool isSupporter = false}) {
+    final double size   = radius * 2;
+    final double ring   = radius * 0.14;
+    final double gap    = radius * 0.11;
+    final double badgeD = radius * 0.9;
+    final bg = Theme.of(context).scaffoldBackgroundColor;
+
+    Widget photo;
     if (photoUrl != null && photoUrl.isNotEmpty) {
-      return CircleAvatar(
-        radius: radius,
-        backgroundImage: CachedNetworkImageProvider(photoUrl),
-        backgroundColor: context.cardColor,
+      photo = ClipOval(
+        child: CachedNetworkImage(
+          imageUrl: photoUrl,
+          width: size - (ring + gap) * 2,
+          height: size - (ring + gap) * 2,
+          fit: BoxFit.cover,
+        ),
+      );
+    } else {
+      final initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
+      photo = CircleAvatar(
+        radius: radius - ring - gap,
+        backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.25),
+        child: Text(
+          initial,
+          style: TextStyle(
+            fontSize: (radius - ring - gap) * 0.9,
+            fontWeight: FontWeight.bold,
+            color: Theme.of(context).colorScheme.primary,
+          ),
+        ),
       );
     }
-    final initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
-    return CircleAvatar(
-      radius: radius,
-      backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.25),
-      child: Text(
-        initial,
-        style: TextStyle(
-          fontSize: radius * 0.9,
-          fontWeight: FontWeight.bold,
-          color: Theme.of(context).colorScheme.primary,
+
+    if (!isSupporter) {
+      // Sin marco: avatar simple
+      if (photoUrl != null && photoUrl.isNotEmpty) {
+        return CircleAvatar(
+          radius: radius,
+          backgroundImage: CachedNetworkImageProvider(photoUrl),
+          backgroundColor: context.cardColor,
+        );
+      }
+      final initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
+      return CircleAvatar(
+        radius: radius,
+        backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.25),
+        child: Text(
+          initial,
+          style: TextStyle(
+            fontSize: radius * 0.9,
+            fontWeight: FontWeight.bold,
+            color: Theme.of(context).colorScheme.primary,
+          ),
         ),
+      );
+    }
+
+    // Marco VIP Supporter: anillo dorado + corona encima
+    return SizedBox(
+      width: size,
+      height: size + badgeD * 0.5,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned(
+            bottom: 0, left: 0, right: 0,
+            child: SizedBox(
+              width: size,
+              height: size,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  // Anillo degradado dorado
+                  Container(
+                    width: size,
+                    height: size,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [Color(0xFFFFEC80), Color(0xFFFFD93D), Color(0xFFFF9A3C)],
+                      ),
+                      boxShadow: [BoxShadow(
+                        color: const Color(0xFFFFD93D).withValues(alpha: 0.4),
+                        blurRadius: 6,
+                      )],
+                    ),
+                  ),
+                  // Gap
+                  Container(
+                    width: size - ring * 2,
+                    height: size - ring * 2,
+                    decoration: BoxDecoration(shape: BoxShape.circle, color: bg),
+                  ),
+                  // Foto
+                  photo,
+                ],
+              ),
+            ),
+          ),
+          // Corona encima
+          Positioned(
+            top: 0,
+            left: size / 2 - badgeD / 2,
+            child: Container(
+              width: badgeD,
+              height: badgeD,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: const Color(0xFFFFD93D),
+                boxShadow: [BoxShadow(
+                  color: const Color(0xFFFFD93D).withValues(alpha: 0.6),
+                  blurRadius: 5,
+                )],
+              ),
+              child: Center(
+                child: Text('👑', style: TextStyle(fontSize: badgeD * 0.55, height: 1)),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

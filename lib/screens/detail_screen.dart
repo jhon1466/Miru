@@ -396,45 +396,16 @@ class _DetailScreenState extends State<DetailScreen> {
             pinned: true,
             backgroundColor: context.backgroundColor,
             actions: [
-              // Botón ajustar posición del banner
-              if (posterImage.isNotEmpty)
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 2),
-                  decoration: BoxDecoration(
-                    color: _adjustingBanner
-                        ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.2)
-                        : Colors.transparent,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: TextButton.icon(
-                    onPressed: () => setState(() => _adjustingBanner = !_adjustingBanner),
-                    icon: Icon(
-                      _adjustingBanner ? Icons.check_rounded : Icons.crop_free_rounded,
-                      size: 16,
-                      color: _adjustingBanner
-                          ? Theme.of(context).colorScheme.primary
-                          : context.textSecondary,
-                    ),
-                    label: Text(
-                      _adjustingBanner ? 'Listo' : 'Ajustar',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: _adjustingBanner
-                            ? Theme.of(context).colorScheme.primary
-                            : context.textSecondary,
-                      ),
-                    ),
-                    style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 8)),
-                  ),
-                ),
               IconButton(
                 icon: Icon(Icons.share, color: context.textPrimary, size: 26),
                 tooltip: 'Compartir',
                 onPressed: () {
+                  final encodedUrl   = Uri.encodeComponent(widget.animeUrl);
+                  final encodedTitle = Uri.encodeComponent(widget.animeTitle);
+                  final deepLink = 'miru://anime?url=$encodedUrl&title=$encodedTitle';
                   SharePlus.instance.share(
                     ShareParams(
-                      text: 'Mira ${widget.animeTitle} en la app: ${widget.animeUrl}',
+                      text: '¡Mira ${widget.animeTitle} en la app Miru!\n$deepLink',
                     ),
                   );
                 },

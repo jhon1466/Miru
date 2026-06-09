@@ -469,7 +469,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               contentPadding: EdgeInsets.zero,
               leading: Icon(Icons.info_outline, color: context.primaryColor),
               title: const Text('Versión de la app'),
-              subtitle: const Text('2.0.13'),
+              subtitle: const Text('2.0.14'),
             ),
             ListTile(
               contentPadding: EdgeInsets.zero,

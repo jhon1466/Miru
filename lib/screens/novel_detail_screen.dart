@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 import '../core/theme.dart';
 import '../models/novel.dart';
 import '../providers/novel_provider.dart';
@@ -381,8 +382,25 @@ class _NovelDetailScreenState extends State<NovelDetailScreen> {
                 ],
               ),
             ),
-            // ── Botones Favorito, Seguir en AppBar ──────────────
+            // ── Botones Compartir, Favorito, Seguir en AppBar ──────────────
             actions: [
+              // Compartir
+              if (details != null)
+                IconButton(
+                  icon: Icon(Icons.share, color: context.textPrimary, size: 24),
+                  tooltip: 'Compartir',
+                  onPressed: () {
+                    final encodedId    = Uri.encodeComponent(details.id);
+                    final encodedUrl   = Uri.encodeComponent(details.url);
+                    final encodedTitle = Uri.encodeComponent(details.title);
+                    final deepLink = 'miru://novel?id=$encodedId&url=$encodedUrl&title=$encodedTitle';
+                    SharePlus.instance.share(
+                      ShareParams(
+                        text: '¡Lee ${details.title} en la app Miru!\n$deepLink',
+                      ),
+                    );
+                  },
+                ),
               if (isLoggedIn && userId != null) ...[
                 _FavButton(userId: userId, novel: details, onTap: _toggleFavorite),
                 _FollowButton(userId: userId, novel: details, onTap: _toggleFollow),
@@ -635,46 +653,52 @@ class _NovelDetailScreenState extends State<NovelDetailScreen> {
                             fontWeight: FontWeight.bold,
                             color: context.textPrimary),
                       ),
-                      // Descarga en lote (Supporter)
-                      if (novelProvider.chapters.isNotEmpty)
-                        _isBatchDownloading
-                            ? Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 8),
-                                child: SizedBox(
-                                  width: 20, height: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    value: _batchTotal > 0 ? _batchDone / _batchTotal : null,
-                                    valueColor: AlwaysStoppedAnimation(context.primaryColor),
+                      // Botones agrupados a la derecha: descarga en lote + orden
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Descarga en lote (Supporter)
+                          if (novelProvider.chapters.isNotEmpty)
+                            _isBatchDownloading
+                                ? Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                                    child: SizedBox(
+                                      width: 20, height: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        value: _batchTotal > 0 ? _batchDone / _batchTotal : null,
+                                        valueColor: AlwaysStoppedAnimation(context.primaryColor),
+                                      ),
+                                    ),
+                                  )
+                                : IconButton(
+                                    icon: Icon(
+                                      Icons.download_for_offline_rounded,
+                                      color: supporter.isSupporter
+                                          ? context.primaryColor
+                                          : context.textSecondary.withValues(alpha: 0.5),
+                                    ),
+                                    tooltip: supporter.isSupporter
+                                        ? 'Descargar todos los capítulos (Supporter)'
+                                        : 'Descarga en lote (exclusivo Supporter)',
+                                    onPressed: supporter.isSupporter
+                                        ? () => _showBatchDownloadDialog(context, details!, novelProvider.chapters)
+                                        : () => _showSupporterRequired(context),
                                   ),
-                                ),
-                              )
-                            : IconButton(
-                                icon: Icon(
-                                  Icons.download_for_offline_rounded,
-                                  color: supporter.isSupporter
-                                      ? context.primaryColor
-                                      : context.textSecondary.withValues(alpha: 0.5),
-                                ),
-                                tooltip: supporter.isSupporter
-                                    ? 'Descargar todos los capítulos (Supporter)'
-                                    : 'Descarga en lote (exclusivo Supporter)',
-                                onPressed: supporter.isSupporter
-                                    ? () => _showBatchDownloadDialog(context, details!, novelProvider.chapters)
-                                    : () => _showSupporterRequired(context),
-                              ),
-                      IconButton(
-                        icon: Icon(
-                          _reverseChapterOrder
-                              ? Icons.arrow_downward
-                              : Icons.arrow_upward,
-                          color: context.primaryColor,
-                        ),
-                        onPressed: () {
-                          setState(() {
-                            _reverseChapterOrder = !_reverseChapterOrder;
-                          });
-                        },
+                          IconButton(
+                            icon: Icon(
+                              _reverseChapterOrder
+                                  ? Icons.arrow_downward
+                                  : Icons.arrow_upward,
+                              color: context.primaryColor,
+                            ),
+                            onPressed: () {
+                              setState(() {
+                                _reverseChapterOrder = !_reverseChapterOrder;
+                              });
+                            },
+                          ),
+                        ],
                       ),
                     ],
                   ),

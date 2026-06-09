@@ -403,9 +403,12 @@ class _MangaDetailScreenState extends State<MangaDetailScreen> {
                 icon: Icon(Icons.share, color: context.textPrimary, size: 24),
                 tooltip: 'Compartir',
                 onPressed: () {
+                  final encodedTitle = Uri.encodeComponent(details.title);
+                  final encodedSlug  = Uri.encodeComponent(mangaSlug);
+                  final deepLink = 'miru://manga?id=${widget.mangaId}&slug=$encodedSlug&title=$encodedTitle';
                   SharePlus.instance.share(
                     ShareParams(
-                      text: '¡Lee ${details.title} en ZonaTMO! $mangaShareUrl',
+                      text: '¡Lee ${details.title} en la app Miru!\n$deepLink',
                     ),
                   );
                 },
@@ -705,6 +708,8 @@ class _MangaDetailScreenState extends State<MangaDetailScreen> {
                                 chapterId: resumeChapterId,
                                 chapterNumber: resumeChapterNum ?? '?',
                                 startPage: resumePage,
+                                chapters: mangaProvider.chapters,
+                                slug: widget.slug,
                               ),
                             ),
                           ).then((_) => _loadProgress());
@@ -785,49 +790,55 @@ class _MangaDetailScreenState extends State<MangaDetailScreen> {
                             'Capítulos (${displayedChapters.length})',
                             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: context.textPrimary),
                           ),
-                          // Descarga en lote (Supporter)
-                          if (mangaProvider.chapters.isNotEmpty)
-                            _isBatchDownloading
-                                ? Padding(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                                    child: SizedBox(
-                                      width: 20, height: 20,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        value: _batchTotal > 0 ? _batchDone / _batchTotal : null,
-                                        valueColor: AlwaysStoppedAnimation(context.primaryColor),
+                          // Botones agrupados a la derecha: descarga en lote + orden
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              // Descarga en lote (Supporter)
+                              if (mangaProvider.chapters.isNotEmpty)
+                                _isBatchDownloading
+                                    ? Padding(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                                        child: SizedBox(
+                                          width: 20, height: 20,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            value: _batchTotal > 0 ? _batchDone / _batchTotal : null,
+                                            valueColor: AlwaysStoppedAnimation(context.primaryColor),
+                                          ),
+                                        ),
+                                      )
+                                    : IconButton(
+                                        icon: Icon(
+                                          Icons.download_for_offline_rounded,
+                                          color: supporter.isSupporter
+                                              ? context.primaryColor
+                                              : context.textSecondary.withValues(alpha: 0.5),
+                                        ),
+                                        tooltip: supporter.isSupporter
+                                            ? 'Descargar todos los capítulos (Supporter)'
+                                            : 'Descarga en lote (exclusivo Supporter)',
+                                        onPressed: supporter.isSupporter
+                                            ? () => _showBatchDownloadDialog(
+                                                  context,
+                                                  mangaProvider.chapters,
+                                                  details.title,
+                                                  details.coverUrl ?? '',
+                                                )
+                                            : () => _showSupporterRequired(context),
                                       ),
-                                    ),
-                                  )
-                                : IconButton(
-                                    icon: Icon(
-                                      Icons.download_for_offline_rounded,
-                                      color: supporter.isSupporter
-                                          ? context.primaryColor
-                                          : context.textSecondary.withValues(alpha: 0.5),
-                                    ),
-                                    tooltip: supporter.isSupporter
-                                        ? 'Descargar todos los capítulos (Supporter)'
-                                        : 'Descarga en lote (exclusivo Supporter)',
-                                    onPressed: supporter.isSupporter
-                                        ? () => _showBatchDownloadDialog(
-                                              context,
-                                              mangaProvider.chapters,
-                                              details.title,
-                                              details.coverUrl ?? '',
-                                            )
-                                        : () => _showSupporterRequired(context),
-                                  ),
-                          IconButton(
-                            icon: Icon(
-                              _reverseChapterOrder ? Icons.arrow_downward : Icons.arrow_upward,
-                              color: context.primaryColor,
-                            ),
-                            onPressed: () {
-                              setState(() {
-                                _reverseChapterOrder = !_reverseChapterOrder;
-                              });
-                            },
+                              IconButton(
+                                icon: Icon(
+                                  _reverseChapterOrder ? Icons.arrow_downward : Icons.arrow_upward,
+                                  color: context.primaryColor,
+                                ),
+                                onPressed: () {
+                                  setState(() {
+                                    _reverseChapterOrder = !_reverseChapterOrder;
+                                  });
+                                },
+                              ),
+                            ],
                           ),
                         ],
                       ),
@@ -906,6 +917,8 @@ class _MangaDetailScreenState extends State<MangaDetailScreen> {
                                     coverUrl: details.coverUrl ?? '',
                                     chapterId: chapter.id,
                                     chapterNumber: chapter.chapterNumber,
+                                    chapters: mangaProvider.chapters,
+                                    slug: widget.slug,
                                   ),
                                 ),
                               ).then((_) => _loadProgress());

@@ -618,19 +618,37 @@ class _ProfileBannerHeader extends StatelessWidget {
               ),
             ),
           Positioned(bottom: 0, left: 0, right: 0,
-            child: Center(child: Stack(children: [
+            child: Center(child: Stack(clipBehavior: Clip.none, children: [
+              // Anillo dorado VIP para supporters
               Container(
-                decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: context.backgroundColor, width: 4)),
-                child: CircleAvatar(
-                  radius: _avatarRadius,
-                  backgroundImage: photoUrl != null && photoUrl!.isNotEmpty ? NetworkImage(photoUrl!) : null,
-                  backgroundColor: context.primaryColor.withValues(alpha: 0.3),
-                  child: photoUrl == null || photoUrl!.isEmpty
-                      ? Text(name.isNotEmpty ? name[0].toUpperCase() : 'U',
-                          style: TextStyle(fontSize: _avatarRadius * 0.65, fontWeight: FontWeight.bold, color: Colors.white))
-                      : null,
+                padding: EdgeInsets.all(isSupporter ? 3 : 0),
+                decoration: isSupporter
+                    ? const BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [Color(0xFFFFE259), Color(0xFFFFA751), Color(0xFFFFD700)],
+                        ),
+                      )
+                    : null,
+                child: Container(
+                  decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: context.backgroundColor, width: 4)),
+                  child: CircleAvatar(
+                    radius: _avatarRadius,
+                    backgroundImage: photoUrl != null && photoUrl!.isNotEmpty ? NetworkImage(photoUrl!) : null,
+                    backgroundColor: context.primaryColor.withValues(alpha: 0.3),
+                    child: photoUrl == null || photoUrl!.isEmpty
+                        ? Text(name.isNotEmpty ? name[0].toUpperCase() : 'U',
+                            style: TextStyle(fontSize: _avatarRadius * 0.65, fontWeight: FontWeight.bold, color: Colors.white))
+                        : null,
+                  ),
                 ),
               ),
+              // Corona VIP centrada arriba
+              if (isSupporter)
+                const Positioned(top: -14, left: 0, right: 0,
+                  child: Center(child: Text('👑', style: TextStyle(fontSize: 22)))),
               Positioned(right: 2, bottom: 2,
                 child: Material(color: context.primaryColor, shape: const CircleBorder(),
                   child: InkWell(customBorder: const CircleBorder(), onTap: uploadingPhoto ? null : onEditPhoto,
@@ -646,14 +664,28 @@ class _ProfileBannerHeader extends StatelessWidget {
         onTap: onEditName,
         child: Padding(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           child: Row(mainAxisSize: MainAxisSize.min, children: [
-            if (profile?.isAdmin == true) ...[const Text('🛡️', style: TextStyle(fontSize: 16)), const SizedBox(width: 4)],
-            if (profile?.isSupporter == true) ...[const Text('👑', style: TextStyle(fontSize: 16)), const SizedBox(width: 6)],
             Flexible(child: Text(name, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: context.textPrimary), textAlign: TextAlign.center)),
             const SizedBox(width: 6),
             Icon(Icons.edit_outlined, size: 16, color: context.textSecondary),
           ])),
       ),
       if (email != null) Text(email!, style: TextStyle(fontSize: 13, color: context.textSecondary)),
+      if (profile?.isAdmin == true) ...[
+        const SizedBox(height: 6),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.blue.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.blue.withValues(alpha: 0.4)),
+          ),
+          child: const Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(Icons.shield_rounded, color: Colors.blue, size: 12),
+            SizedBox(width: 4),
+            Text('Admin', style: TextStyle(fontSize: 12, color: Colors.blue, fontWeight: FontWeight.w600)),
+          ]),
+        ),
+      ],
       const SizedBox(height: 4),
       Text('Toca tu nombre · cámara para foto', textAlign: TextAlign.center,
           style: TextStyle(fontSize: 11, color: context.textSecondary.withValues(alpha: 0.7))),

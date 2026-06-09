@@ -1308,14 +1308,6 @@ class _ProfileHeader extends StatelessWidget {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  if (profile?.isAdmin == true) ...[
-                    const Text('🛡️', style: TextStyle(fontSize: 18)),
-                    const SizedBox(width: 4),
-                  ],
-                  if (profile?.isSupporter == true) ...[
-                    const Text('👑', style: TextStyle(fontSize: 18)),
-                    const SizedBox(width: 6),
-                  ],
                   Expanded(
                     child: Text(
                       profile?.displayName ?? displayName,
@@ -1467,26 +1459,53 @@ class _ProfileAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final url = profile?.photoUrl ?? photoUrl;
-    return Container(
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(color: context.backgroundColor, width: 4),
+    // El marco VIP depende del estado del PERFIL que se ve, no del usuario actual.
+    final isSupporter = profile?.isSupporter == true;
+
+    final avatar = Container(
+      padding: EdgeInsets.all(isSupporter ? 3 : 0),
+      decoration: isSupporter
+          ? const BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFFFFE259), Color(0xFFFFA751), Color(0xFFFFD700)],
+              ),
+            )
+          : null,
+      child: Container(
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(color: context.backgroundColor, width: 4),
+        ),
+        child: CircleAvatar(
+          radius: radius,
+          backgroundImage: url != null ? NetworkImage(url) : null,
+          backgroundColor: context.primaryColor.withValues(alpha: 0.3),
+          child: url == null
+              ? Text(
+                  (profile?.displayName ?? 'U')[0].toUpperCase(),
+                  style: TextStyle(
+                    fontSize: radius * 0.7,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                )
+              : null,
+        ),
       ),
-      child: CircleAvatar(
-        radius: radius,
-        backgroundImage: url != null ? NetworkImage(url) : null,
-        backgroundColor: context.primaryColor.withValues(alpha: 0.3),
-        child: url == null
-            ? Text(
-                (profile?.displayName ?? 'U')[0].toUpperCase(),
-                style: TextStyle(
-                  fontSize: radius * 0.7,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              )
-            : null,
-      ),
+    );
+
+    if (!isSupporter) return avatar;
+
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        avatar,
+        const Positioned(top: -14, left: 0, right: 0,
+          child: Center(child: Text('👑', style: TextStyle(fontSize: 24)))),
+      ],
     );
   }
 }

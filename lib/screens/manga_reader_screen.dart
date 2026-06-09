@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../core/theme.dart';
+import '../models/manga.dart';
 import '../providers/manga_provider.dart';
 import '../providers/manga_history_provider.dart';
 import '../providers/auth_provider.dart' as app_auth;
@@ -22,6 +23,10 @@ class MangaReaderScreen extends StatefulWidget {
   final String chapterNumber;
   final String coverUrl;
   final int startPage;
+  /// Lista ordenada de capítulos (del más reciente al más antiguo, igual que en el detalle).
+  final List<MangaChapter> chapters;
+  /// Slug del manga, para poder recargar la lista de capítulos si llega vacía.
+  final String slug;
 
   const MangaReaderScreen({
     super.key,
@@ -31,6 +36,8 @@ class MangaReaderScreen extends StatefulWidget {
     required this.chapterNumber,
     this.coverUrl = '',
     this.startPage = 1,
+    this.chapters = const [],
+    this.slug = '',
   });
 
   @override
@@ -52,16 +59,33 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
   Timer? _controlsTimer;
   _ReadMode _readMode = _ReadMode.webtoon; // por defecto webtoon
 
+  // Lista de capítulos (puede llegar vacía y autocargarse).
+  List<MangaChapter> _chapters = [];
+
   @override
   void initState() {
     super.initState();
     _currentPage = widget.startPage - 1;
     _pageController = PageController(initialPage: _currentPage);
+    _chapters = List<MangaChapter>.from(widget.chapters);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<MangaProvider>().loadChapterPages(widget.chapterId, widget.mangaId);
       _startControlsTimer();
+      // Si no recibimos la lista de capítulos (p. ej. desde "Continuar leyendo"),
+      // la cargamos para poder mostrar los botones de capítulo siguiente/anterior.
+      if (_chapters.isEmpty) _loadChaptersIfNeeded();
     });
+  }
+
+  Future<void> _loadChaptersIfNeeded() async {
+    final list = await context
+        .read<MangaProvider>()
+        .fetchChapters(widget.mangaId, slug: widget.slug);
+    if (!mounted || list.isEmpty) return;
+    setState(() => _chapters = list);
+    debugPrint('[ChapterNav] auto-loaded chapters=${_chapters.length} '
+        'currentIndex=$_currentChapterIndex');
   }
 
   @override
@@ -121,6 +145,42 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
       case _ReadMode.vertical:   return 'Modo: Paginado vertical';
       case _ReadMode.horizontal: return 'Modo: Paginado horizontal';
     }
+  }
+
+  // ── Chapter navigation ────────────────────────────────────────────────────
+  int get _currentChapterIndex =>
+      _chapters.indexWhere((c) => c.id == widget.chapterId);
+
+  MangaChapter? get _prevChapter {
+    // La lista está ordenada del más reciente al más antiguo,
+    // así que el capítulo "anterior" (número menor) está DESPUÉS en la lista.
+    final idx = _currentChapterIndex;
+    if (idx < 0 || idx >= _chapters.length - 1) return null;
+    return _chapters[idx + 1];
+  }
+
+  MangaChapter? get _nextChapter {
+    // El capítulo "siguiente" (número mayor) está ANTES en la lista.
+    final idx = _currentChapterIndex;
+    if (idx <= 0) return null;
+    return _chapters[idx - 1];
+  }
+
+  void _openChapter(MangaChapter chapter) {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => MangaReaderScreen(
+          mangaId: widget.mangaId,
+          mangaTitle: widget.mangaTitle,
+          coverUrl: widget.coverUrl,
+          slug: widget.slug,
+          chapterId: chapter.id,
+          chapterNumber: chapter.chapterNumber,
+          chapters: _chapters,
+        ),
+      ),
+    );
   }
 
   // ── Progress ──────────────────────────────────────────────────────────────
@@ -248,10 +308,10 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
             ),
           ),
 
-          // ── Bottom page indicator ─────────────────────────────────────────
+          // ── Bottom bar: prev chapter · page indicator · next chapter ──────
           AnimatedPositioned(
             duration: const Duration(milliseconds: 250),
-            bottom: _showControls ? 20 : -60,
+            bottom: _showControls ? 20 : -80,
             left: 0, right: 0,
             child: Center(child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -272,6 +332,90 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
   }
 
   // ── Webtoon reader (continuous vertical scroll) ───────────────────────────
+  // ── Chapter navigation widget (shown at end of chapter) ──────────────────
+  Widget _buildChapterNav() {
+    final prev = _prevChapter; // lower number (older)
+    final next = _nextChapter; // higher number (newer)
+
+    if (prev == null && next == null) {
+      // No adjacent chapters → just a small spacer
+      return const SizedBox(height: 80);
+    }
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.75),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white12),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'Capítulo ${widget.chapterNumber}',
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 13,
+            ),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Fin del capítulo',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              // Previous chapter (older, lower number)
+              Expanded(
+                child: prev != null
+                    ? OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.white70,
+                          side: const BorderSide(color: Colors.white24),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                        icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 14),
+                        label: Text(
+                          'Cap. ${prev.chapterNumber}',
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        onPressed: () => _openChapter(prev),
+                      )
+                    : const SizedBox.shrink(),
+              ),
+              if (prev != null && next != null) const SizedBox(width: 12),
+              // Next chapter (newer, higher number)
+              Expanded(
+                child: next != null
+                    ? ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Theme.of(context).colorScheme.primary,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                        icon: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
+                        label: Text(
+                          'Cap. ${next.chapterNumber}',
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        onPressed: () => _openChapter(next),
+                      )
+                    : const SizedBox.shrink(),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildWebtoon(List<String> pages, bool isOffline) {
     return GestureDetector(
       onTap: _toggleControls,
@@ -280,9 +424,9 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
         physics: _webtoonScrollEnabled
             ? const ClampingScrollPhysics()
             : const NeverScrollableScrollPhysics(),
-        itemCount: pages.length + 1, // +1 bottom padding
+        itemCount: pages.length + 1, // +1 for bottom nav/padding
         itemBuilder: (context, index) {
-          if (index == pages.length) return const SizedBox(height: 80);
+          if (index == pages.length) return _buildChapterNav();
           return _WebtoonPageItem(
             key: ValueKey('webtoon_$index'),
             imageUrl: isOffline ? '' : pages[index],
@@ -306,30 +450,43 @@ class _MangaReaderScreenState extends State<MangaReaderScreen> {
 
   // ── Paged reader (vertical or horizontal PageView) ────────────────────────
   Widget _buildPaged(List<String> pages, bool isOffline) {
-    return PageView.builder(
-      controller: _pageController,
-      scrollDirection: _readMode == _ReadMode.vertical ? Axis.vertical : Axis.horizontal,
-      physics: _pageViewScrollEnabled
-          ? const BouncingScrollPhysics()
-          : const NeverScrollableScrollPhysics(),
-      itemCount: pages.length,
-      onPageChanged: (index) {
-        setState(() => _currentPage = index);
-        _registerProgress(index);
-        if (_showControls) _startControlsTimer();
-      },
-      itemBuilder: (context, index) {
-        return _ZoomablePage(
-          imageUrl: isOffline ? '' : pages[index],
-          localPath: isOffline ? pages[index] : null,
-          onTap: _toggleControls,
-          onZoomChanged: (isZoomed) {
-            if (_pageViewScrollEnabled == isZoomed) {
-              setState(() => _pageViewScrollEnabled = !isZoomed);
-            }
+    final isLastPage = _currentPage >= pages.length - 1;
+    return Stack(
+      children: [
+        PageView.builder(
+          controller: _pageController,
+          scrollDirection: _readMode == _ReadMode.vertical ? Axis.vertical : Axis.horizontal,
+          physics: _pageViewScrollEnabled
+              ? const BouncingScrollPhysics()
+              : const NeverScrollableScrollPhysics(),
+          itemCount: pages.length,
+          onPageChanged: (index) {
+            setState(() => _currentPage = index);
+            _registerProgress(index);
+            if (_showControls) _startControlsTimer();
           },
-        );
-      },
+          itemBuilder: (context, index) {
+            return _ZoomablePage(
+              imageUrl: isOffline ? '' : pages[index],
+              localPath: isOffline ? pages[index] : null,
+              onTap: _toggleControls,
+              onZoomChanged: (isZoomed) {
+                if (_pageViewScrollEnabled == isZoomed) {
+                  setState(() => _pageViewScrollEnabled = !isZoomed);
+                }
+              },
+            );
+          },
+        ),
+        // Show chapter nav buttons when on the last page
+        if (isLastPage)
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: _buildChapterNav(),
+          ),
+      ],
     );
   }
 }
