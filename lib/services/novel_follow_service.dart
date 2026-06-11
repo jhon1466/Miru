@@ -3,6 +3,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import '../models/novel.dart';
 import 'novel_favorite_service.dart';
+import 'tracked_series_service.dart';
 
 class NovelFollowService {
   static final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -82,6 +83,12 @@ class NovelFollowService {
       } catch (e) {
         debugPrint('[NovelFollow] Error al suscribirse a $topic: $e');
       }
+      await TrackedSeriesService.registerNovel(
+        topic: topic,
+        novelId: novel.id,
+        title: novel.title,
+        image: novel.coverUrl,
+      );
     }
   }
 }

@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import '../services/tracked_series_service.dart';
 import '../core/theme.dart';
 import '../providers/auth_provider.dart' as app_auth;
 import '../providers/history_provider.dart';
@@ -79,6 +81,8 @@ class _MainShellScreenState extends State<MainShellScreen> {
     await context.read<HistoryProvider>().bindCloudHistory(auth.userId);
     await context.read<MangaHistoryProvider>().bindCloudHistory(auth.userId);
     await context.read<NovelHistoryProvider>().bindCloudHistory(auth.userId);
+    // Registra los seguimientos previos para recibir avisos de nuevos capítulos.
+    unawaited(TrackedSeriesService.backfillForUser(auth.userId));
     _tryShowWelcome(auth);
   }
 

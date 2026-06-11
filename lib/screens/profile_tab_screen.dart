@@ -8,6 +8,7 @@ import '../providers/auth_provider.dart' as app_auth;
 import '../providers/supporter_provider.dart';
 import '../services/user_service.dart';
 import '../utils/auth_ui.dart';
+import '../widgets/fullscreen_image_viewer.dart';
 import 'settings_screen.dart';
 import 'user_profile_screen.dart';
 import 'downloads_screen.dart';
@@ -574,7 +575,11 @@ class _ProfileBannerHeader extends StatelessWidget {
         height: _bannerHeight + _avatarRadius,
         child: Stack(clipBehavior: Clip.none, children: [
           GestureDetector(
-            onTap: isSupporter ? onEditBanner : null,
+            onTap: hasBanner
+                ? () => FullscreenImageViewer.show(
+                      context, profile!.bannerUrl!,
+                      heroTag: 'banner_${profile!.bannerUrl!}')
+                : (isSupporter ? onEditBanner : null),
             child: Container(
               height: _bannerHeight, width: double.infinity,
               decoration: BoxDecoration(color: context.cardColor),
@@ -619,29 +624,35 @@ class _ProfileBannerHeader extends StatelessWidget {
             ),
           Positioned(bottom: 0, left: 0, right: 0,
             child: Center(child: Stack(clipBehavior: Clip.none, children: [
-              // Anillo dorado VIP para supporters
-              Container(
-                padding: EdgeInsets.all(isSupporter ? 3 : 0),
-                decoration: isSupporter
-                    ? const BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [Color(0xFFFFE259), Color(0xFFFFA751), Color(0xFFFFD700)],
-                        ),
-                      )
+              // Anillo dorado VIP para supporters. Toca la foto para verla en grande.
+              GestureDetector(
+                onTap: (photoUrl != null && photoUrl!.isNotEmpty)
+                    ? () => FullscreenImageViewer.show(
+                          context, photoUrl!, heroTag: 'avatar_${photoUrl!}')
                     : null,
                 child: Container(
-                  decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: context.backgroundColor, width: 4)),
-                  child: CircleAvatar(
-                    radius: _avatarRadius,
-                    backgroundImage: photoUrl != null && photoUrl!.isNotEmpty ? NetworkImage(photoUrl!) : null,
-                    backgroundColor: context.primaryColor.withValues(alpha: 0.3),
-                    child: photoUrl == null || photoUrl!.isEmpty
-                        ? Text(name.isNotEmpty ? name[0].toUpperCase() : 'U',
-                            style: TextStyle(fontSize: _avatarRadius * 0.65, fontWeight: FontWeight.bold, color: Colors.white))
-                        : null,
+                  padding: EdgeInsets.all(isSupporter ? 3 : 0),
+                  decoration: isSupporter
+                      ? const BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [Color(0xFFFFE259), Color(0xFFFFA751), Color(0xFFFFD700)],
+                          ),
+                        )
+                      : null,
+                  child: Container(
+                    decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: context.backgroundColor, width: 4)),
+                    child: CircleAvatar(
+                      radius: _avatarRadius,
+                      backgroundImage: photoUrl != null && photoUrl!.isNotEmpty ? NetworkImage(photoUrl!) : null,
+                      backgroundColor: context.primaryColor.withValues(alpha: 0.3),
+                      child: photoUrl == null || photoUrl!.isEmpty
+                          ? Text(name.isNotEmpty ? name[0].toUpperCase() : 'U',
+                              style: TextStyle(fontSize: _avatarRadius * 0.65, fontWeight: FontWeight.bold, color: Colors.white))
+                          : null,
+                    ),
                   ),
                 ),
               ),

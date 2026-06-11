@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import '../models/novel.dart';
+import 'tracked_series_service.dart';
 
 /// Modelo ligero para un favorito de novela.
 class FavoriteNovel {
@@ -111,6 +112,12 @@ class NovelFavoriteService {
       } catch (e) {
         debugPrint('[NovelFav] Error al suscribirse a $topic: $e');
       }
+      await TrackedSeriesService.registerNovel(
+        topic: topic,
+        novelId: novel.id,
+        title: novel.title,
+        image: novel.coverUrl,
+      );
     }
   }
 

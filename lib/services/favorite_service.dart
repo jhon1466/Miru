@@ -3,6 +3,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import '../models/anime.dart';
 import 'follow_service.dart';
+import 'tracked_series_service.dart';
 
 /// Modelo ligero para representar un favorito guardado en Firestore.
 class FavoriteAnime {
@@ -140,6 +141,12 @@ class FavoriteService {
       } catch (e) {
         debugPrint('Error subscribing to topic $topic: $e');
       }
+      await TrackedSeriesService.registerAnime(
+        topic: topic,
+        animeUrl: animeUrl,
+        title: details.title,
+        image: details.image ?? fallbackImage,
+      );
     }
   }
 

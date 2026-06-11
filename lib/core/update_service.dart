@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:package_info_plus/package_info_plus.dart';
 
 class UpdateInfo {
   final bool hasUpdate;
@@ -17,13 +18,31 @@ class UpdateInfo {
 }
 
 class UpdateService {
-  // Constantes de configuración de la app
-  static const String appVersion = '2.0.14'; // Versión actual de la aplicación
   static const String githubOwner = 'jhon1466';
   static const String githubRepo = 'Miru';
 
+  // Versión real instalada (leída del paquete, sin hardcodear).
+  static String _installedVersion = '';
+
+  /// Carga y cachea la versión instalada. Llamar una vez al iniciar la app.
+  static Future<String> loadInstalledVersion() async {
+    if (_installedVersion.isNotEmpty) return _installedVersion;
+    try {
+      final info = await PackageInfo.fromPlatform();
+      _installedVersion = info.version; // p. ej. "2.0.14"
+    } catch (e) {
+      debugPrint('No se pudo leer la versión instalada: $e');
+    }
+    return _installedVersion;
+  }
+
+  /// Getter síncrono para la UI (válido tras [loadInstalledVersion]).
+  static String get appVersion =>
+      _installedVersion.isNotEmpty ? _installedVersion : '...';
+
   /// Comprueba si hay una nueva versión disponible en GitHub
   static Future<UpdateInfo> checkForUpdates() async {
+    final current = await loadInstalledVersion();
     try {
       final url = Uri.parse('https://api.github.com/repos/$githubOwner/$githubRepo/releases/latest');
       final response = await http.get(url, headers: {
@@ -55,7 +74,7 @@ class UpdateService {
           downloadUrl = data['html_url'] ?? 'https://github.com/$githubOwner/$githubRepo/releases';
         }
 
-        final bool hasNewer = _isNewerVersion(appVersion, tag);
+        final bool hasNewer = _isNewerVersion(current, tag);
 
         return UpdateInfo(
           hasUpdate: hasNewer,
@@ -81,7 +100,8 @@ class UpdateService {
   /// Obtiene las notas del release de la versión actual instalada.
   /// Prueba primero `v{version}`, luego `{version}` como tag name.
   static Future<String?> getReleaseNotesForCurrentVersion() async {
-    final tags = ['v$appVersion', appVersion];
+    final v = await loadInstalledVersion();
+    final tags = ['v$v', v];
     for (final tag in tags) {
       try {
         final url = Uri.parse(

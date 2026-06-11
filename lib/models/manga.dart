@@ -144,13 +144,45 @@ class Manga {
       );
     }
 
-    // 4. Estado — buscar texto literal de estado en el HTML
+    // 4. Estado — ZonaTMO lo renderiza con un span ancla seguido del texto:
+    //   <span class="status-dot publishing"></span>Publicándose
+    // La clase (publishing/ended/cancelled/on_hold) está en inglés y el texto
+    // visible en español. Tomamos el texto del PRIMER status-dot (el del manga
+    // principal; las tarjetas relacionadas y el contador "N Abandonado" van
+    // después y no usan este patrón para el estado principal).
     String? status;
-    // ZonaTMO usa texto como "En emisión", "Finalizado", "Abandonado", "Pausado"
-    // Puede estar en <span>, <p>, <div> con clase que contenga "status" o "estado"
-    const stateTexts = ['En emisión', 'Finalizado', 'Abandonado', 'Pausado', 'En Emisión'];
-    for (final s in stateTexts) {
-      if (html.contains(s)) { status = s == 'En Emisión' ? 'En emisión' : s; break; }
+    final statusMatch2 = RegExp(
+      r'<span[^>]*class="[^"]*status-dot[^"]*"[^>]*>\s*</span>\s*([^<\n]+)',
+    ).firstMatch(html);
+    if (statusMatch2 != null) {
+      status = _decodeHtmlEntities(statusMatch2.group(1)!.trim());
+    } else {
+      // Respaldo: buscar el texto dentro de la sección etiquetada "Estado".
+      const stateTexts = [
+        'Publicándose', 'Publicandose', 'En emisión', 'En Emisión',
+        'Finalizado', 'Cancelado', 'Abandonado', 'Pausado',
+      ];
+      final estadoLabel = RegExp(r'>\s*Estado:?\s*<').firstMatch(html);
+      String searchRegion = html;
+      if (estadoLabel != null) {
+        final start = estadoLabel.end;
+        final end = (start + 400).clamp(0, html.length);
+        searchRegion = html.substring(start, end);
+      }
+      int bestIdx = -1;
+      for (final s in stateTexts) {
+        final i = searchRegion.indexOf(s);
+        if (i >= 0 && (bestIdx == -1 || i < bestIdx)) {
+          bestIdx = i;
+          if (s == 'Publicandose' || s == 'Publicándose') {
+            status = 'Publicándose';
+          } else if (s == 'En Emisión' || s == 'En emisión') {
+            status = 'En emisión';
+          } else {
+            status = s;
+          }
+        }
+      }
     }
 
     // 5. Autor — ZonaTMO: <a href="/library?...demography..."> o label "Autor"

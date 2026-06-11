@@ -1,6 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
 import '../models/manga.dart';
 import 'manga_favorite_service.dart';
+import 'tracked_series_service.dart';
 
 class MangaFollowService {
   static final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -45,9 +48,18 @@ class MangaFollowService {
   }) async {
     final ref = _followRef(userId).doc(details.id);
     final doc = await ref.get();
+    final topic = 'manga_${details.id}';
 
     if (doc.exists) {
       await ref.delete();
+      final isFav = await MangaFavoriteService.isFavorite(userId, details.id);
+      if (!isFav) {
+        try {
+          await FirebaseMessaging.instance.unsubscribeFromTopic(topic);
+        } catch (e) {
+          debugPrint('[MangaFollow] error al desuscribirse de $topic: $e');
+        }
+      }
     } else {
       await ref.set({
         'mangaId': details.id,
@@ -56,6 +68,19 @@ class MangaFollowService {
         'status': details.status,
         'followedAt': FieldValue.serverTimestamp(),
       });
+      try {
+        await FirebaseMessaging.instance.subscribeToTopic(topic);
+        debugPrint('[MangaFollow] suscrito a FCM: $topic');
+      } catch (e) {
+        debugPrint('[MangaFollow] error al suscribirse a $topic: $e');
+      }
+      await TrackedSeriesService.registerManga(
+        topic: topic,
+        mangaId: details.id,
+        slug: details.slug,
+        title: details.title,
+        image: details.coverUrl ?? fallbackImage,
+      );
     }
   }
 }

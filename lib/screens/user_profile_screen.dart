@@ -11,6 +11,7 @@ import '../services/user_service.dart';
 import '../services/favorite_service.dart';
 import '../services/follow_service.dart';
 import '../widgets/anime_poster_image.dart';
+import '../widgets/fullscreen_image_viewer.dart';
 import 'detail_screen.dart';
 import '../services/manga_favorite_service.dart';
 import '../services/manga_follow_service.dart';
@@ -1184,7 +1185,11 @@ class _ProfileHeader extends StatelessWidget {
             Padding(
               padding: EdgeInsets.only(top: topPadding),
               child: GestureDetector(
-                onTap: canEditBanner ? onEditBanner : null,
+                onTap: hasBanner
+                    ? () => FullscreenImageViewer.show(
+                          context, profile!.bannerUrl!,
+                          heroTag: 'banner_${profile!.bannerUrl!}')
+                    : (canEditBanner ? onEditBanner : null),
                 child: Container(
                   height: _bannerHeight,
                   width: double.infinity,
@@ -1497,15 +1502,22 @@ class _ProfileAvatar extends StatelessWidget {
       ),
     );
 
-    if (!isSupporter) return avatar;
+    final content = !isSupporter
+        ? avatar
+        : Stack(
+            clipBehavior: Clip.none,
+            children: [
+              avatar,
+              const Positioned(top: -14, left: 0, right: 0,
+                child: Center(child: Text('👑', style: TextStyle(fontSize: 24)))),
+            ],
+          );
 
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        avatar,
-        const Positioned(top: -14, left: 0, right: 0,
-          child: Center(child: Text('👑', style: TextStyle(fontSize: 24)))),
-      ],
+    // Toca el avatar para verlo en grande (si hay foto).
+    if (url == null || url.isEmpty) return content;
+    return GestureDetector(
+      onTap: () => FullscreenImageViewer.show(context, url, heroTag: 'avatar_$url'),
+      child: content,
     );
   }
 }

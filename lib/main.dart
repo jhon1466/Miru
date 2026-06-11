@@ -6,6 +6,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'core/theme.dart';
 import 'core/firebase_options.dart';
 import 'core/app_navigator.dart';
+import 'core/update_service.dart';
 import 'providers/anime_provider.dart';
 import 'providers/manga_provider.dart';
 import 'providers/manga_history_provider.dart';
@@ -40,6 +41,7 @@ void main() async {
   unawaited(DownloadNotificationService.initialize());
   unawaited(DeepLinkService.initialize());
   unawaited(AniListService.init());
+  unawaited(UpdateService.loadInstalledVersion());
   runApp(MyApp(tvProvider: tvProvider));
 }
 
