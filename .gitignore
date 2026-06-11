@@ -53,3 +53,7 @@ _firestore_tmp/
 package-lock.json
 package.json
 .firebase/
+
+# Firebase rules y config (no exponer en repo público)
+firestore.rules
+storage.rules
