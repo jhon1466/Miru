@@ -57,3 +57,7 @@ package.json
 # Firebase rules y config (no exponer en repo público)
 firestore.rules
 storage.rules
+firebase.json
+android/app/google-services.json.example
+lib/core/firebase_options.example.dart
+docs/SEGURIDAD_FIREBASE.md
