@@ -12,7 +12,7 @@ on:
 
 jobs:
   build-ios:
-    name: Build iOS IPA
+    name: Build iOS IPA (unsigned, para Sideloadly)
     runs-on: macos-latest
 
     steps:
@@ -38,37 +38,23 @@ jobs:
           FIREBASE_OPTIONS: ${{ secrets.FIREBASE_OPTIONS_DART }}
         run: printf '%s' "$FIREBASE_OPTIONS" > lib/core/firebase_options.dart
 
-      # ── Signing (certificado de desarrollo auto-firmado para Sideloadly) ──
-      - name: Create self-signed development certificate
-        run: |
-          # Genera un certificado de desarrollo temporal para firmar el IPA.
-          # Sideloadly re-firmará con el Apple ID del usuario al instalar.
-          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
-          KEYCHAIN_PASSWORD="ci-keychain-$(openssl rand -hex 8)"
-          echo "KEYCHAIN_PATH=$KEYCHAIN_PATH" >> $GITHUB_ENV
-          echo "KEYCHAIN_PASSWORD=$KEYCHAIN_PASSWORD" >> $GITHUB_ENV
-
-          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-          security list-keychain -d user -s "$KEYCHAIN_PATH"
-
-          # Certificado auto-firmado iPhone Developer
-          openssl req -x509 -newkey rsa:2048 -keyout /tmp/key.pem -out /tmp/cert.pem \
-            -days 365 -nodes \
-            -subj "/CN=iPhone Developer: Miru CI/O=Miru/C=US"
-          openssl pkcs12 -export -out /tmp/dev.p12 \
-            -inkey /tmp/key.pem -in /tmp/cert.pem -passout pass:ci123
-          security import /tmp/dev.p12 -P "ci123" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
-
-      # ── Build ─────────────────────────────────────────────────────────────
+      # ── Build (sin firma; Sideloadly re-firma con tu Apple ID) ────────────
       - name: Flutter pub get
         run: flutter pub get
 
-      - name: Build IPA
+      - name: Build iOS app (no codesign)
+        run: flutter build ios --release --no-codesign
+
+      # ── Empaquetar .app en un IPA sin firmar ──────────────────────────────
+      - name: Package unsigned IPA
         run: |
-          flutter build ipa --release \
-            --export-options-plist=ios/ExportOptions.plist
+          cd build/ios/iphoneos
+          mkdir -p Payload
+          cp -r Runner.app Payload/
+          zip -qr Miru-unsigned.ipa Payload
+          mkdir -p "$GITHUB_WORKSPACE/build/ios/ipa"
+          mv Miru-unsigned.ipa "$GITHUB_WORKSPACE/build/ios/ipa/"
+          ls -la "$GITHUB_WORKSPACE/build/ios/ipa/"
 
       # ── Upload artifact ───────────────────────────────────────────────────
       - name: Upload IPA artifact
@@ -89,9 +75,3 @@ jobs:
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      # ── Cleanup keychain ──────────────────────────────────────────────────
-      - name: Clean up keychain
-        if: always()
-        run: |
-          security delete-keychain "$KEYCHAIN_PATH" || true
