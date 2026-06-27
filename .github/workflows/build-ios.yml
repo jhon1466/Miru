@@ -32,13 +32,13 @@ jobs:
         env:
           GOOGLE_SERVICE_INFO: ${{ secrets.GOOGLE_SERVICE_INFO_IOS }}
         run: |
-          echo "$GOOGLE_SERVICE_INFO" | base64 --decode > ios/Runner/GoogleService-Info.plist
+          printf '%s' "$GOOGLE_SERVICE_INFO" | base64 -D > ios/Runner/GoogleService-Info.plist
 
       - name: Restore firebase_options.dart
         env:
           FIREBASE_OPTIONS: ${{ secrets.FIREBASE_OPTIONS_DART }}
         run: |
-          echo "$FIREBASE_OPTIONS" | base64 --decode > lib/core/firebase_options.dart
+          printf '%s' "$FIREBASE_OPTIONS" | base64 -D > lib/core/firebase_options.dart
 
       # ── Signing (certificado de desarrollo auto-firmado para Sideloadly) ──
       - name: Create self-signed development certificate
