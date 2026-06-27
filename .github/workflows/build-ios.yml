@@ -14,6 +14,8 @@ jobs:
   build-ios:
     name: Build iOS IPA (unsigned, para Sideloadly)
     runs-on: macos-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout repo
