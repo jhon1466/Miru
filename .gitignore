@@ -61,3 +61,5 @@ firebase.json
 android/app/google-services.json.example
 lib/core/firebase_options.example.dart
 docs/SEGURIDAD_FIREBASE.md
+ios/Runner/GoogleService-Info.plist
+web2/js/config.js

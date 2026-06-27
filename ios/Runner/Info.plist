@@ -45,5 +45,53 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+
+	<!-- Esquemas de URL: deep links (miru://) + Google Sign-In (REVERSED_CLIENT_ID) -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>com.anime1v.app.deeplink</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>miru</string>
+				<string>miruapp</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>googleSignIn</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.997417539791-s4vftvl3it2fsham3llta1259f8ofb47</string>
+			</array>
+		</dict>
+	</array>
+
+	<!-- Permisos -->
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Miru necesita acceso a tus fotos para elegir tu foto de perfil y banner.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Miru necesita guardar imágenes en tu galería.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Miru puede usar la cámara para tu foto de perfil.</string>
+
+	<!-- Notificaciones push en segundo plano -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+		<string>remote-notification</string>
+	</array>
+
+	<!-- Permitir reproducción de servidores de video (HTTP) -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
+	</dict>
 </dict>
 </plist>
