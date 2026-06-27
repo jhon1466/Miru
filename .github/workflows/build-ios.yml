@@ -14,6 +14,9 @@ jobs:
   build-ios:
     name: Build iOS IPA
     runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: anime_app
 
     steps:
       - name: Checkout repo
