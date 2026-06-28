@@ -112,6 +112,51 @@ class MiruPlayerVC: AVPlayerViewController {
       }
       player.play()
     }
+
+    // Diagnóstico: a los 4s mostrar el estado real del video (tamaño/estado/error/códec)
+    DispatchQueue.main.asyncAfter(deadline: .now() + 4.0) { [weak self, weak item, weak vc] in
+      guard let item = item, let vc = vc, vc.presentingViewController != nil else { return }
+      self?.showDiagnostics(item: item, on: vc)
+    }
+  }
+
+  private func fourCC(_ code: FourCharCode) -> String {
+    let chars: [UInt8] = [
+      UInt8((code >> 24) & 0xFF), UInt8((code >> 16) & 0xFF),
+      UInt8((code >> 8) & 0xFF), UInt8(code & 0xFF)
+    ]
+    return String(bytes: chars, encoding: .ascii)?.trimmingCharacters(in: .whitespaces) ?? "\(code)"
+  }
+
+  private func showDiagnostics(item: AVPlayerItem, on vc: UIViewController) {
+    let size = item.presentationSize
+    let statusStr: String
+    switch item.status {
+    case .readyToPlay: statusStr = "readyToPlay"
+    case .failed:      statusStr = "FAILED"
+    default:           statusStr = "unknown"
+    }
+
+    var codecs: [String] = []
+    for track in item.tracks {
+      guard let at = track.assetTrack, at.mediaType == .video else { continue }
+      for fd in at.formatDescriptions as? [CMFormatDescription] ?? [] {
+        codecs.append(fourCC(CMFormatDescriptionGetMediaSubType(fd)))
+      }
+    }
+    let codecStr = codecs.isEmpty ? "ninguno (sin pista de video?)" : codecs.joined(separator: ", ")
+    let errStr = (item.error as NSError?)?.localizedDescription ?? "—"
+
+    let msg = """
+    Tamaño video: \(Int(size.width)) x \(Int(size.height))
+    Estado: \(statusStr)
+    Códec video: \(codecStr)
+    Error: \(errStr)
+    """
+
+    let alert = UIAlertController(title: "Diagnóstico player", message: msg, preferredStyle: .alert)
+    alert.addAction(UIAlertAction(title: "OK", style: .default))
+    vc.present(alert, animated: true)
   }
 
   private func cleanup(reason: String) {
