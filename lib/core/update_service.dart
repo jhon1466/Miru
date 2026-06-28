@@ -29,7 +29,7 @@ class UpdateService {
     if (_installedVersion.isNotEmpty) return _installedVersion;
     try {
       final info = await PackageInfo.fromPlatform();
-      _installedVersion = info.version; // p. ej. "2.0.14"
+      _installedVersion = info.version; // p. ej. "2.0.1"
     } catch (e) {
       debugPrint('No se pudo leer la versión instalada: $e');
     }
