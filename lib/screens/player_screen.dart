@@ -332,6 +332,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
           });
         }
       });
+    } else if (Platform.isIOS) {
+      // URL directa en iOS → reproductor nativo del sistema (AVPlayerViewController)
+      _launchIosNativePlayer(url);
     }
 
     if (logHistory) {
