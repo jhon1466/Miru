@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -850,7 +851,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
             initialSettings: InAppWebViewSettings(
               javaScriptEnabled: true,
               mediaPlaybackRequiresUserGesture: false,
-              allowsInlineMediaPlayback: true,
+              // iOS: false = el video se abre en el reproductor nativo del sistema (AVPlayer)
+              allowsInlineMediaPlayback: !Platform.isIOS,
               iframeAllowFullscreen: true,
               useShouldOverrideUrlLoading: true,
               useShouldInterceptRequest: true, // Interceptar TODAS las peticiones (iframes, XHR, fetch)
