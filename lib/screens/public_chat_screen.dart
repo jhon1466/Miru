@@ -7,7 +7,6 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../core/theme.dart';
 import '../providers/auth_provider.dart' as app_auth;
@@ -16,6 +15,7 @@ import '../widgets/sticker_picker_sheet.dart';
 import '../widgets/fullscreen_image_viewer.dart';
 import '../widgets/emoji_reaction_picker.dart';
 import '../widgets/reactions_row.dart';
+import '../widgets/linkable_text.dart';
 import 'user_profile_screen.dart';
 
 class PublicChatScreen extends StatefulWidget {
@@ -1245,50 +1245,19 @@ class _ChatMessageText extends StatelessWidget {
 
   const _ChatMessageText({required this.text, required this.isMe});
 
-  static final _urlRegex = RegExp(
-    r'https?://[^\s]+',
-    caseSensitive: false,
-  );
-
   @override
   Widget build(BuildContext context) {
-    final spans = <InlineSpan>[];
-    int last = 0;
     final baseColor = isMe ? Colors.white : Theme.of(context).colorScheme.onSurface;
     final linkColor = isMe ? Colors.white70 : Theme.of(context).colorScheme.primary;
-
-    for (final match in _urlRegex.allMatches(text)) {
-      // texto normal antes del link
-      if (match.start > last) {
-        spans.add(TextSpan(text: text.substring(last, match.start)));
-      }
-      final url = match.group(0)!;
-      spans.add(TextSpan(
-        text: url,
-        style: TextStyle(
-          color: linkColor,
-          decoration: TextDecoration.underline,
-          decorationColor: linkColor,
-        ),
-        recognizer: TapGestureRecognizer()
-          ..onTap = () async {
-            final uri = Uri.tryParse(url);
-            if (uri != null && await canLaunchUrl(uri)) {
-              await launchUrl(uri, mode: LaunchMode.externalApplication);
-            }
-          },
-      ));
-      last = match.end;
-    }
-    // resto de texto después del último link
-    if (last < text.length) {
-      spans.add(TextSpan(text: text.substring(last)));
-    }
-
-    return RichText(
-      text: TextSpan(
-        style: TextStyle(color: baseColor, fontSize: 14, height: 1.3),
-        children: spans,
+    return LinkableText(
+      text,
+      style: TextStyle(color: baseColor, fontSize: 14, height: 1.3),
+      linkStyle: TextStyle(
+        color: linkColor,
+        fontSize: 14,
+        height: 1.3,
+        decoration: TextDecoration.underline,
+        decorationColor: linkColor,
       ),
     );
   }

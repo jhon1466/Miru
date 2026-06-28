@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'linkable_text.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:image_picker/image_picker.dart';
@@ -929,7 +930,7 @@ class _CommentsSectionState extends State<CommentsSection> {
                         ],
                         if (liveComment.text.isNotEmpty) ...[
                           const SizedBox(height: 6),
-                          Text(
+                          LinkableText(
                             liveComment.text,
                             style: TextStyle(fontSize: 14, color: context.textPrimary, height: 1.4),
                           ),
