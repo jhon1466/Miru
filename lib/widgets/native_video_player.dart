@@ -236,6 +236,11 @@ class _NativeVideoPlayerState extends State<NativeVideoPlayer> {
     });
     _startControlsTimer();
 
+    // iOS: ocultar/mostrar el home indicator (barra de gestos) y la barra de estado
+    if (Platform.isIOS) {
+      _channel.invokeMethod('setFullscreen', newFullscreen).catchError((_) {});
+    }
+
     if (newFullscreen) {
       await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
       await SystemChrome.setPreferredOrientations([
@@ -294,6 +299,10 @@ class _NativeVideoPlayerState extends State<NativeVideoPlayer> {
     _controller?.dispose();
     // Liberar wakelock al salir del reproductor
     _channel.invokeMethod('releaseScreenOn').catchError((_) {});
+    // iOS: restaurar el home indicator / barra de estado
+    if (Platform.isIOS) {
+      _channel.invokeMethod('setFullscreen', false).catchError((_) {});
+    }
     try {
       ScreenBrightness().resetScreenBrightness();
     } catch (_) {}
