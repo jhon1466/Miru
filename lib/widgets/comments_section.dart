@@ -815,6 +815,33 @@ class _CommentsSectionState extends State<CommentsSection> {
                                       ),
                                     ),
                                   ],
+                                  if (authorProfile?.isAdmin == true) ...[
+                                    const SizedBox(width: 4),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                      decoration: BoxDecoration(
+                                        color: Colors.blue.withValues(alpha: 0.15),
+                                        borderRadius: BorderRadius.circular(6),
+                                        border: Border.all(color: Colors.blue.withValues(alpha: 0.4), width: 0.5),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(Icons.shield_rounded, size: 9, color: Colors.blue.shade300),
+                                          const SizedBox(width: 2),
+                                          Text(
+                                            'Admin',
+                                            style: TextStyle(
+                                              fontSize: 9,
+                                              fontWeight: FontWeight.w600,
+                                              color: Colors.blue.shade300,
+                                              letterSpacing: 0.2,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
                                 ],
                               ),
                             ),
