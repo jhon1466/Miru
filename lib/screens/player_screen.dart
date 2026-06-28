@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -871,6 +872,46 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 );
               }
             },
+            initialUserScripts: Platform.isIOS
+                ? UnmodifiableListView([
+                    UserScript(
+                      source: """
+(function() {
+  // Interceptar setAttribute para bloquear playsinline antes que cualquier JS de la página
+  var _origSet = Element.prototype.setAttribute;
+  Element.prototype.setAttribute = function(name, value) {
+    var n = name.toLowerCase();
+    if ((n === 'playsinline' || n === 'webkit-playsinline') && this.tagName === 'VIDEO') return;
+    _origSet.call(this, name, value);
+  };
+  // MutationObserver para quitar el atributo si se añade vía innerHTML o el DOM
+  function strip(root) {
+    (root || document).querySelectorAll('video').forEach(function(v) {
+      v.removeAttribute('playsinline');
+      v.removeAttribute('webkit-playsinline');
+      v.removeAttribute('x5-playsinline');
+    });
+  }
+  new MutationObserver(function(mutations) {
+    mutations.forEach(function(m) {
+      m.addedNodes.forEach(function(n) {
+        if (n.nodeType === 1) {
+          if (n.tagName === 'VIDEO') { n.removeAttribute('playsinline'); n.removeAttribute('webkit-playsinline'); }
+          else strip(n);
+        }
+      });
+      if (m.type === 'attributes' && m.target.tagName === 'VIDEO') {
+        var attr = m.attributeName.toLowerCase();
+        if (attr === 'playsinline' || attr === 'webkit-playsinline') m.target.removeAttribute(m.attributeName);
+      }
+    });
+  }).observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['playsinline','webkit-playsinline'] });
+})();
+""",
+                      injectionTime: UserScriptInjectionTime.AT_DOCUMENT_START,
+                    ),
+                  ])
+                : UnmodifiableListView([]),
             initialSettings: InAppWebViewSettings(
               javaScriptEnabled: true,
               mediaPlaybackRequiresUserGesture: false,
