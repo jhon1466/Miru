@@ -830,9 +830,9 @@ class _NativeVideoPlayerState extends State<NativeVideoPlayer> {
                             icon: const Icon(Icons.arrow_back, color: Colors.white),
                             onPressed: () {
                               if (_isFullscreen) {
-                                _toggleFullscreen().then((_) {
-                                  Navigator.pop(context);
-                                });
+                                // En pantalla completa: solo salir de fullscreen,
+                                // sin cerrar el capítulo.
+                                _toggleFullscreen();
                               } else {
                                 Navigator.pop(context);
                               }
