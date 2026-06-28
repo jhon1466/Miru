@@ -72,6 +72,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
   bool _isScanning = false;
   bool _jsHandlerRegistered = false;
 
+  // Reproductor nativo del sistema iOS (AVPlayerViewController)
+  static const _nativePlayerChannel = MethodChannel('com.anime1v.app/native_player');
+  bool _iosNativePlayerActive = false;
+
   @override
   void initState() {
     super.initState();
@@ -360,6 +364,43 @@ class _PlayerScreenState extends State<PlayerScreen> {
       _probeResults[embedUrl] = ProbeResult.native;
       _extractedUrls[embedUrl] = resolvedUrl;
     });
+
+    // En iOS: usar el reproductor nativo del sistema (AVPlayerViewController)
+    // en vez del reproductor custom de Flutter.
+    if (Platform.isIOS) {
+      _launchIosNativePlayer(resolvedUrl);
+    }
+  }
+
+  /// Presenta el reproductor nativo del sistema iOS (AVPlayerViewController).
+  Future<void> _launchIosNativePlayer(String url) async {
+    if (_iosNativePlayerActive) return;
+    _iosNativePlayerActive = true;
+    final title =
+        '${widget.animeTitle} - Ep. ${widget.episodeNumber.toString().replaceAll('.0', '')}';
+    try {
+      final reason = await _nativePlayerChannel.invokeMethod<String>('play', {
+        'url': url,
+        'title': title,
+        'headers': _buildHeaders(),
+      });
+      _iosNativePlayerActive = false;
+      if (!mounted) return;
+      if (reason == 'ended') {
+        _handleVideoEnded();
+      } else {
+        // El usuario cerró el reproductor → volver a la pantalla anterior
+        Navigator.of(context).maybePop();
+      }
+    } catch (e) {
+      debugPrint('[iOS native player] error: $e — fallback a Flutter player');
+      // Si el player nativo falla, dejamos que el reproductor de Flutter tome el control
+      if (mounted) {
+        setState(() => _iosNativePlayerActive = false);
+      } else {
+        _iosNativePlayerActive = false;
+      }
+    }
   }
 
   /// Inyecta hooks de XHR/fetch + MutationObserver para capturar la URL de video
@@ -1054,7 +1095,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
         ),
 
         // 2. El reproductor nativo (se dibuja encima si se tiene la URL directa resuelta)
-        if (isDirect && !_useWebViewFallback)
+        //    En iOS se usa el AVPlayerViewController del sistema, así que el reproductor
+        //    de Flutter solo aparece como fallback si el nativo falló.
+        if (isDirect && !_useWebViewFallback && !_iosNativePlayerActive)
           Positioned.fill(
             child: NativeVideoPlayer(
               key: ValueKey('native-player-$_selectedServerUrl'),
