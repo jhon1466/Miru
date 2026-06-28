@@ -467,11 +467,28 @@ class _PlayerScreenState extends State<PlayerScreen> {
   /// Inyecta JS para limpiar anuncios y expandir el reproductor a pantalla completa en el WebView.
   /// Usa setTimeout escalonados en vez de setInterval para no interferir continuamente con el DOM.
   void _injectPlayerCleanupJs(InAppWebViewController controller) {
-    const js = """
+    final js = """
       (function() {
+        var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+
+        // En iOS: quitar playsinline para que el video abra en el reproductor nativo del sistema.
+        function removePlaysinline() {
+          document.querySelectorAll('video').forEach(function(v) {
+            v.removeAttribute('playsinline');
+            v.removeAttribute('webkit-playsinline');
+            v.removeAttribute('x5-playsinline');
+          });
+        }
+
         function clean() {
           var video = document.querySelector('video');
           if (!video) return;
+
+          if (isIOS) {
+            removePlaysinline();
+            return; // En iOS dejamos que el sistema maneje el layout
+          }
+
           var pc = video;
           while (pc && pc.parentElement && pc.parentElement.tagName !== 'BODY') {
             pc = pc.parentElement;
@@ -499,12 +516,18 @@ class _PlayerScreenState extends State<PlayerScreen> {
           video.style.setProperty('height','100%','important');
           video.style.setProperty('object-fit','contain','important');
         }
-        // Intentar en varios momentos para cuando el player cargue tarde
+
         clean();
         setTimeout(clean, 500);
         setTimeout(clean, 1500);
         setTimeout(clean, 3000);
         setTimeout(clean, 6000);
+
+        // Observer para cuando el video aparezca dinámicamente (en iOS quitar playsinline)
+        if (isIOS) {
+          new MutationObserver(function() { removePlaysinline(); })
+            .observe(document.body, { childList: true, subtree: true });
+        }
       })();
     """;
     controller.evaluateJavascript(source: js);
